@@ -2578,7 +2578,7 @@ class DuelEngine:
         self.chain_window = {"chain_id": "chain_" + str(self.chain_sequence), "trigger": trigger, "source": source, "target": target, "opened_by": self.side_key(actor), "priority": actor, "passes": [], "context": dict(context or {})}
         self.chain_priority = actor
         self.chain_passes = []
-        self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
+        self.notify("chain_response", "Chain response window is open.", ["pass"], self.chain_prompt_payload())
         return self.chain_window
 
     def response_candidates(self, side=None, trigger=None):
@@ -2608,6 +2608,9 @@ class DuelEngine:
 
     def response_card_ids(self, side=None, trigger=None):
         return [item["card"].card.id for item in self.response_candidates(side, trigger)]
+
+    def chain_prompt_payload(self):
+        return {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority), "candidates": self.response_card_ids(self.chain_priority, self.chain_window.get("trigger", ""))}
 
     def consume_chain_response_prompt(self):
         notification = self.pending_notification("chain_response")
@@ -2681,7 +2684,7 @@ class DuelEngine:
         self.chain_history.append({"event": "link_added", "chain_id": self.chain_window["chain_id"], "link_id": link.link_id, "index": link.index, "source": card.card.id, "actor": self.side_key(actor), "speed": spec.speed, "targets": link_context["target_snapshot"]})
         self.chain_priority = self.other(actor)
         self.chain_passes = []
-        self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
+        self.notify("chain_response", "Chain response window is open.", ["pass"], self.chain_prompt_payload())
         return True, link
 
     def pass_chain_priority(self, actor):
@@ -2690,7 +2693,7 @@ class DuelEngine:
         if len(self.chain_passes) >= 2:
             return self.resolve_chain()
         self.chain_priority = self.other(actor)
-        self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
+        self.notify("chain_response", "Chain response window is open.", ["pass"], self.chain_prompt_payload())
         return True, ""
 
     def negate_chain_link(self, link_id):
