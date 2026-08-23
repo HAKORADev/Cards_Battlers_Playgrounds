@@ -30,7 +30,16 @@
       "source_card_id": "card causing or carrying the event",
       "source_zone": "source card zone at event creation",
       "target_ids": "resolved target entity IDs",
-      "metadata": "event-specific movement, damage, summon, attack, or state fields"
+      "metadata": "event-specific movement, damage, summon, attack, or state fields",
+      "trigger_group_id": "stable ID shared by effects collected for this event",
+      "trigger_group_size": "number of collected matching effects",
+      "trigger_group_order": "effect IDs in deterministic priority/card/effect order"
+    },
+    "trigger_group": {
+      "group_id": "stable trigger batch ID",
+      "context_id": "associated RuleContext ID",
+      "members": "ordered effect descriptors with priority and ordering_key",
+      "resolved": "effect IDs dispatched in the recorded order"
     },
     "window": {
       "phase": "main",

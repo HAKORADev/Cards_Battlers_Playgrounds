@@ -2045,6 +2045,8 @@ class DuelEngine:
         self.notification_sequence = 0
         self.rule_event_sequence = 0
         self.event_history = []
+        self.trigger_group_sequence = 0
+        self.trigger_groups = []
         self.active_rule_context = None
         self.event_dispatch_stack = []
         self.chain_links = []
@@ -3337,18 +3339,31 @@ class DuelEngine:
         source_cards = list(dict.fromkeys(source_cards))
         target_items = target if isinstance(target, list) else [target] if target is not None else []
         context = RuleContext(f"rule_{self.rule_event_sequence}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(source, "card", source), "id", ""), getattr(source, "last_zone", getattr(source, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, dict(metadata or {}))
-        self.event_history.append(context.__dict__.copy())
-        self.event_history = self.event_history[-128:]
-        if trigger in self.event_dispatch_stack: return context
+        if trigger in self.event_dispatch_stack:
+            self.event_history.append(context.__dict__.copy())
+            self.event_history = self.event_history[-128:]
+            return context
         ordered = []
         for source_card in source_cards:
             for index, raw_effect in enumerate(source_card.card.effects):
                 spec = EffectSpec.from_dict(raw_effect, source_card.card.id + "_effect_" + str(index))
-                if spec.trigger == trigger and not spec.validate(): ordered.append((spec.priority, source_card.card.id, source_card, spec))
+                if spec.trigger == trigger and not spec.validate(): ordered.append((spec.priority, source_card.card.id, spec.effect_id, source_card, spec))
+        ordered.sort(key=lambda item: (item[0], item[1], item[2]))
+        self.trigger_group_sequence += 1
+        group_id = "trigger_group_" + str(self.trigger_group_sequence)
+        members = [{"index": index, "priority": item[0], "source_card_id": item[1], "effect_id": item[2], "ordering_key": [item[0], item[1], item[2]]} for index, item in enumerate(ordered)]
+        context.metadata.update({"trigger_group_id": group_id, "trigger_group_size": len(members), "trigger_group_order": [item["effect_id"] for item in members]})
+        self.event_history.append(context.__dict__.copy())
+        self.event_history = self.event_history[-128:]
+        group = {"group_id": group_id, "context_id": context.context_id, "trigger": trigger, "phase": self.phase, "turn": self.turn, "members": members, "resolved": []}
+        self.trigger_groups.append(group)
+        self.trigger_groups = self.trigger_groups[-64:]
         previous_context = self.active_rule_context
         self.active_rule_context = context
         self.event_dispatch_stack.append(trigger)
-        for _, _, source_card, spec in sorted(ordered, key=lambda item: (item[0], item[1])): self.resolve(source_card, trigger, target, actor, context, spec.effect_id)
+        for _, _, effect_id, source_card, spec in ordered:
+            self.resolve(source_card, trigger, target, actor, context, effect_id)
+            group["resolved"].append(effect_id)
         self.event_dispatch_stack.pop()
         self.active_rule_context = previous_context
         return context
