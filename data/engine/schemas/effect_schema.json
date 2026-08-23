@@ -219,12 +219,20 @@
     "replay": {
       "schema": "cbp.replay.v1",
       "snapshot": "viewer-scoped public state, deterministic event records, and learned card/effect IDs",
-      "checkpoint": "cbp.checkpoint.v1 with canonical SHA-256 digest for tamper detection"
+      "checkpoint": "cbp.checkpoint.v1 with canonical SHA-256 digest for tamper detection",
+      "playback": "cbp.replay-playback.v1 cursor-based deterministic record stream",
+      "state_checkpoint": "cbp.state-checkpoint.v1 serializable zone and duel-state payload with digest validation"
+    },
+    "knowledge": {
+      "card_ids": "observed authored card IDs",
+      "effect_ids": "observed effect IDs",
+      "effect_facts": "observed trigger, action, speed, and optionality facts",
+      "import": "unknown card/effect IDs are filtered against the current content registry"
     },
     "action": {
 
     "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "special_summon", "negate_chain", "shuffle"],
-          "declared_but_unsupported": ["summon", "fusion_summon", "ritual_summon"],
+          "declared_but_unsupported": ["fusion_summon", "ritual_summon"],
 
     "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"],
     "summon": {

@@ -762,7 +762,7 @@ class EffectSpec:
     optional: bool = False
 
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "special_summon", "negate_chain", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "negate_chain", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
     once_policies = {"", "once", "once_per_duel", "once_per_turn", "per_turn"}
 
@@ -2071,7 +2071,7 @@ class DuelEngine:
         self.notification_sequence = 0
         self.replay_sequence = 0
         self.replay_log = []
-        self.knowledge = {"player": {"card_ids": [], "effect_ids": []}, "opponent": {"card_ids": [], "effect_ids": []}}
+        self.knowledge = {"player": {"card_ids": [], "effect_ids": [], "effect_facts": {}}, "opponent": {"card_ids": [], "effect_ids": [], "effect_facts": {}}}
         self.rule_event_sequence = 0
         self.event_history = []
         self.trigger_group_sequence = 0
@@ -3155,19 +3155,23 @@ class DuelEngine:
         if viewer_key not in self.knowledge: return
         known_cards = set(self.knowledge[viewer_key].get("card_ids", []))
         known_effects = set(self.knowledge[viewer_key].get("effect_ids", []))
+        effect_facts = dict(self.knowledge[viewer_key].get("effect_facts", {}))
         for card in self.card_instances():
             if self.visibility(viewer, card) == "hidden": continue
             known_cards.add(card.card.id)
-            known_effects.update(EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).effect_id for index, raw in enumerate(card.card.effects))
-        self.knowledge[viewer_key] = {"card_ids": sorted(known_cards), "effect_ids": sorted(known_effects)}
+            for index, raw in enumerate(card.card.effects):
+                spec = EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index))
+                known_effects.add(spec.effect_id)
+                effect_facts[spec.effect_id] = {"trigger": spec.trigger, "actions": [action.get("name", "") for action in spec.actions], "speed": spec.speed, "optional": spec.optional}
+        self.knowledge[viewer_key] = {"card_ids": sorted(known_cards), "effect_ids": sorted(known_effects), "effect_facts": effect_facts}
 
     def knowledge_for(self, viewer="player"):
         viewer_key = self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer)
         self.observe_visible_information(viewer_key)
-        return {"viewer": viewer_key, "card_ids": list(self.knowledge.get(viewer_key, {}).get("card_ids", [])), "effect_ids": list(self.knowledge.get(viewer_key, {}).get("effect_ids", []))}
+        return {"viewer": viewer_key, "card_ids": list(self.knowledge.get(viewer_key, {}).get("card_ids", [])), "effect_ids": list(self.knowledge.get(viewer_key, {}).get("effect_ids", [])), "effect_facts": dict(self.knowledge.get(viewer_key, {}).get("effect_facts", {}))}
 
     def export_knowledge(self):
-        return {key: {"card_ids": list(value.get("card_ids", [])), "effect_ids": list(value.get("effect_ids", []))} for key, value in self.knowledge.items()}
+        return {key: {"card_ids": list(value.get("card_ids", [])), "effect_ids": list(value.get("effect_ids", [])), "effect_facts": dict(value.get("effect_facts", {}))} for key, value in self.knowledge.items()}
 
     def import_knowledge(self, payload):
         if not isinstance(payload, dict): return False
@@ -3175,7 +3179,8 @@ class DuelEngine:
         known_effects = {spec.effect_id for item in self.card_instances() for index, raw in enumerate(item.card.effects) for spec in [EffectSpec.from_dict(raw, item.card.id + "_effect_" + str(index))]}
         for key in ["player", "opponent"]:
             value = payload.get(key, {}) if isinstance(payload.get(key, {}), dict) else {}
-            self.knowledge[key] = {"card_ids": sorted({str(item) for item in value.get("card_ids", []) if str(item) in known_cards}), "effect_ids": sorted({str(item) for item in value.get("effect_ids", []) if str(item) in known_effects})}
+            allowed_effects = {str(item) for item in value.get("effect_ids", []) if str(item) in known_effects}
+            self.knowledge[key] = {"card_ids": sorted({str(item) for item in value.get("card_ids", []) if str(item) in known_cards}), "effect_ids": sorted(allowed_effects), "effect_facts": {str(effect_id): dict(fact) for effect_id, fact in value.get("effect_facts", {}).items() if str(effect_id) in allowed_effects and isinstance(fact, dict)}}
         return True
 
     def public_state(self, viewer="player"):
@@ -3198,8 +3203,78 @@ class DuelEngine:
             result.append(copy)
         return result
 
+    def replay_playback(self, viewer="player", start=1, limit=128):
+        records = self.replay_view(viewer)
+        selected = [item for item in records if int(item.get("sequence", 0)) >= max(1, int(start))][:max(0, int(limit))]
+        return {"schema": "cbp.replay-playback.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "start": int(start), "cursor": selected[-1]["sequence"] if selected else int(start) - 1, "complete": not selected or selected[-1]["sequence"] >= records[-1]["sequence"], "records": selected}
+
+    def replay_record_at(self, sequence, viewer="player"):
+        return next((item for item in self.replay_view(viewer) if item.get("sequence") == int(sequence)), None)
+
     def replay_snapshot(self, viewer="player"):
         return {"schema": "cbp.replay.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "state": self.public_state(viewer), "events": self.replay_view(viewer), "knowledge": self.knowledge_for(viewer)}
+
+    def checkpoint_card(self, card):
+        return {"card_id": card.card.id, "owner": card.owner, "variant": card.variant, "position": card.position, "last_zone": card.last_zone, "face_up": bool(card.face_up), "battle_position": card.battle_position, "summon_method": card.summon_method, "summon_source_zone": card.summon_source_zone, "summon_source_card_id": card.summon_source_card_id, "summon_source_card_name": card.summon_source_card_name, "summon_source_effect_id": card.summon_source_effect_id, "summon_history": list(card.summon_history), "attack_bonus": card.attack_bonus, "defense_bonus": card.defense_bonus, "attacked": bool(card.attacked)}
+
+    def checkpoint_side(self, side):
+        return {"id": side.character.id, "name": side.name, "hp": side.hp, "deck": [self.checkpoint_card(item) for item in side.deck], "hand": [self.checkpoint_card(item) for item in side.hand], "monsters": [self.checkpoint_card(item) if item else None for item in side.monsters], "spells": [self.checkpoint_card(item) if item else None for item in side.spells], "graveyard": [self.checkpoint_card(item) for item in side.graveyard], "banished": [self.checkpoint_card(item) for item in side.banished], "extra": [self.checkpoint_card(item) for item in side.extra]}
+
+    def full_state_payload(self):
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "replay_sequence": self.replay_sequence, "replay_log": list(self.replay_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history)}
+
+    def _restore_card(self, payload, owner):
+        card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
+        for key in ["variant", "position", "last_zone", "face_up", "battle_position", "summon_method", "summon_source_zone", "summon_source_card_id", "summon_source_card_name", "summon_source_effect_id", "attack_bonus", "defense_bonus", "attacked"]:
+            if key in payload: setattr(card, key, payload[key])
+        card.summon_history = list(payload.get("summon_history", []))
+        return card
+
+    def _restore_side(self, side, payload):
+        side.hp = int(payload.get("hp", 8000))
+        side.deck, side.hand, side.graveyard, side.banished, side.extra = [], [], [], [], []
+        side.monsters, side.spells = [None] * 5, [None] * 5
+        for zone in ["deck", "hand", "graveyard", "banished", "extra"]:
+            setattr(side, zone, [self._restore_card(item, side) for item in payload.get(zone, [])])
+        side.monsters = [self._restore_card(item, side) if item else None for item in payload.get("monsters", [None] * 5)]
+        side.spells = [self._restore_card(item, side) if item else None for item in payload.get("spells", [None] * 5)]
+
+    def restore_full_state(self, payload):
+        if not isinstance(payload, dict) or payload.get("schema") != "cbp.state.v1": return False
+        if payload.get("player", {}).get("id") != self.player.character.id or payload.get("opponent", {}).get("id") != self.opponent.character.id: return False
+        try:
+            self._restore_side(self.player, payload["player"])
+            self._restore_side(self.opponent, payload["opponent"])
+            self.field_card = self._restore_card(payload["field_card"], self.player if payload.get("field_card_owner") == "player" else self.opponent) if payload.get("field_card") else None
+            self.field_card_owner = self.player if payload.get("field_card_owner") == "player" else self.opponent if payload.get("field_card_owner") == "opponent" else None
+            self.turn, self.phase_index = int(payload.get("turn", 1)), int(payload.get("phase_index", 0))
+            self.active = self.player if payload.get("active") == "player" else self.opponent
+            self.finished, self.reason = bool(payload.get("finished", False)), str(payload.get("reason", ""))
+            self.winner = self.player if payload.get("winner") == "player" else self.opponent if payload.get("winner") == "opponent" else None
+            self.effect_sequence = int(payload.get("effect_sequence", 0)); self.notification_sequence = int(payload.get("notification_sequence", 0)); self.rule_event_sequence = int(payload.get("rule_event_sequence", 0)); self.trigger_group_sequence = int(payload.get("trigger_group_sequence", 0)); self.chain_sequence = int(payload.get("chain_sequence", 0)); self.continuous_sequence = int(payload.get("continuous_sequence", 0)); self.replay_sequence = int(payload.get("replay_sequence", 0))
+            self.summon_permissions = json.loads(json.dumps(payload.get("summon_permissions", self.summon_permissions)))
+            self.team_effect = dict(payload.get("team_effect", {})); self.opponent_team_effect = dict(payload.get("opponent_team_effect", {}))
+            self.import_knowledge(payload.get("knowledge", {}))
+            self.notifications = [Notification(**item) for item in payload.get("notifications", [])]
+            self.notification_history = list(payload.get("notification_history", [])); self.replay_log = list(payload.get("replay_log", [])); self.event_history = list(payload.get("event_history", [])); self.chain_history = list(payload.get("chain_history", [])); self.resolution_history = list(payload.get("resolution_history", []))
+            self.effect_queue, self.continuous_effects, self.chain_links, self.chain_window = [], [], [], None
+            self.pending_discard = self.pending_target = self.pending_summon = self.pending_trap = self.pending_cost = self.pending_procedure = self.pending_effect = self.pending_response = self.pending_trigger_order = None
+            return True
+        except (KeyError, TypeError, ValueError): return False
+
+    def state_checkpoint(self):
+        payload = self.full_state_payload()
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+        return {"schema": "cbp.state-checkpoint.v1", "sequence": self.replay_sequence, "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(), "state": payload, "interactive_state_restored": False}
+
+    def validate_state_checkpoint(self, checkpoint):
+        if not isinstance(checkpoint, dict) or checkpoint.get("schema") != "cbp.state-checkpoint.v1" or not isinstance(checkpoint.get("state"), dict): return False
+        canonical = json.dumps(checkpoint["state"], sort_keys=True, separators=(",", ":"), default=str)
+        return checkpoint.get("digest") == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def restore_state_checkpoint(self, checkpoint):
+        if not self.validate_state_checkpoint(checkpoint): return False
+        return self.restore_full_state(checkpoint["state"])
 
     def replay_checkpoint(self, viewer="player"):
         snapshot = self.replay_snapshot(viewer)
@@ -3338,7 +3413,9 @@ class DuelEngine:
             event.status = "resolving"
             event.result = self.apply_effect_now(event)
             event.status = event.result.get("status", "resolved")
-            self.resolution_history.append({"sequence": event.sequence, "action": event.action, "amount": event.amount, "source": getattr(getattr(event.source, "card", event.source), "name", str(event.source)), "source_zone": event.source_zone, "source_actor": event.source_actor, "trigger": event.trigger, "policy": event.policy, "status": event.status, "result": event.result})
+            target_values = event.target if isinstance(event.target, list) else [event.target] if event.target is not None else []
+            event.result.setdefault("legality", {"source_present": event.source in self.card_instances() if isinstance(event.source, CardInstance) else True, "target_ids": [self.entity_id(item) for item in target_values], "target_count": len(target_values), "status": event.status})
+            self.resolution_history.append({"sequence": event.sequence, "action": event.action, "amount": event.amount, "source": getattr(getattr(event.source, "card", event.source), "name", str(event.source)), "source_zone": event.source_zone, "source_actor": event.source_actor, "trigger": event.trigger, "policy": event.policy, "status": event.status, "legality": event.result.get("legality", {}), "result": event.result})
         self.resolution_history = self.resolution_history[-64:]
         self.check_end()
 
@@ -3639,16 +3716,22 @@ class DuelEngine:
                 negated, _ = self.negate_chain_link(link.link_id, self.active_chain_link_id, spec.effect_id)
                 if not negated: return False
                 continue
-            if action_name == "special_summon":
+            if action_name in ["summon", "special_summon"]:
                 summon_selector = action.get("select") or (target_value if isinstance(target_value, dict) else spec.selector)
-                summon_method = action.get("method", "special")
+                summon_method = str(action.get("method", "special" if action_name == "special_summon" else "special")).lower()
                 summon_count = action.get("count", len(resolved) if isinstance(resolved, list) else 1)
                 candidate_selector = dict(summon_selector or {})
                 candidate_selector["count"] = "all"
                 summon_source = SelectorRuntime(self, actor, card).select(candidate_selector)
                 if summon_source:
-                    summon_result = self.special_summon({"side": "both", "zone": "any", "card_id": [item.card.id for item in summon_source], "count": summon_count}, actor, summon_method, card, spec.effect_id, summon_count)
-                    if summon_result[1] == "pending": return False
+                    if summon_method in ["fusion", "ritual", "normal"]:
+                        for summon_card in summon_source[:int(summon_count or 1)]:
+                            if summon_method in ["fusion", "ritual"]: summon_result = self.begin_summon_procedure(summon_card, actor, ProcedureSpec.from_card(summon_card))
+                            else: summon_result = self.summon(summon_card, actor)
+                            if not summon_result[0] or summon_result[1] in ["pending_procedure", "pending_cost"]: return False
+                    else:
+                        summon_result = self.special_summon({"side": "both", "zone": "any", "card_id": [item.card.id for item in summon_source], "count": summon_count}, actor, summon_method, card, spec.effect_id, summon_count)
+                        if summon_result[1] == "pending": return False
                 continue
             amount = action.get("amount", 0)
             if isinstance(amount, dict): amount = amount.get("value", 0)
