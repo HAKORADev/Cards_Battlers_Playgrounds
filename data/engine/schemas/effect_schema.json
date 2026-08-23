@@ -50,7 +50,9 @@
       "response_window": "optional metadata flag; a window opens only when the opposing priority side has a legal response",
       "trigger_group_id": "stable ID shared by effects collected for this event",
       "trigger_group_size": "number of collected matching effects",
-      "trigger_group_order": "effect IDs in deterministic priority/card/effect order"
+      "trigger_group_order": "effect IDs in deterministic priority/card/effect order",
+      "trigger_group_selected_order": "effect IDs selected by the chooser when a group is prompted",
+      "replay_sequence": "monotonic deterministic record sequence; excludes wall-clock ordering"
     },
     "event_response_window": {
       "enabled": "set by event metadata response_window",
@@ -64,13 +66,19 @@
       "members": "ordered effect descriptors with priority and ordering_key",
       "resolved": "effect IDs dispatched in the recorded order",
       "selected_order": "optional player or AI-selected effect order",
+      "included_ids": "effect IDs selected for dispatch; optional effects may be omitted",
+      "required_ids": "effect IDs that must be included",
+      "optional_ids": "effect IDs eligible for omission when optional_effects is prompt",
+      "excluded_ids": "optional effect IDs omitted by a none or prompt policy",
       "order_mode": ["deterministic", "prompt"]
     },
     "trigger_order_policy": {
       "enabled": "boolean; enable an order prompt when more than one effect matches",
       "chooser": ["actor", "player", "opponent"],
       "mandatory": "boolean; the selected order must include every group member",
-      "fallback": "deterministic fallback label for non-prompt paths"
+              "fallback": "deterministic fallback label for non-prompt paths",
+        "optional_effects": ["all", "prompt", "none"]
+
     },
     "window": {
       "phase": "main",
@@ -86,6 +94,12 @@
         "value": "warrior"
       }
     ],
+    "condition_composition": {
+      "all": "nested predicates that must all match",
+      "any": "nested predicates where at least one must match",
+      "not": "single nested predicate that must not match",
+      "operators": ["equals", "not_equals", "in", "not_in", "contains", "truthy", "falsy", "less_than", "less_or_equal", "greater_than", "greater_or_equal"]
+    },
     "cost": [
       {
         "kind": "discard",
@@ -106,7 +120,8 @@
       "card_kind": ["normal", "effect", "fusion", "ritual", "legendary"],
       "count": 1,
       "distinct": true,
-      "optional": false
+      "optional": false,
+      "may_skip": "legacy alias for optional"
     },
     "targets": [
       {
@@ -183,9 +198,20 @@
     "distinct": "boolean",
     "optional": "boolean"
   },
-  "action": {
-    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "negate_chain", "shuffle"],
-    "declared_but_unsupported": ["control", "summon", "fusion_summon", "ritual_summon"],
+      "visibility": {
+      "owner_private": "owner may inspect hand/deck/facedown identity",
+      "public": "face-up field and graveyard/banished records are visible",
+      "hidden": "opponent hand/deck/facedown identity is projected as hidden"
+    },
+    "replay": {
+      "schema": "cbp.replay.v1",
+      "snapshot": "viewer-scoped public state, deterministic event records, and learned card/effect IDs"
+    },
+    "action": {
+
+    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "special_summon", "negate_chain", "shuffle"],
+          "declared_but_unsupported": ["summon", "fusion_summon", "ritual_summon"],
+
     "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"],
     "summon": {
       "method": "special, normal, fusion, ritual, or authored method key",
@@ -236,8 +262,16 @@
       "revalidate": "boolean; declarative effects default true, legacy effects preserve prior behavior",
       "snapshot": "captured legal target IDs at selection-window creation"
     },
-    "duration": "instant, until_end_of_turn, per_turn, while_face_up, permanent, or phase window",
-    "condition": "optional predicate list; summon_method, summon_source_zone, summon_source_card_id, and summon_source_effect_id are supported provenance fields",
+          "duration": "instant, until_end_of_turn, per_turn, while_face_up, while_source_on_field, while_source_face_up, permanent, or phase window",
+
+          "condition": "optional predicate list; summon_method, summon_source_zone, summon_source_card_id, and summon_source_effect_id are supported provenance fields",
+      "modifier_runtime": {
+        "continuous": "boolean; register this modifier as a runtime effect when resolved",
+        "layer": "integer layer ordering; lower layers apply first",
+        "duration": "expiry contract evaluated at phase/turn boundaries or from source state",
+        "replacement": "optional event-value replacement object with event, operation, amount, selector, and once"
+      },
+
     "summon_provenance": {
       "summon_method": "normal, special, fusion, ritual, or authored method key",
       "summon_source_zone": "deck, hand, graveyard, banished, extra, or another zone key",
@@ -248,7 +282,13 @@
     "media": "optional cue metadata",
     "speed": "spell speed 1, 2, or 3",
     "response": "optional chain response metadata",
-    "chain": {
+          "control": {
+        "target": "selected field monster(s)",
+        "destination": "activating side's available monster zones",
+        "controller": "actor becomes the current controller and the move emits a control event"
+      },
+      "chain": {
+
       "speed": [1, 2, 3],
       "enabled": "boolean or response.chain flag",
       "priority": "side currently allowed to add a response link",
@@ -257,7 +297,7 @@
     }
   },
   "notification": {
-    "kind": ["ok", "yes_no", "choose_target", "choose_cards", "chain_response", "info"],
+    "kind": ["ok", "yes_no", "choose_target", "choose_cards", "choose_trigger_order", "chain_response", "info"],
     "text": "template string",
     "options": "optional explicit option list",
     "optional": "boolean",

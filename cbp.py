@@ -757,9 +757,10 @@ class EffectSpec:
     speed: int = 1
     response: dict = field(default_factory=dict)
     legacy: bool = False
+    optional: bool = False
 
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "negate_chain", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "special_summon", "negate_chain", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
     once_policies = {"", "once", "once_per_duel", "once_per_turn", "per_turn"}
 
@@ -809,7 +810,7 @@ class EffectSpec:
         if raw.get("field_effect") and not modifier.get("scope"): modifier["scope"] = "field"
         if raw.get("field_effect") and modifier.get("atk") is not None:
             modifier["stat"], modifier["operation"], modifier["amount"] = "attack", "add", modifier.pop("atk")
-        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, speed, response, legacy)
+        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, speed, response, legacy, bool(raw.get("optional", raw.get("may_skip", False))))
 
     def validate(self):
         errors = []
@@ -826,11 +827,11 @@ class EffectSpec:
             elif name not in self.implemented_actions: errors.append(f"{self.effect_id}: action {name} is declared but not implemented")
         if self.notify:
             kind = self.notify.get("kind", self.notify.get("type", "info"))
-            if kind not in {"ok", "yes_no", "choose_target", "choose_cards", "chain_response", "info"}: errors.append(f"{self.effect_id}: unsupported notification {kind}")
+            if kind not in {"ok", "yes_no", "choose_target", "choose_cards", "choose_trigger_order", "chain_response", "info"}: errors.append(f"{self.effect_id}: unsupported notification {kind}")
         return list(dict.fromkeys(errors))
 
     def to_dict(self):
-        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy, "speed": self.speed, "response": self.response}
+        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "optional": self.optional, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy, "speed": self.speed, "response": self.response}
 
 
 @dataclass
@@ -2047,6 +2048,9 @@ class DuelEngine:
         self.notifications = []
         self.notification_history = []
         self.notification_sequence = 0
+        self.replay_sequence = 0
+        self.replay_log = []
+        self.knowledge = {"player": {"card_ids": [], "effect_ids": []}, "opponent": {"card_ids": [], "effect_ids": []}}
         self.rule_event_sequence = 0
         self.event_history = []
         self.trigger_group_sequence = 0
@@ -2081,6 +2085,8 @@ class DuelEngine:
         self.pending_procedure = None
         self.pending_effect = None
         self.effect_usage = {}
+        self.continuous_effects = []
+        self.continuous_sequence = 0
         self.summon_permissions = {"player": {"base": 1, "used": 0, "grants": []}, "opponent": {"base": 1, "used": 0, "grants": []}}
         self.field_card = None
         self.field_card_owner = None
@@ -2156,6 +2162,7 @@ class DuelEngine:
         self.notification_sequence += 1
         notification = Notification(self.notification_sequence, kind, message, list(options), payload)
         self.notifications.append(notification)
+        self.record_replay("notification_created", {"id": notification.notification_id, "kind": kind, "options": list(options), "payload": payload})
         self.notifications = self.notifications[-32:]
         return notification
 
@@ -2165,6 +2172,7 @@ class DuelEngine:
         notification.answer = answer
         notification.status = "resolved"
         self.notification_history.append({"id": notification.notification_id, "kind": notification.kind, "answer": answer, "payload": notification.payload, "time": time.time()})
+        self.record_replay("notification_answered", {"id": notification.notification_id, "kind": notification.kind, "answer": answer, "payload": notification.payload})
         self.notification_history = self.notification_history[-64:]
         return True
 
@@ -2237,11 +2245,14 @@ class DuelEngine:
 
     def advance(self):
         if self.finished or self.pending_discard: return
+        self.cleanup_continuous_effects("phase_end")
         self.phase_index += 1
         if self.phase_index >= len(self.phases):
             self.phase_index = 0
             ending = self.active
             self.emit_event("turn_end", ending, metadata={"turn": self.turn, "ending_side": self.side_key(ending)})
+            self.cleanup_continuous_effects("turn_end")
+            self.cleanup_continuous_effects("phase_end")
             self.active, _ = self.other(self.active), self.active
             self.turn += 1
             self.reset_summon_permissions(self.active)
@@ -2373,6 +2384,45 @@ class DuelEngine:
             drawn = side.draw(amount)
             self.log(f"{side.name}'s team effect draws {len(drawn)} card(s).")
 
+    def normalize_continuous_duration(self, modifier):
+        duration = modifier.get("duration", modifier.get("expires", "permanent"))
+        duration = str(duration or "permanent").lower().replace("-", "_").replace(" ", "_")
+        aliases = {"turn": "until_end_of_turn", "phase": "until_end_of_phase", "source": "while_source_on_field", "while_source_faceup": "while_source_face_up"}
+        return aliases.get(duration, duration)
+
+    def register_continuous_effect(self, card, spec, actor):
+        modifier = dict(spec.modifier or {})
+        if not modifier or not (modifier.get("continuous") or modifier.get("duration") or modifier.get("replacement")): return None
+        if modifier.get("continuous") and any(item.get("status") == "active" and item.get("source") is card and item.get("source_effect_id") == spec.effect_id for item in self.continuous_effects): return next(item for item in self.continuous_effects if item.get("status") == "active" and item.get("source") is card and item.get("source_effect_id") == spec.effect_id)
+        self.continuous_sequence += 1
+        record = {"id": "continuous_" + str(self.continuous_sequence), "source": card, "source_card_id": getattr(getattr(card, "card", card), "id", ""), "source_effect_id": spec.effect_id, "actor": actor, "actor_id": self.side_key(actor), "modifier": modifier, "duration": self.normalize_continuous_duration(modifier), "created_turn": self.turn, "created_phase": self.phase, "created_phase_index": self.phase_index, "layer": int(modifier.get("layer", 4) or 4), "status": "active"}
+        self.continuous_effects.append(record)
+        self.continuous_effects = self.continuous_effects[-128:]
+        self.log(f"{record['source_card_id']} establishes {record['duration']} continuous effect.")
+        return record
+
+    def continuous_effect_active(self, record):
+        if record.get("status") != "active": return False
+        duration = record.get("duration", "permanent")
+        source = record.get("source")
+        if duration == "while_source_on_field":
+            return bool(source and source.position == "field" and self.owner_of(source) is not None)
+        if duration == "while_source_face_up":
+            return bool(source and source.position == "field" and source.face_up and self.owner_of(source) is not None)
+        return True
+
+    def cleanup_continuous_effects(self, reason=""):
+        changed = False
+        for record in self.continuous_effects:
+            duration = record.get("duration", "permanent")
+            expires = duration == "until_end_of_phase" and (reason == "phase_end" or self.phase_index != record.get("created_phase_index"))
+            expires = expires or duration in ["until_end_of_turn", "this_turn"] and (reason == "turn_end" or self.turn > record.get("created_turn", self.turn))
+            expires = expires or not self.continuous_effect_active(record)
+            if expires and record.get("status") == "active":
+                record["status"] = "expired"
+                changed = True
+        if changed: self.continuous_effects = [item for item in self.continuous_effects if item.get("status") == "active"]
+
     def modifier_records(self):
         records = []
         if self.field_card:
@@ -2381,6 +2431,11 @@ class DuelEngine:
             for effect in self.field_card.card.effects:
                 spec = EffectSpec.from_dict(effect, "field_" + self.field_card.card.id)
                 if spec.modifier: records.append({"source": self.field_card, "modifier": spec.modifier})
+        for record in self.continuous_effects:
+            if self.continuous_effect_active(record):
+                modifier = dict(record.get("modifier") or {})
+                modifier.setdefault("layer", record.get("layer", 4))
+                records.append({"source": record.get("source"), "modifier": modifier, "continuous": record})
         for effect in getattr(self.place, "effects", []) or []:
             spec = EffectSpec.from_dict(effect, "place_" + self.place.id)
             modifier = spec.modifier or (effect if isinstance(effect, dict) and effect.get("stat") else {})
@@ -2393,7 +2448,28 @@ class DuelEngine:
                 modifier = dict(selected["modifier"])
                 modifier.setdefault("owner", side.name)
                 records.append({"source": side.character, "modifier": modifier})
-        return records
+        return sorted(records, key=lambda item: (int(item["modifier"].get("layer", 4) or 4), str(getattr(getattr(item.get("source"), "card", item.get("source")), "id", "")), str(item["modifier"].get("stat", "attack"))))
+
+    def replace_event_value(self, event, value, actor, targets):
+        result = int(value)
+        target_items = targets if isinstance(targets, list) else [targets] if targets is not None else []
+        for record in self.continuous_effects:
+            if not self.continuous_effect_active(record): continue
+            replacement = dict((record.get("modifier") or {}).get("replacement") or {})
+            if str(replacement.get("event", "")).lower() != event: continue
+            selector = dict(replacement.get("selector") or {})
+            if selector and not any(isinstance(item, CardInstance) and self.modifier_matches({"selector": selector}, item, self.owner_of(item) or actor) for item in target_items): continue
+            operation = str(replacement.get("operation", "reduce")).lower()
+            amount = self.modifier_amount(replacement)
+            if operation in ["set", "replace"]: result = amount
+            elif operation in ["multiply", "scale"]: result = int(result * amount)
+            elif operation in ["increase", "add"]: result += amount
+            else: result = max(0, result - amount)
+            if replacement.get("once"):
+                record["status"] = "consumed"
+            if result <= 0: break
+        self.continuous_effects = [item for item in self.continuous_effects if item.get("status") == "active"]
+        return max(0, result)
 
     def modifier_matches(self, modifier, card, side):
         selector = dict(modifier.get("selector") or {})
@@ -2900,14 +2976,39 @@ class DuelEngine:
         allow_pass = bool(context.get("allow_pass", True)) or not mandatory or not candidates
         return {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority), "candidates": candidates, "mandatory": mandatory, "allow_pass": allow_pass}
 
+    def declarative_effect_score(self, card, spec, actor, target=None):
+        score = 0
+        target = target or self.other(actor)
+        for action in spec.actions:
+            name = action.get("name", "")
+            amount = action.get("amount", 0)
+            if isinstance(amount, dict): amount = amount.get("value", 0)
+            try: amount = int(amount or 0)
+            except (TypeError, ValueError): amount = 0
+            if name == "damage": score += amount * 3
+            elif name == "heal": score += amount * 2 if actor.hp < 6000 else amount // 4
+            elif name == "draw": score += max(1, amount) * 180
+            elif name == "discard": score += max(1, amount) * 45
+            elif name == "destroy": score += 500
+            elif name in ["banish", "send_to_graveyard", "return_to_hand"]: score += 360
+            elif name in ["boost_attack", "boost_defense"]: score += amount
+            elif name == "special_summon": score += 700
+            elif name == "grant_normal_summon": score += 350
+            elif name == "negate_chain": score += 5000
+            elif name == "shuffle": score += 80
+        selector = spec.selector or self.legacy_selector(card, actor)
+        if selector:
+            legal = self.legal_targets(card, actor, selector)
+            required = int(selector.get("count", 1) or 1) if selector.get("count") != "all" else 1
+            if len(legal) < required: return -100000
+            score += min(5, len(legal)) * 25
+            if any(isinstance(item, CardInstance) and item.owner != actor.name for item in legal): score += 40
+        return score
+
     def ai_response_score(self, candidate):
         spec = candidate["spec"]
-        score = int(spec.speed) * 100
-        action_names = [action.get("name", "") for action in spec.actions]
-        if "negate_chain" in action_names: score += 10000
-        if "destroy" in action_names: score += 150
-        if "damage" in action_names: score += 200
-        score += sum(int(action.get("amount", 0) or 0) for action in spec.actions if isinstance(action.get("amount", 0), (int, float)))
+        score = int(spec.speed) * 100 + self.declarative_effect_score(candidate["card"], spec, self.opponent, self.player)
+        if any(action.get("name") == "negate_chain" for action in spec.actions): score += 10000
         return score
 
     def ai_chain_step(self):
@@ -2972,6 +3073,78 @@ class DuelEngine:
         notification = self.pending_notification("choose_target")
         if notification: notification.status, notification.answer = "resolved", "ok"
         return self.begin_response_card(pending["card"], pending["spec"].effect_id, pending["actor"], selected[0] if pending["required"] == 1 else selected)
+
+    def record_replay(self, kind, payload=None):
+        self.replay_sequence += 1
+        record = {"sequence": self.replay_sequence, "kind": str(kind), "turn": self.turn, "phase": self.phase, "active": self.side_key(self.active), "payload": dict(payload or {})}
+        self.replay_log.append(record)
+        self.replay_log = self.replay_log[-512:]
+        return record
+
+    def card_instances(self):
+        result = []
+        for side in [self.player, self.opponent]:
+            result.extend([item for item in side.deck if item])
+            result.extend([item for item in side.hand if item])
+            result.extend([item for item in side.graveyard if item])
+            result.extend([item for item in side.banished if item])
+            result.extend([item for item in side.extra if item])
+            result.extend([item for item in side.monsters if item])
+            result.extend([item for item in side.spells if item])
+        if self.field_card: result.append(self.field_card)
+        return list(dict.fromkeys(result))
+
+    def visibility(self, viewer, card):
+        viewer_side = viewer if isinstance(viewer, Duelist) else self.player if str(viewer) == "player" else self.opponent if str(viewer) == "opponent" else None
+        owner = self.owner_of(card)
+        if viewer_side is owner: return "private"
+        if card.position in ["graveyard", "banished"]: return "public"
+        if card.position in ["field", "monster", "spell_trap"] and card.face_up: return "public"
+        return "hidden"
+
+    def public_card_record(self, viewer, card):
+        state = self.visibility(viewer, card)
+        if state == "hidden": return {"id": "hidden", "kind": "hidden", "position": card.position, "face_up": False}
+        return {"id": card.card.id, "name": card.card.name, "kind": card.card.kind, "position": card.position, "face_up": bool(card.face_up), "battle_position": card.battle_position, "visibility": state}
+
+    def observe_visible_information(self, viewer):
+        viewer_key = self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer)
+        if viewer_key not in self.knowledge: return
+        known_cards = set(self.knowledge[viewer_key].get("card_ids", []))
+        known_effects = set(self.knowledge[viewer_key].get("effect_ids", []))
+        for card in self.card_instances():
+            if self.visibility(viewer, card) == "hidden": continue
+            known_cards.add(card.card.id)
+            known_effects.update(EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).effect_id for index, raw in enumerate(card.card.effects))
+        self.knowledge[viewer_key] = {"card_ids": sorted(known_cards), "effect_ids": sorted(known_effects)}
+
+    def knowledge_for(self, viewer="player"):
+        viewer_key = self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer)
+        self.observe_visible_information(viewer_key)
+        return {"viewer": viewer_key, "card_ids": list(self.knowledge.get(viewer_key, {}).get("card_ids", [])), "effect_ids": list(self.knowledge.get(viewer_key, {}).get("effect_ids", []))}
+
+    def public_state(self, viewer="player"):
+        self.observe_visible_information(viewer)
+        state = {"turn": self.turn, "phase": self.phase, "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "players": [], "knowledge": self.knowledge_for(viewer)}
+        for side in [self.player, self.opponent]:
+            state["players"].append({"id": side.character.id, "hp": side.hp, "hand": [self.public_card_record(viewer, item) for item in side.hand], "deck_count": len(side.deck), "graveyard": [self.public_card_record(viewer, item) for item in side.graveyard], "banished": [self.public_card_record(viewer, item) for item in side.banished], "monsters": [self.public_card_record(viewer, item) if item else None for item in side.monsters], "spells": [self.public_card_record(viewer, item) if item else None for item in side.spells]})
+        return state
+
+    def replay_view(self, viewer="player"):
+        self.observe_visible_information(viewer)
+        result = []
+        known = {item.card.id for item in self.card_instances() if self.visibility(viewer, item) != "hidden"}
+        for record in self.replay_log:
+            copy = {"sequence": record["sequence"], "kind": record["kind"], "turn": record["turn"], "phase": record["phase"], "active": record["active"], "payload": dict(record.get("payload") or {})}
+            payload = copy["payload"]
+            for key in ["source_card_id", "card_id", "source", "target_card_id"]:
+                if key in payload and payload[key] not in known: payload[key] = "hidden"
+            if isinstance(payload.get("card_ids"), list): payload["card_ids"] = [item if item in known else "hidden" for item in payload["card_ids"]]
+            result.append(copy)
+        return result
+
+    def replay_snapshot(self, viewer="player"):
+        return {"schema": "cbp.replay.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "state": self.public_state(viewer), "events": self.replay_view(viewer), "knowledge": self.knowledge_for(viewer)}
 
     def entity_id(self, item):
         if isinstance(item, Duelist): return item.character.id
@@ -3102,6 +3275,7 @@ class DuelEngine:
         result = {"status": "resolved", "action": action, "amount": amount}
         targets = target if isinstance(target, list) else [target] if target is not None else []
         if action == "damage":
+            amount = self.replace_event_value("damage", amount, actor, targets)
             recipients = [item for item in targets if hasattr(item, "hp")] or [self.other(actor)]
             values = []
             for recipient in recipients:
@@ -3157,6 +3331,27 @@ class DuelEngine:
             result["value"] = moved
             result["status"] = "resolved" if moved else "blocked"
             if moved: self.log(f"{source} destroys {len(moved)} card(s).")
+        elif action == "control":
+            selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
+            moved = []
+            for selected_card in selected_cards:
+                current_owner = self.owner_of(selected_card)
+                if not current_owner or selected_card.position not in ["field", "monster"]: continue
+                empty_zone = next((index for index, item in enumerate(actor.monsters) if item is None), None)
+                if empty_zone is None: continue
+                previous_zone = selected_card.position
+                if selected_card in current_owner.monsters: current_owner.monsters[current_owner.monsters.index(selected_card)] = None
+                elif selected_card in current_owner.spells: current_owner.spells[current_owner.spells.index(selected_card)] = None
+                actor.monsters[empty_zone] = selected_card
+                selected_card.last_zone = previous_zone
+                selected_card.owner = actor.name
+                selected_card.position = "field"
+                selected_card.face_up = True
+                moved.append(selected_card.card.id)
+                self.emit_event("control", actor, source=card, target=selected_card, metadata={"controller": actor.character.id, "card_id": selected_card.card.id})
+            result["value"] = moved
+            result["status"] = "resolved" if moved else "blocked"
+            if moved: self.log(f"{source} takes control of {len(moved)} card(s).")
         elif action == "shuffle":
             owners = [item for item in targets if isinstance(item, Duelist)]
             owners = owners or [actor]
@@ -3187,29 +3382,36 @@ class DuelEngine:
             self.apply_effect(card, outcome["action"], outcome["amount"], actor, target, f"Logic [{outcome['graph']}]")
 
     def condition_matches(self, conditions, card, actor, target):
-        for condition in conditions or []:
-            if isinstance(condition, str):
-                if not self.logic_runtime.condition(condition, {"card": card, "actor": actor, "target": target}): return False
-                continue
+        context = {"card": card, "actor": actor, "target": target, "engine": self}
+        def evaluate(condition):
+            if isinstance(condition, str): return self.logic_runtime.condition(condition, context)
+            if not isinstance(condition, dict): return False
+            if "all" in condition: return all(evaluate(item) for item in condition.get("all", []))
+            if "any" in condition: return any(evaluate(item) for item in condition.get("any", []))
+            if "not" in condition: return not evaluate(condition.get("not"))
             subject = condition.get("subject", "source")
-            entity = {"source": card, "card": card, "actor": actor, "target": target}.get(subject, card)
+            entity = {"source": card, "card": card, "actor": actor, "target": target, "event": self.active_rule_context}.get(subject, card)
             field_name = condition.get("field", "")
             if field_name.startswith("card."): entity, field_name = card, field_name.split(".", 1)[1]
             if field_name.startswith("actor."): entity, field_name = actor, field_name.split(".", 1)[1]
             if field_name.startswith("target."): entity, field_name = target, field_name.split(".", 1)[1]
+            if field_name.startswith("event.") and self.active_rule_context: entity, field_name = self.active_rule_context, field_name.split(".", 1)[1]
             if field_name in ["summon_method", "summon_source_zone", "summon_source_card_id", "summon_source_card_name", "summon_source_effect_id"]: actual = getattr(card, field_name, "")
             else: actual = getattr(getattr(entity, "card", entity), field_name, getattr(entity, field_name, None))
-            operator, expected = condition.get("operator", "equals"), condition.get("value")
-            if isinstance(actual, (int, float)):
-                matches = SelectorRuntime.compare(actual, operator, expected)
-            elif operator in ["equals", "=="]:
-                matches = str(actual).lower() == str(expected).lower()
-            elif operator in ["not_equals", "!="]:
-                matches = str(actual).lower() != str(expected).lower()
-            else:
-                matches = False
-            if not matches: return False
-        return True
+            operator, expected = str(condition.get("operator", "equals")).lower(), condition.get("value")
+            if operator in ["truthy", "exists"]: return bool(actual)
+            if operator in ["falsy", "missing"]: return not bool(actual)
+            if operator in ["in", "not_in"]:
+                values = expected if isinstance(expected, list) else [expected]
+                matches = actual in values or str(actual).lower() in [str(item).lower() for item in values]
+                return not matches if operator == "not_in" else matches
+            if isinstance(actual, (int, float)): return SelectorRuntime.compare(actual, operator, expected)
+            if operator in ["equals", "=="]: return str(actual).lower() == str(expected).lower()
+            if operator in ["not_equals", "!="]: return str(actual).lower() != str(expected).lower()
+            if operator == "contains": return str(expected).lower() in str(actual).lower()
+            return False
+        values = conditions if isinstance(conditions, list) else [conditions]
+        return all(evaluate(condition) for condition in values if condition is not None)
 
     def legacy_selector(self, card, actor):
         types = set(card.card.targets or [])
@@ -3394,7 +3596,11 @@ class DuelEngine:
         raw = dict(getattr(self.place, "trigger_order_policies", {}).get(trigger, {}) or {})
         chooser = str(raw.get("chooser", "actor")).lower()
         if chooser not in ["actor", "player", "opponent"]: chooser = "actor"
-        return {"enabled": bool(raw.get("enabled", False)), "chooser": chooser, "mandatory": bool(raw.get("mandatory", True)), "fallback": str(raw.get("fallback", "deterministic")).lower()}
+        optional_mode = raw.get("optional_effects", raw.get("optional", "all"))
+        if isinstance(optional_mode, bool): optional_mode = "prompt" if optional_mode else "all"
+        optional_mode = str(optional_mode).lower()
+        if optional_mode not in ["all", "prompt", "none"]: optional_mode = "all"
+        return {"enabled": bool(raw.get("enabled", False)), "chooser": chooser, "mandatory": bool(raw.get("mandatory", True)), "fallback": str(raw.get("fallback", "deterministic")).lower(), "optional_effects": optional_mode}
 
     def dispatch_trigger_group(self, group, ordered, trigger, actor, target, context):
         previous_context = self.active_rule_context
@@ -3406,18 +3612,25 @@ class DuelEngine:
         self.event_dispatch_stack.pop()
         self.active_rule_context = previous_context
         group["status"] = "resolved"
+        context.metadata["trigger_group_resolved"] = list(group["resolved"])
+        context.metadata["trigger_group_selected_order"] = list(group.get("selected_order", group["resolved"]))
+        context.metadata["trigger_group_included_ids"] = list(group.get("included_ids", group["resolved"]))
+        self.record_replay("trigger_group_resolved", {"group_id": group.get("group_id", ""), "trigger": trigger, "selected_order": list(group.get("selected_order", group["resolved"])), "included_ids": list(group.get("included_ids", group["resolved"])), "resolved": list(group["resolved"])})
 
     def resolve_trigger_order(self, selection):
         pending = self.pending_trigger_order
         if not pending: return False, "No trigger order is pending."
         selected = selection if isinstance(selection, list) else [selection]
         selected_ids = [item if isinstance(item, str) else getattr(getattr(item, "card", item), "id", "") for item in selected]
-        expected = [item["effect_id"] for item in pending["members"]]
-        if len(selected_ids) != len(expected) or len(set(selected_ids)) != len(expected) or set(selected_ids) != set(expected): return False, "Choose every simultaneous effect exactly once."
+        required_ids = list(pending.get("required_ids", [item["effect_id"] for item in pending["members"] if not item.get("optional")]))
+        allowed_ids = set(required_ids) | set(pending.get("optional_ids", [item["effect_id"] for item in pending["members"] if item.get("optional")]))
+        if len(selected_ids) != len(set(selected_ids)) or not set(required_ids).issubset(set(selected_ids)) or not set(selected_ids).issubset(allowed_ids): return False, "Choose every required effect and only legal optional effects."
         ordered_by_id = {item[2]: item for item in pending["ordered"]}
         ordered = [ordered_by_id[item] for item in selected_ids]
         group = pending["group"]
         group["selected_order"] = list(selected_ids)
+        group["included_ids"] = list(selected_ids)
+        group["excluded_ids"] = [item["effect_id"] for item in pending["members"] if item["effect_id"] not in set(selected_ids)]
         group["order_mode"] = "prompt"
         self.pending_trigger_order = None
         notification = self.pending_notification("choose_trigger_order")
@@ -3426,10 +3639,18 @@ class DuelEngine:
         self.active_rule_context = pending["previous_context"]
         return True, ""
 
+    def ai_trigger_effect_score(self, item, actor):
+        return self.declarative_effect_score(item[3], item[4], actor, self.other(actor))
+
     def ai_resolve_pending_trigger_order(self):
         pending = self.pending_trigger_order
         if not pending or pending["chooser"] is not self.opponent: return False
-        return self.resolve_trigger_order([item["effect_id"] for item in pending["members"]])
+        required = [item for item in pending["members"] if not item.get("optional")]
+        optional = [item for item in pending["members"] if item.get("optional")]
+        chosen_optional = [item for item in optional if self.ai_trigger_effect_score(item, self.opponent) > 0]
+        selected = required + chosen_optional
+        selected.sort(key=lambda item: (-self.ai_trigger_effect_score(item, self.opponent), item[2]))
+        return self.resolve_trigger_order([item[2] for item in selected])
 
     def emit_event(self, trigger, actor, source=None, target=None, metadata=None, include_source=True):
         self.rule_event_sequence += 1
@@ -3445,6 +3666,7 @@ class DuelEngine:
         source_cards = list(dict.fromkeys(source_cards))
         target_items = target if isinstance(target, list) else [target] if target is not None else []
         context = RuleContext(f"rule_{self.rule_event_sequence}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(source, "card", source), "id", ""), getattr(source, "last_zone", getattr(source, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, event_metadata)
+        self.record_replay("event", {"context_id": context.context_id, "trigger": trigger, "actor_id": context.actor_id, "source_card_id": context.source_card_id, "target_ids": list(context.target_ids), "metadata": event_metadata})
         if trigger in self.event_dispatch_stack:
             self.event_history.append(context.__dict__.copy())
             self.event_history = self.event_history[-128:]
@@ -3455,25 +3677,37 @@ class DuelEngine:
                 spec = EffectSpec.from_dict(raw_effect, source_card.card.id + "_effect_" + str(index))
                 if spec.trigger == trigger and not spec.validate(): ordered.append((spec.priority, source_card.card.id, spec.effect_id, source_card, spec))
         ordered.sort(key=lambda item: (item[0], item[1], item[2]))
+        order_policy = self.normalize_trigger_order_policy(trigger)
+        included_ordered = [item for item in ordered if not (order_policy["optional_effects"] == "none" and item[4].optional)]
         self.trigger_group_sequence += 1
         group_id = "trigger_group_" + str(self.trigger_group_sequence)
-        members = [{"index": index, "priority": item[0], "source_card_id": item[1], "effect_id": item[2], "ordering_key": [item[0], item[1], item[2]]} for index, item in enumerate(ordered)]
+        members = [{"index": index, "priority": item[0], "source_card_id": item[1], "effect_id": item[2], "optional": bool(item[4].optional), "ordering_key": [item[0], item[1], item[2]]} for index, item in enumerate(ordered)]
         context.metadata.update({"trigger_group_id": group_id, "trigger_group_size": len(members), "trigger_group_order": [item["effect_id"] for item in members]})
         self.event_history.append(context.__dict__.copy())
         self.event_history = self.event_history[-128:]
         group = {"group_id": group_id, "context_id": context.context_id, "trigger": trigger, "phase": self.phase, "turn": self.turn, "members": members, "resolved": [], "status": "pending" if len(members) > 1 else "ready"}
         self.trigger_groups.append(group)
         self.trigger_groups = self.trigger_groups[-64:]
-        order_policy = self.normalize_trigger_order_policy(trigger)
-        if len(ordered) > 1 and order_policy["enabled"]:
+        required_members = [item for item in members if not item["optional"]]
+        optional_members = [item for item in members if item["optional"]]
+        needs_optional_prompt = order_policy["optional_effects"] == "prompt" and bool(optional_members)
+        needs_order_prompt = len(included_ordered) > 1 and order_policy["enabled"]
+        if needs_order_prompt or needs_optional_prompt:
             chooser = actor if order_policy["chooser"] == "actor" else self.player if order_policy["chooser"] == "player" else self.opponent
             group["order_mode"] = "prompt"
             group["chooser"] = self.side_key(chooser)
-            self.pending_trigger_order = {"group": group, "members": members, "ordered": ordered, "trigger": trigger, "actor": actor, "target": target, "context": context, "previous_context": self.active_rule_context, "chooser": chooser}
-            self.notify("choose_trigger_order", "Choose the order of simultaneous effects.", ["ok"], {"kind": "trigger_order", "group_id": group_id, "trigger": trigger, "members": members, "selected_ids": [], "required_count": len(members), "chooser": self.side_key(chooser), "mandatory": order_policy["mandatory"], "fallback": order_policy["fallback"]})
+            group["required_ids"] = [item["effect_id"] for item in required_members]
+            group["optional_ids"] = [item["effect_id"] for item in optional_members]
+            pending_members = members if order_policy["optional_effects"] != "none" else [item for item in members if not item["optional"]]
+            pending_ordered = ordered if order_policy["optional_effects"] != "none" else included_ordered
+            pending_optional_ids = [item["effect_id"] for item in optional_members] if order_policy["optional_effects"] == "prompt" else []
+            self.pending_trigger_order = {"group": group, "members": pending_members, "ordered": pending_ordered, "trigger": trigger, "actor": actor, "target": target, "context": context, "previous_context": self.active_rule_context, "chooser": chooser, "required_ids": [item["effect_id"] for item in required_members], "optional_ids": pending_optional_ids}
+            self.notify("choose_trigger_order", "Choose the order of simultaneous effects.", ["ok"], {"kind": "trigger_order", "group_id": group_id, "trigger": trigger, "members": members, "selected_ids": [], "required_ids": self.pending_trigger_order["required_ids"], "optional_ids": self.pending_trigger_order["optional_ids"], "required_count": len(required_members), "chooser": self.side_key(chooser), "mandatory": order_policy["mandatory"], "optional_effects": order_policy["optional_effects"], "fallback": order_policy["fallback"]})
         else:
             group["order_mode"] = "deterministic"
-            self.dispatch_trigger_group(group, ordered, trigger, actor, target, context)
+            included_ids = {value[2] for value in included_ordered}
+            group["excluded_ids"] = [item["effect_id"] for item in members if item["effect_id"] not in included_ids]
+            self.dispatch_trigger_group(group, included_ordered, trigger, actor, target, context)
         if event_metadata.get("response_window") and not self.chain_window: self.open_event_response_window(trigger, actor, source, target, event_metadata)
         return context
 
@@ -3486,8 +3720,13 @@ class DuelEngine:
             spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
             if effect_id and spec.effect_id != effect_id: continue
             if spec.trigger != trigger: continue
-            if spec.window.get("phase", "any") not in ["any", self.phase.lower().replace(" 1", "").replace(" 2", "")]: continue
-            if spec.window.get("event") not in [None, "", trigger, self.phase.lower(), self.phase.lower().replace(" ", "_")]: continue
+            phase_value = spec.window.get("phase", "any")
+            phase_values = phase_value if isinstance(phase_value, list) else [phase_value]
+            normalized_phase = self.phase.lower().replace(" 1", "").replace(" 2", "")
+            if not any(str(value).lower() in ["any", normalized_phase, self.phase.lower()] for value in phase_values): continue
+            event_value = spec.window.get("event", trigger)
+            event_values = event_value if isinstance(event_value, list) else [event_value]
+            if not any(value in [None, "", trigger, self.phase.lower(), self.phase.lower().replace(" ", "_")] for value in event_values): continue
             if spec.validate():
                 self.log("Unsupported effect " + spec.effect_id + ": " + ", ".join(spec.validate()))
                 continue
@@ -3506,6 +3745,7 @@ class DuelEngine:
             if not cost_paid:
                 paid, result = self.pay_costs(spec, card, actor)
                 if not paid: continue
+            self.register_continuous_effect(card, spec, actor)
             if self.execute_effect_spec(card, spec, actor, target): self.mark_effect_used(card, spec)
         self.active_rule_context = previous_context
 
@@ -3644,7 +3884,12 @@ class DuelEngine:
         phase_weight = float(phase_weights.get(self.phase, 1.0))
         urgency = float(weights.get("risk_tolerance", 3.0)) if mode == "monster" else float(weights.get("reward_value", 5.0))
         hp_pressure = max(0, 8000 - self.opponent.hp) / 800.0 if mode == "spell" else 0.0
-        return card.atk + card.card.stars * 40 + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * (200 if card.card.family == "spell" else 0)
+        effect_score = 0
+        for index, raw_effect in enumerate(card.card.effects):
+            spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+            if not spec.validate() and spec.trigger in ["activate", "summon", "respond", "chain_response"]:
+                effect_score += self.declarative_effect_score(card, spec, self.opponent, self.player)
+        return card.atk + card.card.stars * 40 + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * (200 if card.card.family == "spell" else 0) + effect_score
 
     def ai_step(self):
         if self.finished: return
@@ -4295,6 +4540,8 @@ class DuelScene(Scene):
         self.action_mode = "summon"
         self.action_mode_card = None
         self.question = None
+        self.trigger_selection = []
+        self.question_choice_rects = []
         self.card_list_popup = None
         self.player_deck_rect = self.layout.side_well_rect("player", "deck")
         self.hp_display = {"player": 8000, "opponent": 8000}
@@ -4475,13 +4722,69 @@ class DuelScene(Scene):
             current = next((item for item in self.engine.notifications if item.notification_id == self.question["notification_id"]), None)
             if not current or current.status != "pending": self.question = None
         if self.question or not notification: return
-        kind = "procedure" if notification.kind == "choose_cards" and notification.payload.get("kind") == "procedure_materials" else "discard" if notification.kind in ["discard", "choose_cards"] else "chain" if notification.kind == "chain_response" else "notifier"
-        stage = "choose_card" if kind == "procedure" else "confirm" if "no" in notification.options else "await_ok"
+        kind = "procedure" if notification.kind == "choose_cards" and notification.payload.get("kind") == "procedure_materials" else "discard" if notification.kind in ["discard", "choose_cards"] else "chain" if notification.kind == "chain_response" else "trigger_order" if notification.kind == "choose_trigger_order" else "notifier"
+        stage = "choose_card" if kind == "procedure" else "choose_response" if kind == "chain" else "choose_order" if kind == "trigger_order" else "confirm" if "no" in notification.options else "await_ok"
+        if kind == "trigger_order": self.trigger_selection = list(notification.payload.get("selected_ids", []))
         self.question = {"kind": kind, "stage": stage, "notification_id": notification.notification_id, "text": notification.message, "options": notification.options}
+
+    def question_panel(self):
+        if self.question and self.question.get("kind") in ["chain", "trigger_order"]: return pygame.Rect(208, 148, 500, 330)
+        return self.layout.question_rect()
+
+    def response_choice_rects(self, candidates):
+        panel = self.question_panel()
+        visible = list(candidates[:7])
+        gap = 66
+        width = 56
+        start = panel.centerx - ((len(visible) - 1) * gap + width) // 2
+        return [pygame.Rect(start + index * gap, panel.y + 76, width, 92) for index in range(len(visible))]
+
+    def trigger_order_choice_rects(self, members):
+        panel = self.question_panel()
+        return [pygame.Rect(panel.x + 24, panel.y + 66 + index * 29, panel.width - 48, 24) for index in range(len(members))]
+
+    def question_button_rect(self, name):
+        if self.question and self.question.get("kind") in ["chain", "trigger_order"]:
+            panel = self.question_panel()
+            if name == "pass": return pygame.Rect(panel.centerx + 38, panel.bottom - 42, 74, 28)
+            if name == "card": return pygame.Rect(panel.centerx - 112, panel.bottom - 42, 74, 28)
+            return pygame.Rect(panel.centerx - 32, panel.bottom - 42, 64, 28)
+        return self.layout.question_action_rect(name)
 
     def handle_question(self, pos):
         if not self.question: return
         kind, stage = self.question["kind"], self.question["stage"]
+        if kind == "trigger_order" and stage == "choose_order":
+            notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id") and item.status == "pending"), None)
+            if not notification: return
+            members = notification.payload.get("members", [])
+            for index, rect in enumerate(self.trigger_order_choice_rects(members)):
+                if rect.collidepoint(pos):
+                    effect_id = members[index].get("effect_id", "")
+                    if effect_id in self.trigger_selection: self.trigger_selection.remove(effect_id)
+                    else: self.trigger_selection.append(effect_id)
+                    return
+            if self.question_button_rect("ok").collidepoint(pos):
+                result = self.engine.respond_notification(notification.notification_id, "ok", list(self.trigger_selection))
+                self.message = result[1]
+                if result[0]: self.question = None
+            return
+        if kind == "chain" and stage == "choose_response":
+            notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id") and item.status == "pending"), None)
+            if not notification: return
+            candidates = self.engine.response_candidates(self.engine.chain_priority, self.engine.chain_window.get("trigger", "") if self.engine.chain_window else "")
+            rects = self.response_choice_rects(candidates)
+            for index, rect in enumerate(rects):
+                if rect.collidepoint(pos):
+                    result = self.engine.respond_notification(notification.notification_id, "card", candidates[index]["card"].card.id)
+                    self.message = result[1]
+                    if result[0]: self.question = None
+                    return
+            if self.question_button_rect("pass").collidepoint(pos) and "pass" in notification.options:
+                result = self.engine.respond_notification(notification.notification_id, "pass")
+                self.message = result[1]
+                if result[0]: self.question = None
+            return
         if kind == "notifier" and stage == "confirm":
             if self.layout.question_action_rect("yes").collidepoint(pos):
                 success, msg = self.engine.answer_pending_effect("yes")
@@ -4714,19 +5017,45 @@ class DuelScene(Scene):
 
     def draw_question(self, surface):
         if not self.question: return
-        panel = self.layout.question_rect()
+        panel = self.question_panel()
         rounded(surface, panel, (255, 247, 213), (118, 94, 58), 16, 2)
         kind, stage = self.question["kind"], self.question["stage"]
-        if kind == "surrender":
-            text = "Surrender the duel?"
-        elif kind == "notifier":
-            text = self.question.get("text", "Resolve the notification.")
-        elif stage == "await_ok":
-            text = self.question.get("text", "Discard one card.")
-        else:
-            text = self.question.get("text", "Choose a card to discard.")
+        if kind == "surrender": text = "Surrender the duel?"
+        elif kind == "notifier": text = self.question.get("text", "Resolve the notification.")
+        elif kind == "chain": text = "Choose a legal response card or pass."
+        elif kind == "trigger_order": text = "Choose the simultaneous-effect order."
+        elif stage == "await_ok": text = self.question.get("text", "Discard one card.")
+        else: text = self.question.get("text", "Choose a card to discard.")
         draw_text(surface, text, (panel.centerx, panel.y + 27), self.app.assets.font(12, True), COLORS["ink"], "center")
-        if kind in ["surrender", "notifier"] and stage == "confirm":
+        if kind == "trigger_order" and stage == "choose_order":
+            notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id") and item.status == "pending"), None)
+            members = notification.payload.get("members", []) if notification else []
+            required_ids = set(notification.payload.get("required_ids", [])) if notification else set()
+            self.question_choice_rects = self.trigger_order_choice_rects(members)
+            for index, member in enumerate(members):
+                rect = self.question_choice_rects[index]
+                effect_id = member.get("effect_id", "")
+                selected = effect_id in self.trigger_selection
+                fill = (220, 187, 91) if selected else (244, 232, 194)
+                rounded(surface, rect, fill, (118, 94, 58), 5, 1)
+                role = "REQUIRED" if effect_id in required_ids else "OPTIONAL"
+                draw_text(surface, f"{index + 1}. {effect_id}  [{role}]", (rect.x + 9, rect.centery), self.app.assets.font(8, True), COLORS["ink"], "midleft")
+                draw_text(surface, "INCLUDED" if selected else "SKIPPED", (rect.right - 9, rect.centery), self.app.assets.font(7, True), COLORS["ink"], "midright")
+            rect = self.question_button_rect("ok")
+            rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
+            draw_text(surface, "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+        elif kind == "chain" and stage == "choose_response":
+            candidates = self.engine.response_candidates(self.engine.chain_priority, self.engine.chain_window.get("trigger", "") if self.engine.chain_window else "")
+            self.question_choice_rects = self.response_choice_rects(candidates)
+            for index, candidate in enumerate(candidates[:7]):
+                rect = self.question_choice_rects[index]
+                render_engine_card(surface, rect, candidate["card"].card, self.app.assets, self.app.store.media, True, False, candidate["card"].variant, True)
+                draw_text(surface, candidate["card"].card.name[:12], (rect.centerx, rect.bottom + 5), self.app.assets.font(6, True), COLORS["ink"], "midtop")
+            if "pass" in self.question.get("options", []):
+                rect = self.question_button_rect("pass")
+                rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
+                draw_text(surface, "PASS", rect.center, self.app.assets.font(8, True), COLORS["ink"], "center")
+        elif kind in ["surrender", "notifier"] and stage == "confirm":
             for role, rect, label in [("prompt_yes", self.layout.question_action_rect("yes"), "YES"), ("prompt_no", self.layout.question_action_rect("no"), "NO")]:
                 image = self.app.assets.role_image(role, rect.size)
                 if image: surface.blit(image, rect.topleft)
