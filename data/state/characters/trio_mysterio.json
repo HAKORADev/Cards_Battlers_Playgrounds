@@ -3,19 +3,15 @@
   "id": "trio_mysterio",
   "category": "characters",
   "state": {
-    "activity": "idle",
-    "current_place": "",
-    "cooldown_until": 0.0,
+    "allies": [],
+    "destination": "",
+    "history": [],
+    "learned_cards": {},
     "availability": "free",
-    "library_cards": [
-      "trio_relic",
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
-    "borrowed_cards": [],
+    "activity": "idle",
+    "movement_progress": 0.0,
+    "rank": 1,
+    "cooldown_until": 0.0,
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -49,15 +45,19 @@
         "BATTLE": 1.0
       }
     },
-    "enemies": [],
-    "allies": [],
-    "rank": 1,
-    "history": [],
-    "movement_progress": 0.0,
-    "learned_cards": {},
-    "mood": "mysterious",
+    "relationship": "engine team",
     "learned_opponents": {},
-    "destination": "",
-    "relationship": "engine team"
+    "borrowed_cards": [],
+    "current_place": "",
+    "enemies": [],
+    "mood": "mysterious",
+    "library_cards": [
+      "trio_relic",
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ]
   }
 }

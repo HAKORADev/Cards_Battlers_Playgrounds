@@ -2012,6 +2012,7 @@ class DuelEngine:
         self.chain_priority = None
         self.chain_passes = []
         self.chain_window = None
+        self.pending_response = None
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
@@ -2130,6 +2131,7 @@ class DuelEngine:
             return self.pass_chain_priority(self.chain_priority)
         if notification.kind == "choose_target":
             selected = selection if isinstance(selection, list) else [selection]
+            if self.pending_response: return self.resolve_pending_response(selected)
             if self.pending_summon: return self.resolve_pending_summon(selected)
             if not selected or not self.pending_target: return False, "Choose the required target(s)."
             result = (True, "")
@@ -2578,6 +2580,77 @@ class DuelEngine:
         self.chain_passes = []
         self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
         return self.chain_window
+
+    def response_candidates(self, side=None, trigger=None):
+        if not self.chain_window and not trigger: return []
+        side = side or self.chain_priority
+        trigger = trigger or self.chain_window.get("trigger", "")
+        if side is None: return []
+        candidates = []
+        for zone, cards in [("hand", list(side.hand)), ("spell_trap", [item for item in side.spells if item])]:
+            for card in cards:
+                if card.card.kind not in ["spell", "field", "trap"]: continue
+                for index, raw_effect in enumerate(card.card.effects):
+                    spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+                    response_events = spec.response.get("triggers", spec.response.get("events", [trigger]))
+                    response_events = response_events if isinstance(response_events, list) else [response_events]
+                    if not spec.response.get("enabled", False) and spec.trigger not in ["respond", "chain_response"]: continue
+                    if trigger not in response_events and "any" not in response_events: continue
+                    if spec.speed < 2 or not self.chain_speed_allowed(spec.speed, side): continue
+                    if self.effect_used(card, spec): continue
+                    if not self.condition_matches(spec.conditions, card, side, self.other(side)): continue
+                    selector = spec.selector or self.legacy_selector(card, side)
+                    required = int(selector.get("count", card.card.target_count or 0) or 0) if selector else 0
+                    legal = self.legal_targets(card, side, selector) if selector and required else []
+                    if required and len(legal) < required: continue
+                    candidates.append({"card": card, "spec": spec, "zone": zone, "selector": selector, "targets": legal})
+        return candidates
+
+    def response_card_ids(self, side=None, trigger=None):
+        return [item["card"].card.id for item in self.response_candidates(side, trigger)]
+
+    def consume_chain_response_prompt(self):
+        notification = self.pending_notification("chain_response")
+        if notification:
+            notification.status, notification.answer = "resolved", "card"
+            self.notification_history.append({"id": notification.notification_id, "kind": notification.kind, "answer": notification.answer, "payload": notification.payload, "time": time.time()})
+
+    def begin_response_card(self, card, effect_id="", actor=None, target=None):
+        actor = actor or self.chain_priority
+        candidate = next((item for item in self.response_candidates(actor) if item["card"] is card and (not effect_id or item["spec"].effect_id == effect_id)), None)
+        if not candidate: return False, "That card is not a legal response in the current chain window."
+        if actor is not self.chain_priority: return False, "That side does not have chain priority."
+        self.consume_chain_response_prompt()
+        spec, selector = candidate["spec"], candidate["selector"]
+        required = int(selector.get("count", card.card.target_count or 0) or 0) if selector else 0
+        if required and target is None:
+            self.pending_response = {"card": card, "spec": spec, "actor": actor, "selector": selector, "candidates": candidate["targets"], "required": required}
+            self.notify("choose_target", f"Select {required} target(s) for {card.card.name}.", ["ok"], {"kind": "chain_response_target", "card": card.card.id, "effect": spec.effect_id, "required": required})
+            return True, "pending"
+        if required:
+            selected = target if isinstance(target, list) else [target]
+            if len(selected) != required or any(item not in candidate["targets"] for item in selected): return False, "That response target is not legal."
+            target = selected[0] if required == 1 else selected
+        paid, result = self.pay_costs(spec, card, actor)
+        if not paid:
+            if result.get("status") == "pending": return True, "pending_cost"
+            return False, result.get("reason", "The response cost could not be paid.")
+        owner = self.owner_of(card) or actor
+        owner.remove(card)
+        card.face_up = True
+        card.position = "graveyard"
+        owner.graveyard.append(card)
+        return self.add_chain_link(card, spec, actor, target or self.other(actor), spec.trigger, {"response": True, "target_snapshot": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+
+    def resolve_pending_response(self, cards):
+        pending = self.pending_response
+        if not pending: return False, "No chain response target is pending."
+        selected = list(cards if isinstance(cards, list) else [cards])
+        if len(selected) != pending["required"] or len(set(selected)) != len(selected) or any(item not in pending["candidates"] for item in selected): return False, "Those response targets are not legal."
+        self.pending_response = None
+        notification = self.pending_notification("choose_target")
+        if notification: notification.status, notification.answer = "resolved", "ok"
+        return self.begin_response_card(pending["card"], pending["spec"].effect_id, pending["actor"], selected[0] if pending["required"] == 1 else selected)
 
     def entity_id(self, item):
         if isinstance(item, Duelist): return item.character.id

@@ -3,67 +3,9 @@
   "id": "player",
   "category": "characters",
   "state": {
-    "activity": "idle",
-    "current_place": "",
-    "cooldown_until": 0.0,
-    "availability": "free",
-    "library_cards": [
-      "sky_archer",
-      "void_titan"
-    ],
-    "borrowed_cards": [],
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 10.0,
-      "family_weights": {
-        "warrior": 2.0,
-        "aqua": 0.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 2.0,
-        "trap": 0.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0
-      },
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      }
-    },
-    "enemies": [],
     "allies": [],
-    "rank": 1,
+    "destination": "",
     "history": [
-      {
-        "opponent": "rival_echo",
-        "result": "loss",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "aqua_sentinel",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer",
-          "void_titan"
-        ],
-        "traded_card": "aqua_sentinel",
-        "time": 1787493435.1347017
-      },
       {
         "opponent": "rival_echo",
         "result": "loss",
@@ -348,20 +290,77 @@
         ],
         "traded_card": "iron_fridge",
         "time": 1787518138.0907366
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787521322.1651013
       }
     ],
-    "movement_progress": 0.0,
     "learned_cards": {
-      "aqua_sentinel": 80,
-      "iron_fridge": 40,
-      "sky_archer": 40,
-      "void_titan": 40
+      "aqua_sentinel": 82,
+      "iron_fridge": 41,
+      "sky_archer": 41,
+      "void_titan": 41
     },
-    "mood": "neutral",
+    "availability": "free",
+    "activity": "idle",
+    "movement_progress": 0.0,
+    "rank": 1,
+    "cooldown_until": 0.0,
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "family_weights": {
+        "warrior": 2.0,
+        "aqua": 0.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 2.0,
+        "trap": 0.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      }
+    },
+    "relationship": "self",
     "learned_opponents": {
-      "rival_echo": 40
+      "rival_echo": 41
     },
-    "destination": "",
-    "relationship": "self"
+    "borrowed_cards": [],
+    "current_place": "",
+    "enemies": [],
+    "mood": "neutral",
+    "library_cards": [
+      "void_titan"
+    ]
   }
 }
