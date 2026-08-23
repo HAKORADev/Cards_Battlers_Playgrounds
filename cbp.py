@@ -7,6 +7,7 @@ import time
 import zipfile
 import re
 import shutil
+import hashlib
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -529,6 +530,7 @@ class PlaceDef:
     media_folder: str = ""
     effects: list = field(default_factory=list)
     event_response_policies: dict = field(default_factory=dict)
+    event_window_policies: dict = field(default_factory=dict)
     trigger_order_policies: dict = field(default_factory=dict)
 
 
@@ -812,15 +814,30 @@ class EffectSpec:
             modifier["stat"], modifier["operation"], modifier["amount"] = "attack", "add", modifier.pop("atk")
         return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, speed, response, legacy, bool(raw.get("optional", raw.get("may_skip", False))))
 
+    def capability_report(self):
+        actions = []
+        for action in self.actions:
+            name = action.get("name", "")
+            actions.append({"name": name, "status": "implemented" if name in self.implemented_actions else "declared_unsupported" if name in self.action_names else "unknown"})
+        return {"effect_id": self.effect_id, "trigger": self.trigger, "actions": actions, "notifications": self.notify.get("kind", self.notify.get("type", "info")) if self.notify else "", "continuous": bool(self.modifier.get("continuous")) if self.modifier else False, "replacement": bool(self.modifier.get("replacement")) if self.modifier else False}
+
     def validate(self):
         errors = []
         if not self.effect_id: errors.append("effect id is required")
         if not self.trigger: errors.append(f"{self.effect_id}: trigger is required")
-        phase = self.window.get("phase", "any")
-        if phase not in self.phases: errors.append(f"{self.effect_id}: unsupported phase {phase}")
+        phases = self.window.get("phase", "any")
+        phases = phases if isinstance(phases, list) else [phases]
+        if any(str(phase) not in self.phases for phase in phases): errors.append(f"{self.effect_id}: unsupported phase window")
         if not self.actions and not self.modifier: errors.append(f"{self.effect_id}: action or modifier is required")
         if self.once not in self.once_policies: errors.append(f"{self.effect_id}: unsupported once policy {self.once}")
         if self.speed not in [1, 2, 3]: errors.append(f"{self.effect_id}: unsupported speed {self.speed}")
+        if not isinstance(self.optional, bool): errors.append(f"{self.effect_id}: optional must be boolean")
+        if self.modifier:
+            try: layer = int(self.modifier.get("layer", 4))
+            except (TypeError, ValueError): layer = 4
+            if layer < 0: errors.append(f"{self.effect_id}: modifier layer must be non-negative")
+            replacement = self.modifier.get("replacement") or {}
+            if replacement and str(replacement.get("operation", "reduce")).lower() not in ["reduce", "set", "replace", "multiply", "scale", "increase", "add", "prevent", "negate", "cancel", "cap", "maximum"]: errors.append(f"{self.effect_id}: unsupported replacement operation")
         for action in self.actions:
             name = action.get("name")
             if name not in self.action_names: errors.append(f"{self.effect_id}: unknown action {name}")
@@ -1495,6 +1512,9 @@ class ContentStore:
             if spec.effect_id in seen: errors.append(f"duplicate effect id: {spec.effect_id}")
             seen.add(spec.effect_id)
             errors.extend(spec.validate())
+            if spec.capability_report()["actions"]:
+                for capability in spec.capability_report()["actions"]:
+                    if capability["status"] != "implemented" and capability["status"] != "declared_unsupported": errors.append(f"{spec.effect_id}: capability report marks {capability['name']} as {capability['status']}")
         return list(dict.fromkeys(errors))
 
     def validate_card_definition(self, kind, stars, atk, defense, family, description, targets=None, target_count=0, timing="main", materials=None, ritual_cost=0, summon_method="normal", effects=None):
@@ -1686,6 +1706,7 @@ class ContentStore:
         if "background" in values and values["background"]: place.background = str(values["background"])
         if "day_night" in values: place.day_night = bool(values["day_night"])
         if "event_response_policies" in values and isinstance(values["event_response_policies"], dict): place.event_response_policies = dict(values["event_response_policies"])
+        if "event_window_policies" in values and isinstance(values["event_window_policies"], dict): place.event_window_policies = dict(values["event_window_policies"])
         if "trigger_order_policies" in values and isinstance(values["trigger_order_policies"], dict): place.trigger_order_policies = dict(values["trigger_order_policies"])
         self.save()
         return place
@@ -2452,8 +2473,10 @@ class DuelEngine:
 
     def replace_event_value(self, event, value, actor, targets):
         result = int(value)
+        self.last_replacement_records = []
         target_items = targets if isinstance(targets, list) else [targets] if targets is not None else []
-        for record in self.continuous_effects:
+        records = sorted(self.continuous_effects, key=lambda item: (int(((item.get("modifier") or {}).get("replacement") or {}).get("priority", ((item.get("modifier") or {}).get("layer", 4))) or 4), item.get("id", "")))
+        for record in records:
             if not self.continuous_effect_active(record): continue
             replacement = dict((record.get("modifier") or {}).get("replacement") or {})
             if str(replacement.get("event", "")).lower() != event: continue
@@ -2461,10 +2484,14 @@ class DuelEngine:
             if selector and not any(isinstance(item, CardInstance) and self.modifier_matches({"selector": selector}, item, self.owner_of(item) or actor) for item in target_items): continue
             operation = str(replacement.get("operation", "reduce")).lower()
             amount = self.modifier_amount(replacement)
+            before = result
             if operation in ["set", "replace"]: result = amount
             elif operation in ["multiply", "scale"]: result = int(result * amount)
             elif operation in ["increase", "add"]: result += amount
+            elif operation in ["prevent", "negate", "cancel"]: result = 0
+            elif operation in ["cap", "maximum"]: result = min(result, amount)
             else: result = max(0, result - amount)
+            self.last_replacement_records.append({"id": record.get("id", ""), "operation": operation, "before": before, "after": result, "amount": amount})
             if replacement.get("once"):
                 record["status"] = "consumed"
             if result <= 0: break
@@ -2894,6 +2921,22 @@ class DuelEngine:
         self.emit_event("movement", owner, source=card, target=card, metadata={"from_zone": card.last_zone, "to_zone": destination, "owner": owner.character.id})
         return True
 
+    def normalize_event_window(self, trigger, actor=None, source=None, target=None, metadata=None):
+        legacy = dict(getattr(self.place, "event_response_policies", {}).get(trigger, {}) or {})
+        authored_registry = getattr(self.place, "event_window_policies", {})
+        authored = dict(authored_registry.get(trigger, authored_registry.get("*", {})) or {})
+        policy = {**legacy, **authored}
+        phases = policy.get("phases", policy.get("phase", []))
+        phases = phases if isinstance(phases, list) else [phases] if phases else []
+        normalized_phases = [str(item).lower().replace(" ", "_") for item in phases]
+        events = policy.get("events", policy.get("triggers", [trigger]))
+        events = events if isinstance(events, list) else [events]
+        normalized = dict(policy)
+        normalized.update({"event": trigger, "events": [str(item) for item in events], "phases": normalized_phases, "actor": self.side_key(actor) if actor else "", "source": self.entity_id(source), "target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        if normalized_phases and self.phase.lower().replace(" ", "_") not in normalized_phases and self.phase.lower() not in normalized_phases: normalized["enabled"] = False
+        if events and trigger not in events and "any" not in events: normalized["enabled"] = False
+        return normalized
+
     def normalize_event_response_policy(self, policy=None):
         raw = dict(policy or {})
         phases = raw.get("phases", raw.get("phase", []))
@@ -3123,6 +3166,18 @@ class DuelEngine:
         self.observe_visible_information(viewer_key)
         return {"viewer": viewer_key, "card_ids": list(self.knowledge.get(viewer_key, {}).get("card_ids", [])), "effect_ids": list(self.knowledge.get(viewer_key, {}).get("effect_ids", []))}
 
+    def export_knowledge(self):
+        return {key: {"card_ids": list(value.get("card_ids", [])), "effect_ids": list(value.get("effect_ids", []))} for key, value in self.knowledge.items()}
+
+    def import_knowledge(self, payload):
+        if not isinstance(payload, dict): return False
+        known_cards = {item.card.id for item in self.card_instances()}
+        known_effects = {spec.effect_id for item in self.card_instances() for index, raw in enumerate(item.card.effects) for spec in [EffectSpec.from_dict(raw, item.card.id + "_effect_" + str(index))]}
+        for key in ["player", "opponent"]:
+            value = payload.get(key, {}) if isinstance(payload.get(key, {}), dict) else {}
+            self.knowledge[key] = {"card_ids": sorted({str(item) for item in value.get("card_ids", []) if str(item) in known_cards}), "effect_ids": sorted({str(item) for item in value.get("effect_ids", []) if str(item) in known_effects})}
+        return True
+
     def public_state(self, viewer="player"):
         self.observe_visible_information(viewer)
         state = {"turn": self.turn, "phase": self.phase, "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "players": [], "knowledge": self.knowledge_for(viewer)}
@@ -3145,6 +3200,24 @@ class DuelEngine:
 
     def replay_snapshot(self, viewer="player"):
         return {"schema": "cbp.replay.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "state": self.public_state(viewer), "events": self.replay_view(viewer), "knowledge": self.knowledge_for(viewer)}
+
+    def replay_checkpoint(self, viewer="player"):
+        snapshot = self.replay_snapshot(viewer)
+        canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), default=str)
+        return {"schema": "cbp.checkpoint.v1", "sequence": self.replay_sequence, "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(), "snapshot": snapshot}
+
+    def validate_replay_checkpoint(self, checkpoint):
+        if not isinstance(checkpoint, dict) or checkpoint.get("schema") != "cbp.checkpoint.v1": return False
+        snapshot = checkpoint.get("snapshot")
+        if not isinstance(snapshot, dict): return False
+        canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), default=str)
+        return checkpoint.get("digest") == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def restore_replay_checkpoint(self, checkpoint):
+        if not self.validate_replay_checkpoint(checkpoint): return False
+        snapshot = checkpoint.get("snapshot", {})
+        self.import_knowledge(snapshot.get("knowledge", {}))
+        return {"schema": checkpoint.get("schema"), "sequence": checkpoint.get("sequence", 0), "viewer": snapshot.get("viewer", "player"), "validated": True}
 
     def entity_id(self, item):
         if isinstance(item, Duelist): return item.character.id
@@ -3275,7 +3348,11 @@ class DuelEngine:
         result = {"status": "resolved", "action": action, "amount": amount}
         targets = target if isinstance(target, list) else [target] if target is not None else []
         if action == "damage":
+            requested_amount = amount
             amount = self.replace_event_value("damage", amount, actor, targets)
+            result["requested_amount"] = requested_amount
+            result["amount"] = amount
+            result["replacements"] = list(self.last_replacement_records)
             recipients = [item for item in targets if hasattr(item, "hp")] or [self.other(actor)]
             values = []
             for recipient in recipients:
@@ -3655,9 +3732,9 @@ class DuelEngine:
     def emit_event(self, trigger, actor, source=None, target=None, metadata=None, include_source=True):
         self.rule_event_sequence += 1
         event_metadata = dict(metadata or {})
-        policy = dict(getattr(self.place, "event_response_policies", {}).get(trigger, {}) or {})
+        policy = self.normalize_event_window(trigger, actor, source, target, event_metadata)
         if policy.get("enabled", False):
-            event_metadata.update({"response_window": True, "response_policy": policy})
+            event_metadata.update({"response_window": True, "response_policy": policy, "event_window": {"event": trigger, "phase": self.phase, "turn": self.turn, "priority": policy.get("priority", "opposite")}})
         source_cards = [source] if include_source and isinstance(source, CardInstance) else []
         if not source_cards:
             source_cards = [item for side in [self.player, self.opponent] for item in side.monsters + side.spells if item and item.face_up]
@@ -3872,6 +3949,10 @@ class DuelEngine:
         self.resolve_pending_procedure(selected)
         return True
 
+    def ai_defense_estimate(self, card):
+        if not card.face_up: return 0
+        return self.effective_defense(card, self.player)
+
     def ai_card_score(self, card, mode):
         character = self.opponent.character
         weights = character.behavior_weights
@@ -3891,6 +3972,17 @@ class DuelEngine:
                 effect_score += self.declarative_effect_score(card, spec, self.opponent, self.player)
         return card.atk + card.card.stars * 40 + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * (200 if card.card.family == "spell" else 0) + effect_score
 
+    def ai_main_plan(self):
+        actions = []
+        if any(value is None for value in self.opponent.monsters):
+            for card in self.opponent.hand:
+                if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, self.opponent): actions.append({"kind": "summon", "card": card, "score": self.ai_card_score(card, "monster") + 120})
+        for card in self.opponent.hand:
+            if card.card.kind in ["spell", "field"]:
+                score = self.ai_card_score(card, "spell")
+                if score > -50000: actions.append({"kind": "activate", "card": card, "score": score})
+        return max(actions, key=lambda item: (item["score"], item["card"].card.id, item["kind"])) if actions else None
+
     def ai_step(self):
         if self.finished: return
         if self.ai_resolve_pending_trigger_order(): return
@@ -3900,18 +3992,16 @@ class DuelEngine:
             self.discard(self.opponent.hand[-1])
             return
         if self.phase in ["MAIN 1", "MAIN 2"]:
-            monsters = [card for card in self.opponent.hand if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, self.opponent)]
-            if monsters and any(value is None for value in self.opponent.monsters):
-                card = max(monsters, key=lambda item: self.ai_card_score(item, "monster"))
+            plan = self.ai_main_plan()
+            if plan and plan["kind"] == "summon":
+                card = plan["card"]
                 if card.card.summon_method == "fusion": result = self.begin_summon_procedure(card, self.opponent, ProcedureSpec.from_card(card))
                 elif card.card.summon_method == "ritual": result = self.begin_summon_procedure(card, self.opponent, ProcedureSpec.from_card(card))
                 else: result = self.summon(card, self.opponent)
-                if result[0] and result[1] not in ["pending_procedure", "pending_cost"]:
-                    self.log(f"{self.opponent.name} summons {card.card.name}.")
+                if result[0] and result[1] not in ["pending_procedure", "pending_cost"]: self.log(f"{self.opponent.name} summons {card.card.name}.")
                 return
-            spells = [card for card in self.opponent.hand if card.card.kind == "spell"]
-            if spells:
-                card = max(spells, key=lambda item: self.ai_card_score(item, "spell"))
+            if plan and plan["kind"] == "activate":
+                card = plan["card"]
                 self.opponent.hand.remove(card)
                 self.opponent.graveyard.append(card)
                 self.log(f"{self.opponent.name} activates {card.card.name}.")
@@ -3939,13 +4029,14 @@ class DuelEngine:
                     self.player.hp = max(0, self.player.hp - damage)
                     self.log(f"{self.opponent.name} attacks directly for {damage}.")
                 else:
-                    target = min(targets, key=lambda item: item.defense)
-                    if self.effective_atk(card, self.opponent) > target.defense:
+                    target = min(targets, key=lambda item: (self.ai_defense_estimate(item), item.card.id))
+                    target_defense = self.ai_defense_estimate(target)
+                    if self.effective_atk(card, self.opponent) > target_defense:
                         self.destroy(self.player, target)
-                        self.player.hp = max(0, self.player.hp - (self.effective_atk(card, self.opponent) - target.defense))
+                        self.player.hp = max(0, self.player.hp - max(0, self.effective_atk(card, self.opponent) - target_defense))
                         self.log(f"{self.opponent.name} defeats {target.card.name}.")
-                    elif self.effective_atk(card, self.opponent) < target.defense:
-                        self.opponent.hp = max(0, self.opponent.hp - (target.defense - self.effective_atk(card, self.opponent)))
+                    elif self.effective_atk(card, self.opponent) < target_defense:
+                        self.opponent.hp = max(0, self.opponent.hp - (target_defense - self.effective_atk(card, self.opponent)))
                         self.log(f"{target.card.name} stops the attack.")
                 self.check_end()
                 return
