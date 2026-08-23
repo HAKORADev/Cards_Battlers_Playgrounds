@@ -2811,6 +2811,7 @@ class DuelEngine:
                 if card.card.kind not in ["spell", "field", "trap"]: continue
                 for index, raw_effect in enumerate(card.card.effects):
                     spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+                    if spec.validate(): continue
                     response_events = spec.response.get("triggers", spec.response.get("events", [trigger]))
                     response_events = response_events if isinstance(response_events, list) else [response_events]
                     if not spec.response.get("enabled", False) and spec.trigger not in ["respond", "chain_response"]: continue
@@ -2830,6 +2831,33 @@ class DuelEngine:
 
     def chain_prompt_payload(self):
         return {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority), "candidates": self.response_card_ids(self.chain_priority, self.chain_window.get("trigger", ""))}
+
+    def ai_response_score(self, candidate):
+        spec = candidate["spec"]
+        score = int(spec.speed) * 100
+        action_names = [action.get("name", "") for action in spec.actions]
+        if "negate_chain" in action_names: score += 10000
+        if "destroy" in action_names: score += 150
+        if "damage" in action_names: score += 200
+        score += sum(int(action.get("amount", 0) or 0) for action in spec.actions if isinstance(action.get("amount", 0), (int, float)))
+        return score
+
+    def ai_chain_step(self):
+        if self.finished or not self.chain_window or self.chain_priority is not self.opponent: return False, "AI does not have chain priority."
+        candidates = self.response_candidates(self.opponent, self.chain_window.get("trigger", ""))
+        if not candidates: return self.pass_chain_priority(self.opponent)
+        candidate = max(candidates, key=lambda item: (self.ai_response_score(item), item["card"].card.id, item["spec"].effect_id))
+        selector = candidate["selector"]
+        required = int(selector.get("count", candidate["card"].card.target_count or 0) or 0) if selector else 0
+        target = None
+        if required:
+            legal = list(candidate["targets"])
+            if len(legal) < required: return self.pass_chain_priority(self.opponent)
+            ranked = sorted(legal, key=lambda item: (self.ai_card_score(item, "monster") if isinstance(item, CardInstance) else 0, self.entity_id(item)))
+            target = ranked[-1] if required == 1 else ranked[-required:]
+        result = self.begin_response_card(candidate["card"], candidate["spec"].effect_id, self.opponent, target)
+        if not result[0] and result[1] not in ["pending", "pending_cost"]: return self.pass_chain_priority(self.opponent)
+        return result
 
     def consume_chain_response_prompt(self):
         notification = self.pending_notification("chain_response")
@@ -4402,7 +4430,7 @@ class DuelScene(Scene):
                 self.ai_timer += dt
                 if self.ai_timer > 0.6:
                     self.ai_timer = 0
-                    self.engine.pass_chain_priority(self.engine.opponent)
+                    self.engine.ai_chain_step()
         elif self.engine.active is self.engine.opponent and not self.engine.finished:
             self.ai_timer += dt
             if self.ai_timer > 0.6:
