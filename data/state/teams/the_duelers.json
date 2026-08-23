@@ -5,8 +5,8 @@
   "state": {
     "team_effect": {},
     "rank": 1,
-    "effect_locked": false,
     "relationship": "engine",
-    "history": []
+    "history": [],
+    "effect_locked": false
   }
 }

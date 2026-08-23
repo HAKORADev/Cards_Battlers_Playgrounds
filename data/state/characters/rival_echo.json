@@ -3,66 +3,106 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
-    "activity": "idle",
-    "availability": "free",
-    "learned_cards": {
-      "cinder_knight": 72,
-      "aqua_sentinel": 36,
-      "iron_fridge": 36,
-      "sky_archer": 36
-    },
-    "current_place": "",
+    "enemies": [],
     "allies": [],
-    "borrowed_cards": [],
-    "learned_opponents": {
-      "player": 36
+    "library_cards": [
+      "aqua_sentinel",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel"
+    ],
+    "activity": "idle",
+    "cooldown_until": 0.0,
+    "learned_cards": {
+      "cinder_knight": 78,
+      "aqua_sentinel": 39,
+      "iron_fridge": 39,
+      "sky_archer": 39
     },
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 2.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 2.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      }
+    },
+    "movement_progress": 0.0,
+    "mood": "focused",
+    "learned_opponents": {
+      "player": 39
+    },
+    "destination": "",
+    "current_place": "",
+    "availability": "free",
+    "relationship": "rival",
     "history": [
-      {
-        "opponent": "player",
-        "result": "win",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "cinder_knight",
-          "cinder_knight",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer"
-        ],
-        "traded_card": "sky_archer",
-        "time": 1787491063.0224476
-      },
-      {
-        "opponent": "player",
-        "result": "win",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "cinder_knight",
-          "cinder_knight",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer"
-        ],
-        "traded_card": "void_titan",
-        "time": 1787492213.993367
-      },
-      {
-        "opponent": "player",
-        "result": "win",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "cinder_knight",
-          "cinder_knight",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer"
-        ],
-        "traded_card": "cinder_knight",
-        "time": 1787493277.3511317
-      },
       {
         "opponent": "player",
         "result": "win",
@@ -317,91 +357,54 @@
         ],
         "traded_card": "void_titan",
         "time": 1787515682.731516
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787516543.772421
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787516611.3097453
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787516731.6625123
       }
     ],
-    "destination": "",
-    "enemies": [],
-    "rank": 10,
-    "cooldown_until": 0.0,
-    "library_cards": [
-      "aqua_sentinel",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan"
-    ],
-    "mood": "focused",
-    "relationship": "rival",
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 10.0,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 2.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 2.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0
-      },
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      }
-    },
-    "movement_progress": 0.0
+    "borrowed_cards": [],
+    "rank": 10
   }
 }

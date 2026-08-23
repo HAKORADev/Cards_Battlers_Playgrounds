@@ -112,6 +112,8 @@
     "optional": "boolean"
   },
   "action": {
+    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "shuffle"],
+    "declared_but_unsupported": ["control", "summon", "fusion_summon", "ritual_summon"],
     "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "fusion_summon", "ritual_summon", "shuffle"],
     "amount": "number, expression, or object",
     "target": "selector id, source, actor, or explicit target",

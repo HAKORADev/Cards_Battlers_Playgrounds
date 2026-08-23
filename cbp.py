@@ -753,6 +753,7 @@ class EffectSpec:
     legacy: bool = False
 
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "fusion_summon", "ritual_summon", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
 
     @classmethod
@@ -806,7 +807,9 @@ class EffectSpec:
         if phase not in self.phases: errors.append(f"{self.effect_id}: unsupported phase {phase}")
         if not self.actions and not self.modifier: errors.append(f"{self.effect_id}: action or modifier is required")
         for action in self.actions:
-            if action.get("name") not in self.action_names: errors.append(f"{self.effect_id}: unsupported action {action.get('name')}")
+            name = action.get("name")
+            if name not in self.action_names: errors.append(f"{self.effect_id}: unknown action {name}")
+            elif name not in self.implemented_actions: errors.append(f"{self.effect_id}: action {name} is declared but not implemented")
         if self.notify:
             kind = self.notify.get("kind", self.notify.get("type", "info"))
             if kind not in {"ok", "yes_no", "choose_target", "choose_cards", "info"}: errors.append(f"{self.effect_id}: unsupported notification {kind}")
@@ -1430,7 +1433,17 @@ class ContentStore:
             self.save()
         return transferred
 
-    def validate_card_definition(self, kind, stars, atk, defense, family, description, targets=None, target_count=0, timing="main", materials=None, ritual_cost=0, summon_method="normal"):
+    def validate_effects(self, effects):
+        errors = []
+        seen = set()
+        for index, raw in enumerate(effects or []):
+            spec = EffectSpec.from_dict(raw, "effect_" + str(index))
+            if spec.effect_id in seen: errors.append(f"duplicate effect id: {spec.effect_id}")
+            seen.add(spec.effect_id)
+            errors.extend(spec.validate())
+        return list(dict.fromkeys(errors))
+
+    def validate_card_definition(self, kind, stars, atk, defense, family, description, targets=None, target_count=0, timing="main", materials=None, ritual_cost=0, summon_method="normal", effects=None):
         errors = []
         monster_kinds = {"normal", "effect", "fusion", "ritual", "legendary"}
         if not str(family or "").strip(): errors.append("family is required")
@@ -1442,13 +1455,14 @@ class ContentStore:
         if kind not in ["fusion", "ritual"] and summon_method not in ["normal", ""]: errors.append("only fusion and ritual cards may use special summon modes")
         if int(target_count) > 0 and (not targets or targets == ["none"]): errors.append("target count requires a target type")
         if timing not in ["main", "opponent_attack", "any"]: errors.append("unsupported timing")
+        errors.extend(self.validate_effects(effects or []))
         return list(dict.fromkeys(errors))
 
-    def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path=""):
+    def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path="", effects=None):
         card_id = "card_" + str(int(time.time() * 1000))
         frame = "yellow" if kind == "normal" else "orange" if kind == "effect" else "sky" if kind in ["spell", "field"] else "pink" if kind == "trap" else "violet" if kind == "fusion" else "blue" if kind == "ritual" else "red"
         resolved_method = summon_method if summon_method != "normal" else kind if kind in ["fusion", "ritual"] else "normal"
-        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", [], (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method)
+        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method)
         card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card", ["images", "interactions", "logic", "animations", "audio"])
         card.art_folder = card.media_folder
         source = Path(str(art_path)).expanduser() if art_path else None
@@ -1750,7 +1764,9 @@ class CardInstance:
         self.owner = owner
         self.variant = int(getattr(card, "art_variant", 1) or 1)
         self.position = "hand"
+        self.last_zone = "hand"
         self.face_up = True
+        self.battle_position = "attack"
         self.attack_bonus = 0
         self.defense_bonus = 0
         self.attacked = False
@@ -1762,6 +1778,20 @@ class CardInstance:
     @property
     def defense(self):
         return self.card.defense + self.defense_bonus
+
+
+@dataclass
+class RuleContext:
+    context_id: str
+    trigger: str
+    phase: str
+    turn: int
+    actor_id: str
+    source_card_id: str
+    source_zone: str
+    target_ids: list = field(default_factory=list)
+    window: dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1778,6 +1808,7 @@ class EffectEvent:
     source_zone: str = ""
     source_actor: str = ""
     policy: dict = field(default_factory=dict)
+    context: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1933,7 +1964,11 @@ class DuelEngine:
         self.resolution_history = []
         self.effect_sequence = 0
         self.notifications = []
+        self.notification_history = []
         self.notification_sequence = 0
+        self.rule_event_sequence = 0
+        self.event_history = []
+        self.active_rule_context = None
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
@@ -1984,7 +2019,29 @@ class DuelEngine:
         if not notification or answer not in notification.options: return False
         notification.answer = answer
         notification.status = "resolved"
+        self.notification_history.append({"id": notification.notification_id, "kind": notification.kind, "answer": answer, "payload": notification.payload, "time": time.time()})
+        self.notification_history = self.notification_history[-64:]
         return True
+
+    def respond_notification(self, notification_id, answer="ok", selection=None):
+        notification = next((item for item in self.notifications if item.notification_id == notification_id and item.status == "pending"), None)
+        if not notification or answer not in notification.options: return False, "That response is not available."
+        if notification.kind == "yes_no":
+            success, message = self.answer_pending_effect(answer)
+            return success, message
+        if notification.kind == "choose_target":
+            selected = selection if isinstance(selection, list) else [selection]
+            if not selected or not self.pending_target: return False, "Choose the required target(s)."
+            result = (True, "")
+            for item in selected:
+                result = self.select_target(item)
+                if not result[0]: return result
+            return result
+        if notification.kind == "choose_cards":
+            if selection is None or not self.pending_cost: return False, "Choose the required card(s)."
+            return self.resolve_pending_cost(selection)
+        if self.answer_notification(notification_id, answer): return True, ""
+        return False, "The notification could not be resolved."
 
     def pending_notification(self, kind=None):
         return next((item for item in reversed(self.notifications) if item.status == "pending" and (kind is None or item.kind == kind)), None)
@@ -2037,6 +2094,7 @@ class DuelEngine:
                 return
         else:
             self.log(f"{self.active.name} enters {self.phase}.")
+        self.emit_event("phase_enter", self.active, metadata={"phase": self.phase})
         if self.phase == "DRAW" and self.turn == 1:
             self.advance()
 
@@ -2252,6 +2310,7 @@ class DuelEngine:
         self.player.hand.remove(card)
         card.position = "set"
         card.face_up = False
+        if target is self.player.monsters: card.battle_position = "defense"
         target[zone] = card
         self.log(f"{self.player.name} sets a card.")
         self.react("set", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
@@ -2297,10 +2356,11 @@ class DuelEngine:
 
     def move_card(self, card, destination, owner=None):
         owner = owner or self.owner_of(card)
-        if not owner or not card: return False
+        if not owner or not card or destination not in ["graveyard", "banished", "hand", "deck", "extra"]: return False
         if card is self.field_card:
             self.field_card = None
             self.field_card_owner = None
+        card.last_zone = card.position
         owner.remove(card)
         card.position = destination
         if destination == "graveyard":
@@ -2328,7 +2388,10 @@ class DuelEngine:
         normalized = LogicRuntime.normalize_action(f"{action} {amount}")
         if not normalized["valid"]: return None
         self.effect_sequence += 1
-        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger, "queued", {}, getattr(card, "position", ""), getattr(getattr(actor, "character", actor), "id", ""), {"source": source})
+        target_items = target if isinstance(target, list) else [target] if target is not None else []
+        context = RuleContext(f"ctx_{self.effect_sequence + 1}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(card, "card", card), "id", ""), getattr(card, "last_zone", getattr(card, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, {"source": source})
+        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger, "queued", {}, context.source_zone, context.actor_id, {"source": source}, context.__dict__)
+
         self.effect_queue.append(event)
         return event
 
@@ -2369,19 +2432,45 @@ class DuelEngine:
             drawn = actor.draw(max(1, amount))
             result["value"] = len(drawn)
             self.log(f"{source} lets {actor.name} draw {len(drawn)} card(s).")
-        elif action == "boost_attack":
-            card.attack_bonus += amount
-            result["value"] = card.attack_bonus
-            self.log(f"{source} gives {card.card.name} {amount} ATK.")
-        elif action == "boost_defense":
-            card.defense_bonus += amount
-            result["value"] = card.defense_bonus
-            self.log(f"{source} gives {card.card.name} {amount} DEF.")
+        elif action in ["set_face_up", "set_face_down", "switch_position"]:
+            selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
+            values = []
+            for selected_card in selected_cards:
+                if action == "set_face_up": selected_card.face_up = True
+                elif action == "set_face_down": selected_card.face_up = False
+                elif selected_card.face_up: selected_card.battle_position = "defense" if selected_card.battle_position == "attack" else "attack"
+                values.append({"id": selected_card.card.id, "face_up": selected_card.face_up, "position": selected_card.battle_position})
+            result["value"] = values
+            self.log(f"{source} changes state of {len(selected_cards)} card(s).")
+        elif action in ["boost_attack", "boost_defense"]:
+            selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
+            values = []
+            for selected_card in selected_cards:
+                if action == "boost_attack": selected_card.attack_bonus += amount; values.append(selected_card.attack_bonus)
+                else: selected_card.defense_bonus += amount; values.append(selected_card.defense_bonus)
+            result["value"] = values[0] if len(values) == 1 else values
+            result["target_ids"] = [item.card.id for item in selected_cards]
+            label = "ATK" if action == "boost_attack" else "DEF"
+            self.log(f"{source} modifies {len(selected_cards)} card(s) by {amount} {label}.")
+        elif action == "destroy":
+            selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
+            moved = [item.card.id for item in selected_cards if self.move_card(item, "graveyard")]
+            result["value"] = moved
+            result["status"] = "resolved" if moved else "blocked"
+            if moved: self.log(f"{source} destroys {len(moved)} card(s).")
+        elif action == "shuffle":
+            owners = [item for item in targets if isinstance(item, Duelist)]
+            owners = owners or [actor]
+            for owner in owners: random.shuffle(owner.deck)
+            result["value"] = [owner.name for owner in owners]
+            self.log(f"{source} shuffles {len(owners)} deck(s).")
         elif action in ["banish", "send_to_graveyard", "return_to_hand"]:
             selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
             destination = "banished" if action == "banish" else "graveyard" if action == "send_to_graveyard" else "hand"
             moved = [item.card.id for item in selected_cards if self.move_card(item, destination)]
             result["value"] = moved[0] if len(moved) == 1 else moved
+            result["from_zone"] = getattr(card, "last_zone", "")
+            result["to_zone"] = destination
             result["status"] = "resolved" if moved else "blocked"
             if moved: self.log(f"{source} moves {len(moved)} card(s) to {destination}.")
         else: result["status"] = "blocked"
@@ -2510,9 +2599,32 @@ class DuelEngine:
         self.execute_effect_spec(pending["card"], pending["spec"], pending["actor"], pending["target"])
         return True, ""
 
-    def resolve(self, card, trigger, target=None, actor=None):
+    def emit_event(self, trigger, actor, source=None, target=None, metadata=None):
+        self.rule_event_sequence += 1
+        source_cards = [source] if isinstance(source, CardInstance) else []
+        if not source_cards:
+            source_cards = [item for side in [self.player, self.opponent] for item in side.monsters + side.spells if item and item.face_up]
+            if self.field_card and self.field_card.face_up: source_cards.append(self.field_card)
+        source_cards = list(dict.fromkeys(source_cards))
+        target_items = target if isinstance(target, list) else [target] if target is not None else []
+        context = RuleContext(f"rule_{self.rule_event_sequence}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(source, "card", source), "id", ""), getattr(source, "last_zone", getattr(source, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, dict(metadata or {}))
+        self.event_history.append(context.__dict__.copy())
+        self.event_history = self.event_history[-128:]
+        ordered = []
+        for source_card in source_cards:
+            for index, raw_effect in enumerate(source_card.card.effects):
+                spec = EffectSpec.from_dict(raw_effect, source_card.card.id + "_effect_" + str(index))
+                if spec.trigger == trigger and not spec.validate(): ordered.append((spec.priority, source_card.card.id, source_card, spec))
+        self.active_rule_context = context
+        for _, _, source_card, _ in sorted(ordered, key=lambda item: (item[0], item[1])): self.resolve(source_card, trigger, target, actor, context)
+        self.active_rule_context = None
+        return context
+
+    def resolve(self, card, trigger, target=None, actor=None, context=None):
         actor = actor or (self.player if card in self.player.hand or card in self.player.monsters or card in self.player.spells else self.opponent)
         target = target if target is not None else self.other(actor)
+        previous_context = self.active_rule_context
+        self.active_rule_context = context or previous_context
         for index, raw_effect in enumerate(card.card.effects):
             spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
             if spec.trigger != trigger: continue
@@ -2532,11 +2644,12 @@ class DuelEngine:
             paid, result = self.pay_costs(spec, card, actor)
             if not paid: continue
             self.execute_effect_spec(card, spec, actor, target)
+        self.active_rule_context = previous_context
 
     def attack(self, card, target=None):
         if self.finished or self.active is not self.player or self.phase != "BATTLE": return False, "Attacks are only available during Battle."
         if card not in self.player.monsters or card is None: return False, "Select a face-up monster."
-        if card.attacked or not card.face_up: return False, "That monster cannot attack now."
+        if card.attacked or not card.face_up or card.battle_position != "attack": return False, "That monster cannot attack now."
         card.attacked = True
         targets = [item for item in self.opponent.monsters if item]
         if target is not None and target not in targets: return False, "That target is not on the opponent field."
@@ -2551,7 +2664,7 @@ class DuelEngine:
                 target.face_up = True
                 self.log(f"{target.card.name} flips face-up.")
             attack_value = self.effective_atk(card, self.player)
-            defense_value = target.defense
+            defense_value = self.effective_defense(target, self.opponent)
             if attack_value > defense_value:
                 damage = attack_value - defense_value
                 self.opponent.hp = max(0, self.opponent.hp - damage)
@@ -3349,7 +3462,7 @@ class DuelScene(Scene):
                 return
             if self.hover_hand:
                 if self.engine.pending_cost and self.question and self.question.get("stage") == "choose_card":
-                    success, msg = self.engine.resolve_pending_cost(self.hover_hand)
+                    success, msg = self.engine.respond_notification(self.question.get("notification_id"), "ok", self.hover_hand)
                     self.message = msg or (self.engine.events[-1] if success and self.engine.events else "")
                     if success: self.question = None
                     return
@@ -3440,7 +3553,7 @@ class DuelScene(Scene):
         elif kind == "notifier" and stage == "await_ok":
             if self.layout.question_action_rect("ok").collidepoint(pos):
                 notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id")), None)
-                if notification and "ok" in notification.options: self.engine.answer_notification(notification.notification_id, "ok")
+                if notification and "ok" in notification.options: self.engine.respond_notification(notification.notification_id, "ok")
                 self.question = None
         elif kind == "surrender" and stage == "confirm":
             if self.layout.question_action_rect("yes").collidepoint(pos):
@@ -4172,6 +4285,7 @@ class CardMakerScene(Scene):
         self.materials = []
         self.ritual_cost = 0
         self.field_effect = {}
+        self.effects = []
         self.refresh_buttons()
 
     def refresh_buttons(self):
@@ -4224,11 +4338,11 @@ class CardMakerScene(Scene):
     def create(self):
         graph = "" if self.logic_graph == "none" else self.logic_graph
         field_effect = {"family": self.family, "atk": 300} if self.kind == "field" else {}
-        errors = self.app.store.validate_card_definition(self.kind, self.stars, self.atk, self.defense, self.family, self.description.value, self.targets, self.target_count, self.timing, self.materials, self.ritual_cost, self.summon_method)
+        errors = self.app.store.validate_card_definition(self.kind, self.stars, self.atk, self.defense, self.family, self.description.value, self.targets, self.target_count, self.timing, self.materials, self.ritual_cost, self.summon_method, self.effects)
         if errors:
             self.app.notify("Card rejected: " + "; ".join(errors[:2]))
             return
-        self.app.store.create_card(self.name.value, self.kind, self.stars, self.atk, self.defense, self.family, self.description.value, graph, self.targets, self.target_count, self.timing, field_effect, self.materials, self.ritual_cost, self.summon_method, self.art_path.value)
+        self.app.store.create_card(self.name.value, self.kind, self.stars, self.atk, self.defense, self.family, self.description.value, graph, self.targets, self.target_count, self.timing, field_effect, self.materials, self.ritual_cost, self.summon_method, self.art_path.value, self.effects)
         self.app.store.load()
         self.app.notify("Card saved. Its editable folder tree now exists in data/cards/")
 
