@@ -2532,9 +2532,12 @@ class DuelEngine:
         if procedure.kind not in ["fusion", "ritual", "tribute"]: return False, "This summon procedure is not implemented."
         if procedure.kind == "tribute" and self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         if not any(value is None for value in actor.monsters): return False, "All five monster zones are occupied."
-        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False}
         if procedure.costs:
             cost_spec = EffectSpec.from_dict({"id": card.card.id + "_procedure_cost", "trigger": "summon", "cost": procedure.costs}, card.card.id + "_procedure_cost")
+            valid, result = self.preflight_costs(cost_spec, card, actor)
+            if not valid: return False, result.get("reason", "The summon procedure cost cannot be paid.")
+        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False}
+        if procedure.costs:
             paid, result = self.pay_costs(cost_spec, card, actor, 0, "procedure_cost")
             if not paid:
                 if result.get("status") == "pending":
@@ -3072,6 +3075,23 @@ class DuelEngine:
         selector["count"] = "all"
         return [item for item in SelectorRuntime(self, actor, card).select(selector) if item is not card]
 
+    def preflight_costs(self, spec, card, actor, start_index=0):
+        hp_remaining = int(actor.hp)
+        for index in range(start_index, len(spec.costs)):
+            cost = spec.costs[index]
+            kind = cost.get("kind", cost.get("action", ""))
+            if kind in ["discard", "tribute", "send_to_graveyard"]:
+                candidates = self.cost_candidates(cost, card, actor)
+                required = max(1, int(cost.get("count", (cost.get("select") or {}).get("count", 1)) or 1))
+                if len(candidates) < required: return False, {"status": "blocked", "reason": "insufficient_cost_candidates", "kind": kind, "index": index}
+            elif kind == "pay_hp":
+                amount = max(0, int(cost.get("amount", 0) or 0))
+                hp_remaining -= amount
+                if hp_remaining < 0: return False, {"status": "blocked", "reason": "insufficient_hp", "index": index}
+            else:
+                return False, {"status": "blocked", "reason": "unsupported_cost", "kind": kind, "index": index}
+        return True, {"status": "valid"}
+
     def pay_costs(self, spec, card, actor, start_index=0, continuation_kind=""):
         for index in range(start_index, len(spec.costs)):
             cost = spec.costs[index]
@@ -3090,6 +3110,8 @@ class DuelEngine:
                 amount = int(cost.get("amount", 0))
                 if actor.hp < amount: return False, {"status": "blocked", "reason": "insufficient_hp"}
                 actor.hp -= amount
+            else:
+                return False, {"status": "blocked", "reason": "unsupported_cost", "kind": kind}
         return True, {"status": "paid"}
 
     def resolve_pending_cost(self, cards):
@@ -3114,6 +3136,10 @@ class DuelEngine:
             return self.add_chain_link(card, spec, actor, target, spec.trigger, {"response": True, "cost_paid": True, "target_snapshot": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
         if pending_kind == "procedure_cost":
             next_index = int(pending.get("cost_index", 0)) + 1
+            valid, result = self.preflight_costs(spec, card, actor, next_index)
+            if not valid:
+                self.pending_procedure = None
+                return False, result.get("reason", "The summon procedure cost cannot be paid.")
             paid, result = self.pay_costs(spec, card, actor, next_index, "procedure_cost")
             if not paid:
                 if result.get("status") == "pending":
