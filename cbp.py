@@ -2172,7 +2172,13 @@ class DuelEngine:
             success, message = self.answer_pending_effect(answer)
             return success, message
         if notification.kind == "chain_response":
-            if answer != "pass": return False, "Only passing is available in this response window."
+            if answer == "card":
+                candidates = self.response_candidates(self.chain_priority, self.chain_window.get("trigger", "") if self.chain_window else "")
+                selected = selection if isinstance(selection, CardInstance) else next((item["card"] for item in candidates if item["card"].card.id == str(selection)), None)
+                candidate = next((item for item in candidates if item["card"] is selected), None)
+                if not candidate: return False, "That response card is not legal in this window."
+                return self.begin_response_card(selected, candidate["spec"].effect_id, self.chain_priority)
+            if answer != "pass" or not notification.payload.get("allow_pass", True): return False, "Passing is not available in this response window."
             notification.status, notification.answer = "resolved", answer
             self.notification_history.append({"id": notification.notification_id, "kind": notification.kind, "answer": answer, "payload": notification.payload, "time": time.time()})
             return self.pass_chain_priority(self.chain_priority)
@@ -2815,16 +2821,20 @@ class DuelEngine:
         candidates = self.response_candidates(priority, response_trigger)
         if not candidates: return None
         context = dict(metadata or {})
-        context.update({"event_window": True, "event_trigger": trigger, "response_trigger": response_trigger, "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        context.update({"event_window": True, "event_trigger": trigger, "response_trigger": response_trigger, "mandatory": bool(policy.get("mandatory", False)), "allow_pass": bool(policy.get("allow_pass", not policy.get("mandatory", False))), "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
         return self.open_chain_window(priority, response_trigger, source, target, context)
 
     def open_chain_window(self, actor, trigger, source=None, target=None, context=None):
         if self.chain_window: return self.chain_window
         self.chain_sequence += 1
-        self.chain_window = {"chain_id": "chain_" + str(self.chain_sequence), "trigger": trigger, "source": source, "target": target, "opened_by": self.side_key(actor), "priority": actor, "passes": [], "context": dict(context or {})}
+        chain_context = dict(context or {})
+        chain_context.setdefault("mandatory", False)
+        chain_context.setdefault("allow_pass", not chain_context.get("mandatory", False))
+        self.chain_window = {"chain_id": "chain_" + str(self.chain_sequence), "trigger": trigger, "source": source, "target": target, "opened_by": self.side_key(actor), "priority": actor, "passes": [], "context": chain_context}
         self.chain_priority = actor
         self.chain_passes = []
-        self.notify("chain_response", "Chain response window is open.", ["pass"], self.chain_prompt_payload())
+        payload = self.chain_prompt_payload()
+        self.notify("chain_response", "Chain response window is open.", ["pass", "card"] if payload["allow_pass"] else ["card"], payload)
         return self.chain_window
 
     def response_candidates(self, side=None, trigger=None):
@@ -2857,7 +2867,11 @@ class DuelEngine:
         return [item["card"].card.id for item in self.response_candidates(side, trigger)]
 
     def chain_prompt_payload(self):
-        return {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority), "candidates": self.response_card_ids(self.chain_priority, self.chain_window.get("trigger", ""))}
+        context = self.chain_window.get("context", {})
+        candidates = self.response_card_ids(self.chain_priority, self.chain_window.get("trigger", ""))
+        mandatory = bool(context.get("mandatory", False))
+        allow_pass = bool(context.get("allow_pass", True)) or not mandatory or not candidates
+        return {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority), "candidates": candidates, "mandatory": mandatory, "allow_pass": allow_pass}
 
     def ai_response_score(self, candidate):
         spec = candidate["spec"]
@@ -2961,11 +2975,14 @@ class DuelEngine:
         self.chain_history.append({"event": "link_added", "chain_id": self.chain_window["chain_id"], "link_id": link.link_id, "index": link.index, "source": card.card.id, "actor": self.side_key(actor), "speed": spec.speed, "targets": link_context["target_snapshot"]})
         self.chain_priority = self.other(actor)
         self.chain_passes = []
-        self.notify("chain_response", "Chain response window is open.", ["pass"], self.chain_prompt_payload())
+        payload = self.chain_prompt_payload()
+        chain_options = ["pass", "card"] if payload["allow_pass"] else ["card"]
+        self.notify("chain_response", "Chain response window is open.", chain_options, payload)
         return True, link
 
     def pass_chain_priority(self, actor):
         if not self.chain_window or self.chain_priority is not actor: return False, "That side does not have chain priority."
+        if self.chain_window.get("context", {}).get("mandatory", False) and self.response_candidates(actor, self.chain_window.get("trigger", "")): return False, "A response is required in this window."
         self.chain_passes.append(self.side_key(actor))
         if len(self.chain_passes) >= 2:
             return self.resolve_chain()
