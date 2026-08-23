@@ -2071,6 +2071,7 @@ class DuelEngine:
         self.notification_sequence = 0
         self.replay_sequence = 0
         self.replay_log = []
+        self.replay_applying = False
         self.knowledge = {"player": {"card_ids": [], "effect_ids": [], "effect_facts": {}}, "opponent": {"card_ids": [], "effect_ids": [], "effect_facts": {}}}
         self.rule_event_sequence = 0
         self.event_history = []
@@ -3118,6 +3119,7 @@ class DuelEngine:
         return self.begin_response_card(pending["card"], pending["spec"].effect_id, pending["actor"], selected[0] if pending["required"] == 1 else selected)
 
     def record_replay(self, kind, payload=None):
+        if self.replay_applying: return None
         self.replay_sequence += 1
         record = {"sequence": self.replay_sequence, "kind": str(kind), "turn": self.turn, "phase": self.phase, "active": self.side_key(self.active), "payload": dict(payload or {})}
         self.replay_log.append(record)
@@ -3211,6 +3213,32 @@ class DuelEngine:
     def replay_record_at(self, sequence, viewer="player"):
         return next((item for item in self.replay_view(viewer) if item.get("sequence") == int(sequence)), None)
 
+    def replay_card(self, card_id):
+        return next((item for item in self.card_instances() if item.card.id == str(card_id)), None)
+
+    def replay_side(self, side_id):
+        return self.player if str(side_id) in ["player", self.player.character.id, self.player.name] else self.opponent if str(side_id) in ["opponent", self.opponent.character.id, self.opponent.name] else None
+
+    def apply_replay_record(self, record):
+        if not isinstance(record, dict) or record.get("kind") != "resolution": return False
+        payload = record.get("payload", {})
+        source = self.replay_card(payload.get("source_card_id", ""))
+        actor = self.replay_side(payload.get("actor_id", "")) or self.player
+        if source is None: return False
+        targets = [self.replay_card(item) or self.replay_side(item) for item in payload.get("target_ids", [])]
+        targets = [item for item in targets if item is not None]
+        target = targets[0] if len(targets) == 1 else targets
+        self.replay_applying = True
+        try: self.apply_effect(source, payload.get("action", ""), int(payload.get("amount", 0) or 0), actor, target)
+        finally: self.replay_applying = False
+        return True
+
+    def apply_replay_records(self, records):
+        applied = 0
+        for record in records or []:
+            if self.apply_replay_record(record): applied += 1
+        return {"schema": "cbp.replay-apply.v1", "applied": applied, "requested": len(records or [])}
+
     def replay_snapshot(self, viewer="player"):
         return {"schema": "cbp.replay.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "state": self.public_state(viewer), "events": self.replay_view(viewer), "knowledge": self.knowledge_for(viewer)}
 
@@ -3220,8 +3248,39 @@ class DuelEngine:
     def checkpoint_side(self, side):
         return {"id": side.character.id, "name": side.name, "hp": side.hp, "deck": [self.checkpoint_card(item) for item in side.deck], "hand": [self.checkpoint_card(item) for item in side.hand], "monsters": [self.checkpoint_card(item) if item else None for item in side.monsters], "spells": [self.checkpoint_card(item) if item else None for item in side.spells], "graveyard": [self.checkpoint_card(item) for item in side.graveyard], "banished": [self.checkpoint_card(item) for item in side.banished], "extra": [self.checkpoint_card(item) for item in side.extra]}
 
+    def pending_ref(self, item):
+        if isinstance(item, Duelist): return {"kind": "side", "value": self.side_key(item)}
+        if isinstance(item, CardInstance): return {"kind": "card", "value": item.card.id}
+        return item
+
+    def pending_payload(self):
+        if self.pending_discard: return {"kind": "discard", "owner": self.side_key(self.pending_discard)}
+        if self.pending_target:
+            pending = self.pending_target
+            return {"kind": "target", "card": pending["card"].card.id, "actor": self.side_key(pending["actor"]), "trigger": pending.get("trigger", ""), "effect_id": pending.get("effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "target_policy": pending.get("target_policy", {}), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])], "snapshot": list(pending.get("snapshot", []))}
+        if self.pending_summon:
+            pending = self.pending_summon
+            return {"kind": "summon", "actor": self.side_key(pending["actor"]), "method": pending.get("method", "special"), "source_card": pending.get("source_card").card.id if pending.get("source_card") else "", "source_effect_id": pending.get("source_effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])]}
+        if self.pending_trap: return {"kind": "trap", "trap": self.pending_trap["trap"].card.id}
+        if self.pending_effect:
+            pending = self.pending_effect
+            return {"kind": "effect", "card": pending["card"].card.id, "actor": self.side_key(pending["actor"]), "effect_id": pending["spec"].effect_id, "target": self.pending_ref(pending.get("target"))}
+        if self.pending_cost or self.pending_procedure or self.pending_response or self.pending_trigger_order: return {"kind": "unsupported_interactive", "supported": False}
+        return None
+
+    def checkpoint_chain_ref(self, item):
+        return self.pending_ref(item)
+
+    def checkpoint_chain(self):
+        if not self.chain_window and not self.chain_links: return None
+        window = dict(self.chain_window or {})
+        for key in ["source", "target", "priority"]:
+            if key in window: window[key] = self.checkpoint_chain_ref(window[key])
+        window["context"] = dict(window.get("context", {}))
+        return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
+
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "replay_sequence": self.replay_sequence, "replay_log": list(self.replay_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history)}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "replay_sequence": self.replay_sequence, "replay_log": list(self.replay_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
@@ -3238,6 +3297,39 @@ class DuelEngine:
             setattr(side, zone, [self._restore_card(item, side) for item in payload.get(zone, [])])
         side.monsters = [self._restore_card(item, side) if item else None for item in payload.get("monsters", [None] * 5)]
         side.spells = [self._restore_card(item, side) if item else None for item in payload.get("spells", [None] * 5)]
+
+    def restore_ref(self, ref):
+        if not isinstance(ref, dict): return ref
+        if ref.get("kind") == "side": return self.player if ref.get("value") == "player" else self.opponent
+        if ref.get("kind") == "card": return next((item for item in self.card_instances() if item.card.id == ref.get("value")), None)
+        return None
+
+    def restore_pending_payload(self, pending):
+        if not isinstance(pending, dict): return True
+        kind = pending.get("kind")
+        if kind == "discard": self.pending_discard = self.player if pending.get("owner") == "player" else self.opponent; return True
+        if kind == "trap":
+            trap = next((item for item in self.card_instances() if item.card.id == pending.get("trap")), None)
+            if not trap: return False
+            self.pending_trap = {"trap": trap}; return True
+        if kind == "target":
+            card = next((item for item in self.card_instances() if item.card.id == pending.get("card")), None)
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            if not card: return False
+            self.pending_target = {"card": card, "actor": actor, "trigger": pending.get("trigger", "activate"), "effect_id": pending.get("effect_id", ""), "selector": dict(pending.get("selector", {})), "required": int(pending.get("required", 1)), "target_policy": dict(pending.get("target_policy", {})), "selected": [self.restore_ref(item) for item in pending.get("selected", []) if self.restore_ref(item) is not None], "candidates": [self.restore_ref(item) for item in pending.get("candidates", []) if self.restore_ref(item) is not None], "snapshot": list(pending.get("snapshot", []))}; return True
+        if kind == "summon":
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            card = next((item for item in self.card_instances() if item.card.id == pending.get("source_card")), None)
+            if pending.get("source_card") and not card: return False
+            self.pending_summon = {"actor": actor, "method": pending.get("method", "special"), "source_card": card, "source_effect_id": pending.get("source_effect_id", ""), "selector": dict(pending.get("selector", {})), "required": int(pending.get("required", 1)), "selected": [self.restore_ref(item) for item in pending.get("selected", []) if self.restore_ref(item) is not None], "candidates": [self.restore_ref(item) for item in pending.get("candidates", []) if self.restore_ref(item) is not None]}; return True
+        if kind == "effect":
+            card = next((item for item in self.card_instances() if item.card.id == pending.get("card")), None)
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            if not card: return False
+            spec = next((EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects) if EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).effect_id == pending.get("effect_id")), None)
+            if not spec: return False
+            self.pending_effect = {"card": card, "actor": actor, "spec": spec, "target": self.restore_ref(pending.get("target"))}; return True
+        return kind == "unsupported_interactive"
 
     def restore_full_state(self, payload):
         if not isinstance(payload, dict) or payload.get("schema") != "cbp.state.v1": return False
@@ -3258,14 +3350,26 @@ class DuelEngine:
             self.notifications = [Notification(**item) for item in payload.get("notifications", [])]
             self.notification_history = list(payload.get("notification_history", [])); self.replay_log = list(payload.get("replay_log", [])); self.event_history = list(payload.get("event_history", [])); self.chain_history = list(payload.get("chain_history", [])); self.resolution_history = list(payload.get("resolution_history", []))
             self.effect_queue, self.continuous_effects, self.chain_links, self.chain_window = [], [], [], None
+            chain_payload = payload.get("chain")
+            if chain_payload:
+                restored_links = []
+                for item in chain_payload.get("links", []):
+                    source = self.restore_ref(item.get("source")); actor = self.restore_ref(item.get("actor")); target = self.restore_ref(item.get("target"))
+                    if not isinstance(source, CardInstance) or not isinstance(actor, Duelist): return False
+                    restored_links.append(ChainLink(item.get("link_id", ""), int(item.get("index", 0)), source, actor, target, item.get("trigger", ""), item.get("effect_id", ""), int(item.get("speed", 1)), item.get("status", "pending"), bool(item.get("negated", False)), dict(item.get("context", {}))))
+                self.chain_links = restored_links
+                self.chain_window = dict(chain_payload.get("window") or {}) if chain_payload.get("window") else None
+                self.chain_priority = self.restore_ref({"kind": "side", "value": chain_payload.get("priority")}) if chain_payload.get("priority") else None
+                self.chain_passes = list(chain_payload.get("passes", [])); self.active_chain_link_id = chain_payload.get("active_link_id", "")
             self.pending_discard = self.pending_target = self.pending_summon = self.pending_trap = self.pending_cost = self.pending_procedure = self.pending_effect = self.pending_response = self.pending_trigger_order = None
-            return True
+            return self.restore_pending_payload(payload.get("pending"))
         except (KeyError, TypeError, ValueError): return False
 
     def state_checkpoint(self):
         payload = self.full_state_payload()
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
-        return {"schema": "cbp.state-checkpoint.v1", "sequence": self.replay_sequence, "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(), "state": payload, "interactive_state_restored": False}
+        pending = payload.get("pending")
+        return {"schema": "cbp.state-checkpoint.v1", "sequence": self.replay_sequence, "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(), "state": payload, "interactive_state_restored": bool(pending is None or pending.get("kind") != "unsupported_interactive")}
 
     def validate_state_checkpoint(self, checkpoint):
         if not isinstance(checkpoint, dict) or checkpoint.get("schema") != "cbp.state-checkpoint.v1" or not isinstance(checkpoint.get("state"), dict): return False
@@ -3311,12 +3415,22 @@ class DuelEngine:
         return bool(spec and (spec.speed > 1 or spec.response.get("enabled") or spec.response.get("chain")))
 
     def add_chain_link(self, card, spec, actor, target=None, trigger=None, context=None):
+        if not card or not spec or not actor: return False, "A chain link requires a source card, effect, and actor."
+        source_owned = card.owner == actor.name and (card in actor.hand or card in [item for item in actor.monsters + actor.spells if item] or card is self.field_card or card.last_zone in ["hand", "spell_trap", "field", "monster"])
+        if not source_owned: return False, "The source card is not controlled by the acting side."
         if not self.chain_window: self.open_chain_window(actor, trigger or spec.trigger, card, target, context)
         if self.chain_priority is not actor: return False, "The other side has chain priority."
         if not self.chain_speed_allowed(spec.speed, actor): return False, "This effect cannot respond at its current spell speed."
+        target_items = target if isinstance(target, list) else [target] if target is not None else []
+        if spec.selector:
+            legal = self.legal_targets(card, actor, spec.selector)
+            required = spec.selector.get("count", 1)
+            required = len(legal) if required == "all" else max(1, int(required or 1))
+            if len(target_items) != required or any(item not in legal for item in target_items): return False, "The chain link targets are not legal."
         self.chain_sequence += 1
         targets = target if isinstance(target, list) else [target] if target is not None else []
         link_context = dict(context or {})
+        link_context["legality"] = {"source_controller": self.side_key(actor), "speed": spec.speed, "target_ids": [self.entity_id(item) for item in targets], "target_count": len(targets), "target_snapshot": [self.entity_id(item) for item in targets]}
         link_context.update({"chain_id": self.chain_window["chain_id"], "link_index": len(self.chain_links) + 1, "target_snapshot": [self.entity_id(item) for item in targets]})
         link = ChainLink("link_" + str(self.chain_sequence), len(self.chain_links) + 1, card, actor, target, trigger or spec.trigger, spec.effect_id, spec.speed, "pending", False, link_context)
         self.chain_links.append(link)
@@ -3416,6 +3530,7 @@ class DuelEngine:
             target_values = event.target if isinstance(event.target, list) else [event.target] if event.target is not None else []
             event.result.setdefault("legality", {"source_present": event.source in self.card_instances() if isinstance(event.source, CardInstance) else True, "target_ids": [self.entity_id(item) for item in target_values], "target_count": len(target_values), "status": event.status})
             self.resolution_history.append({"sequence": event.sequence, "action": event.action, "amount": event.amount, "source": getattr(getattr(event.source, "card", event.source), "name", str(event.source)), "source_zone": event.source_zone, "source_actor": event.source_actor, "trigger": event.trigger, "policy": event.policy, "status": event.status, "legality": event.result.get("legality", {}), "result": event.result})
+            self.record_replay("resolution", {"effect_sequence": event.sequence, "action": event.action, "amount": event.result.get("amount", event.amount), "requested_amount": event.result.get("requested_amount", event.amount), "source_card_id": getattr(getattr(event.source, "card", event.source), "id", ""), "actor_id": event.source_actor, "target_ids": [self.entity_id(item) for item in target_values], "status": event.status, "result": event.result})
         self.resolution_history = self.resolution_history[-64:]
         self.check_end()
 

@@ -221,12 +221,16 @@
       "snapshot": "viewer-scoped public state, deterministic event records, and learned card/effect IDs",
       "checkpoint": "cbp.checkpoint.v1 with canonical SHA-256 digest for tamper detection",
       "playback": "cbp.replay-playback.v1 cursor-based deterministic record stream",
-      "state_checkpoint": "cbp.state-checkpoint.v1 serializable zone and duel-state payload with digest validation"
+      "state_checkpoint": "cbp.state-checkpoint.v1 serializable zone, duel-state, chain, and supported pending-prompt payload with digest validation",
+      "replay_apply": "cbp.replay-apply.v1 deterministic application of supported resolution records",
+      "interactive_pending": ["discard", "target", "summon", "trap", "effect"],
+      "unsupported_pending": ["cost", "procedure", "response", "trigger_order"]
     },
     "knowledge": {
       "card_ids": "observed authored card IDs",
       "effect_ids": "observed effect IDs",
       "effect_facts": "observed trigger, action, speed, and optionality facts",
+      "outcome_facts": "future-compatible result observations; current runtime records legality and status",
       "import": "unknown card/effect IDs are filtered against the current content registry"
     },
     "action": {
@@ -292,7 +296,8 @@
         "layer": "integer layer ordering; lower layers apply first",
         "duration": "expiry contract evaluated at phase/turn boundaries or from source state",
         "replacement": "optional event-value replacement object with event, operation, amount, selector, priority, and once",
-        "replacement_operations": ["reduce", "set", "replace", "multiply", "scale", "increase", "add", "prevent", "negate", "cancel", "cap", "maximum"]
+        "replacement_operations": ["reduce", "set", "replace", "multiply", "scale", "increase", "add", "prevent", "negate", "cancel", "cap", "maximum"],
+        "legality_record": "resolution result contains source_present, target_ids, target_count, and status"
       },
 
     "summon_provenance": {
@@ -316,7 +321,8 @@
       "enabled": "boolean or response.chain flag",
       "priority": "side currently allowed to add a response link",
       "passes": "alternating priority passes before resolving the stack",
-      "negated": "link state set by a valid negation effect"
+      "negated": "link state set by a valid negation effect",
+      "legality": "source controller, spell speed, target IDs, count, and target snapshot captured at link admission"
     }
   },
   "notification": {
