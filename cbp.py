@@ -2677,29 +2677,30 @@ class DuelEngine:
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
-    def summon(self, card):
-        if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]:
+    def summon(self, card, actor=None):
+        actor = actor or self.player
+        if self.finished or self.active is not actor or self.phase not in ["MAIN 1", "MAIN 2"]:
             return False, "Summoning is only available during your main phase."
-        if card not in self.player.hand or card.card.kind not in ["normal", "effect", "legendary"]:
+        if card not in actor.hand or card.card.kind not in ["normal", "effect", "legendary"]:
             return False, "Select a monster from your hand."
-        if self.normal_summon_remaining(self.player) <= 0: return False, "No normal summon permission remains this turn."
-        zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
+        if self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
+        zone = next((index for index, value in enumerate(actor.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
         tribute = 0 if card.card.stars <= 4 else 1 if card.card.stars <= 6 else 2
-        if tribute: return self.begin_summon_procedure(card, self.player, ProcedureSpec.normal_tribute(card))
-        permission, reason = self.consume_normal_summon(self.player)
+        if tribute: return self.begin_summon_procedure(card, actor, ProcedureSpec.normal_tribute(card))
+        permission, reason = self.consume_normal_summon(actor)
         if not permission: return False, reason
         source_zone = card.position
-        self.player.hand.remove(card)
+        actor.hand.remove(card)
         card.last_zone = source_zone
         card.position = "field"
         card.face_up = True
         card.battle_position = "attack"
-        self.player.monsters[zone] = card
-        self.log(f"{self.player.name} summons {card.card.name}.")
-        self.react("summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.record_summon(card, self.player, "normal", source_zone)
-        self.run_logic(card, "summon", self.player, self.opponent)
+        actor.monsters[zone] = card
+        self.log(f"{actor.name} summons {card.card.name}.")
+        self.react("summon", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id)
+        self.record_summon(card, actor, "normal", source_zone)
+        self.run_logic(card, "summon", actor, self.other(actor))
         return True, ""
 
     def set_card(self, card):
@@ -3374,8 +3375,59 @@ class DuelEngine:
             self.match_recorded = True
         self.log("The duel ends in a draw." if winner is None else f"{winner.name} wins by {reason}.")
 
-    def resolve_ai(self, card, trigger):
-        self.resolve(card, trigger, self.player, self.opponent)
+    def resolve_ai(self, card, trigger, actor=None, target=None):
+        actor = actor or self.opponent
+        target = target or self.other(actor)
+        self.resolve(card, trigger, actor, target)
+
+    def ai_can_summon(self, card, actor):
+        if self.normal_summon_remaining(actor) <= 0 or not any(value is None for value in actor.monsters): return False
+        if card.card.summon_method in ["fusion", "ritual"]:
+            procedure = ProcedureSpec.from_card(card)
+            if procedure.costs:
+                cost_spec = EffectSpec.from_dict({"id": card.card.id + "_procedure_cost", "trigger": "summon", "cost": procedure.costs}, card.card.id + "_procedure_cost")
+                if not self.preflight_costs(cost_spec, card, actor)[0]: return False
+            selected = self.ai_procedure_selection(card, actor, procedure)
+            return bool(selected) and self.validate_procedure_materials(card, selected, actor, procedure)[0]
+        if card.card.stars <= 4: return True
+        procedure = ProcedureSpec.normal_tribute(card)
+        candidates = self.procedure_material_candidates(card, actor, procedure)
+        return len(candidates) >= procedure.required_count
+
+    def ai_procedure_selection(self, card, actor, procedure):
+        candidates = self.procedure_material_candidates(card, actor, procedure)
+        ranked = sorted(candidates, key=lambda item: (self.ai_card_score(item, "monster"), item.card.id))
+        if procedure.kind == "fusion" and procedure.exact:
+            selected = []
+            for required_id in procedure.required_card_ids:
+                match = next((item for item in ranked if item.card.id == required_id and item not in selected), None)
+                if not match: return []
+                selected.append(match)
+            return selected
+        if procedure.kind == "ritual":
+            selected, stars = [], 0
+            for item in ranked:
+                selected.append(item)
+                stars += int(item.card.stars)
+                if stars >= procedure.min_stars: break
+            return selected if stars >= procedure.min_stars else []
+        return ranked[:procedure.required_count]
+
+    def ai_resolve_pending_procedure(self):
+        pending = self.pending_procedure
+        if not pending or pending["actor"] is not self.opponent: return False
+        if self.pending_cost and self.pending_cost.get("kind") == "procedure_cost":
+            selected = list(self.pending_cost["candidates"][:self.pending_cost["required"]])
+            self.resolve_pending_cost(selected)
+            return True
+        procedure = pending["procedure"]
+        selected = self.ai_procedure_selection(pending["card"], self.opponent, procedure)
+        if not selected:
+            self.abort_procedure("The AI could not find a legal procedure selection.")
+            return True
+        pending["selected"] = selected
+        self.resolve_pending_procedure(selected)
+        return True
 
     def ai_card_score(self, card, mode):
         character = self.opponent.character
@@ -3393,20 +3445,19 @@ class DuelEngine:
 
     def ai_step(self):
         if self.finished or self.active is not self.opponent: return
+        if self.ai_resolve_pending_procedure(): return
         if self.pending_discard is self.opponent:
             self.discard(self.opponent.hand[-1])
             return
         if self.phase in ["MAIN 1", "MAIN 2"]:
-            monsters = [card for card in self.opponent.hand if card.card.kind in ["normal", "effect", "legendary"]]
+            monsters = [card for card in self.opponent.hand if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, self.opponent)]
             if monsters and any(value is None for value in self.opponent.monsters):
                 card = max(monsters, key=lambda item: self.ai_card_score(item, "monster"))
-                self.opponent.hand.remove(card)
-                zone = next(index for index, value in enumerate(self.opponent.monsters) if value is None)
-                self.opponent.monsters[zone] = card
-                card.position = "field"
-                self.log(f"{self.opponent.name} summons {card.card.name}.")
-                self.resolve_ai(card, "summon")
-                self.run_logic(card, "summon", self.opponent, self.player)
+                if card.card.summon_method == "fusion": result = self.begin_summon_procedure(card, self.opponent, ProcedureSpec.from_card(card))
+                elif card.card.summon_method == "ritual": result = self.begin_summon_procedure(card, self.opponent, ProcedureSpec.from_card(card))
+                else: result = self.summon(card, self.opponent)
+                if result[0] and result[1] not in ["pending_procedure", "pending_cost"]:
+                    self.log(f"{self.opponent.name} summons {card.card.name}.")
                 return
             spells = [card for card in self.opponent.hand if card.card.kind == "spell"]
             if spells:
