@@ -21,8 +21,15 @@
     "event_response_policies": {
       "event_name": {
         "enabled": "boolean; false or absent keeps the event non-blocking",
+        "mandatory": "boolean; card response required while a legal candidate exists",
+        "allow_pass": "boolean; explicit PASS override, otherwise false for mandatory policies",
         "priority": "opposite or explicitly authored priority side",
-        "response_trigger": "optional normalized trigger override"
+        "response_trigger": "optional normalized trigger override",
+        "min_speed": "minimum response speed, clamped to 1..3",
+        "max_speed": "maximum response speed, clamped to 1..3",
+        "phases": "optional normalized phase names allowed for the response window",
+        "source_kinds": "optional source-card kinds allowed for the response window",
+        "target_zones": "optional target-card zones required by the response window"
       }
     }
   },

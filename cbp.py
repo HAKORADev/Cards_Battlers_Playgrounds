@@ -2812,16 +2812,30 @@ class DuelEngine:
         self.emit_event("movement", owner, source=card, target=card, metadata={"from_zone": card.last_zone, "to_zone": destination, "owner": owner.character.id})
         return True
 
+    def normalize_event_response_policy(self, policy=None):
+        raw = dict(policy or {})
+        phases = raw.get("phases", raw.get("phase", []))
+        phases = [str(item).lower() for item in (phases if isinstance(phases, list) else [phases])] if phases else []
+        source_kinds = raw.get("source_kinds", raw.get("source_kind", []))
+        source_kinds = [str(item).lower() for item in (source_kinds if isinstance(source_kinds, list) else [source_kinds])] if source_kinds else []
+        target_zones = raw.get("target_zones", raw.get("target_zone", []))
+        target_zones = [str(item).lower() for item in (target_zones if isinstance(target_zones, list) else [target_zones])] if target_zones else []
+        try: min_speed = max(1, min(3, int(raw.get("min_speed", 1))))
+        except (TypeError, ValueError): min_speed = 1
+        try: max_speed = max(min_speed, min(3, int(raw.get("max_speed", 3))))
+        except (TypeError, ValueError): max_speed = 3
+        return {"enabled": bool(raw.get("enabled", False)), "mandatory": bool(raw.get("mandatory", False)), "allow_pass": bool(raw.get("allow_pass", not raw.get("mandatory", False))), "priority": str(raw.get("priority", "opposite")).lower(), "response_trigger": str(raw.get("response_trigger", "") or ""), "min_speed": min_speed, "max_speed": max_speed, "phases": phases, "source_kinds": source_kinds, "target_zones": target_zones}
+
     def open_event_response_window(self, trigger, actor, source=None, target=None, metadata=None):
         if self.chain_window or actor is None: return None
-        policy = dict((metadata or {}).get("response_policy", {}) or {})
-        priority_key = str(policy.get("priority", "opposite")).lower()
+        policy = self.normalize_event_response_policy((metadata or {}).get("response_policy", {}))
+        priority_key = policy["priority"]
         priority = self.player if priority_key == "player" else self.opponent if priority_key == "opponent" else self.other(actor)
-        response_trigger = str(policy.get("response_trigger", trigger) or trigger)
-        candidates = self.response_candidates(priority, response_trigger)
+        response_trigger = policy["response_trigger"] or trigger
+        candidates = self.response_candidates(priority, response_trigger, policy, source, target)
         if not candidates: return None
         context = dict(metadata or {})
-        context.update({"event_window": True, "event_trigger": trigger, "response_trigger": response_trigger, "mandatory": bool(policy.get("mandatory", False)), "allow_pass": bool(policy.get("allow_pass", not policy.get("mandatory", False))), "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        context.update({"event_window": True, "event_trigger": trigger, "response_trigger": response_trigger, "response_policy": policy, "mandatory": policy["mandatory"], "allow_pass": policy["allow_pass"], "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
         return self.open_chain_window(priority, response_trigger, source, target, context)
 
     def open_chain_window(self, actor, trigger, source=None, target=None, context=None):
@@ -2837,10 +2851,17 @@ class DuelEngine:
         self.notify("chain_response", "Chain response window is open.", ["pass", "card"] if payload["allow_pass"] else ["card"], payload)
         return self.chain_window
 
-    def response_candidates(self, side=None, trigger=None):
+    def response_candidates(self, side=None, trigger=None, policy=None, event_source=None, event_target=None):
         if not self.chain_window and not trigger: return []
         side = side or self.chain_priority
         trigger = trigger or self.chain_window.get("trigger", "")
+        policy = self.normalize_event_response_policy(policy or (self.chain_window.get("context", {}).get("response_policy", {}) if self.chain_window else {}))
+        if policy.get("phases") and self.phase.lower() not in policy["phases"]: return []
+        event_source = event_source if event_source is not None else (self.chain_window.get("source") if self.chain_window else None)
+        event_target = event_target if event_target is not None else (self.chain_window.get("target") if self.chain_window else None)
+        if policy.get("source_kinds") and (not isinstance(event_source, CardInstance) or event_source.card.kind.lower() not in policy["source_kinds"]): return []
+        event_targets = event_target if isinstance(event_target, list) else [event_target] if event_target is not None else []
+        if policy.get("target_zones") and any(str(getattr(item, "position", "")).lower() not in policy["target_zones"] for item in event_targets if isinstance(item, CardInstance)): return []
         if side is None: return []
         candidates = []
         for zone, cards in [("hand", list(side.hand)), ("spell_trap", [item for item in side.spells if item])]:
@@ -2853,7 +2874,7 @@ class DuelEngine:
                     response_events = response_events if isinstance(response_events, list) else [response_events]
                     if not spec.response.get("enabled", False) and spec.trigger not in ["respond", "chain_response"]: continue
                     if trigger not in response_events and "any" not in response_events: continue
-                    if spec.speed < 2 or not self.chain_speed_allowed(spec.speed, side): continue
+                    if spec.speed < max(2, policy["min_speed"]) or spec.speed > policy["max_speed"] or not self.chain_speed_allowed(spec.speed, side): continue
                     if self.effect_used(card, spec): continue
                     if not self.condition_matches(spec.conditions, card, side, self.other(side)): continue
                     selector = spec.selector or self.legacy_selector(card, side)
