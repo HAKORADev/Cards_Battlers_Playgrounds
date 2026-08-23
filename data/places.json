@@ -6,7 +6,8 @@
     "current_duels": 0,
     "background": "duel_field",
     "day_night": true,
-    "media_folder": "places/neon_playground_1787428876586_neon_playground"
+    "media_folder": "places/neon_playground_1787428876586_neon_playground",
+    "effects": []
   },
   {
     "id": "mystery_void",
@@ -15,6 +16,7 @@
     "current_duels": 0,
     "background": "trio_mysterio",
     "day_night": false,
-    "media_folder": "places/mystery_void_1787428876588_mystery_void"
+    "media_folder": "places/mystery_void_1787428876588_mystery_void",
+    "effects": []
   }
 ]

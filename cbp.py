@@ -526,6 +526,7 @@ class PlaceDef:
     background: str
     day_night: bool
     media_folder: str = ""
+    effects: list = field(default_factory=list)
 
 
 @dataclass
@@ -734,6 +735,87 @@ class LogicGraph:
         return cls(data.get("name", "Unnamed Logic"), nodes)
 
 
+@dataclass
+class EffectSpec:
+    effect_id: str
+    trigger: str
+    window: dict = field(default_factory=dict)
+    conditions: list = field(default_factory=list)
+    costs: list = field(default_factory=list)
+    selector: dict = field(default_factory=dict)
+    targets: list = field(default_factory=list)
+    actions: list = field(default_factory=list)
+    modifier: dict = field(default_factory=dict)
+    once: str = ""
+    priority: int = 0
+    notify: dict = field(default_factory=dict)
+    media: dict = field(default_factory=dict)
+    legacy: bool = False
+
+    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "fusion_summon", "ritual_summon", "shuffle"}
+    phases = {"draw", "standby", "main", "battle", "end", "any"}
+
+    @classmethod
+    def canonical_action(cls, value):
+        text = str(value or "").strip().lower().replace("-", "_")
+        match = re.fullmatch(r"([a-z_]+)(?:\s+([-+]?\d+))?", text)
+        if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
+        name, amount = match.groups()
+        name = {"boost": "boost_attack", "increase_attack": "boost_attack", "increase_defense": "boost_defense", "graveyard": "send_to_graveyard"}.get(name, name)
+        return {"name": name, "amount": int(amount or 0), "raw": text, "valid": name in cls.action_names}
+
+    @classmethod
+    def from_dict(cls, data, fallback_id="effect"):
+        raw = dict(data or {})
+        legacy = any(key in raw for key in ["action", "amount", "field_effect", "target_count", "timing"]) and not raw.get("actions")
+        trigger = str(raw.get("trigger", raw.get("event", "manual")))
+        window = dict(raw.get("window") or {})
+        if raw.get("timing") and "event" not in window: window["event"] = raw.get("timing")
+        if raw.get("phase") and "phase" not in window: window["phase"] = raw.get("phase")
+        if not window: window = {"phase": "any", "event": trigger}
+        actions = []
+        if raw.get("actions"):
+            for action in raw.get("actions", []):
+                if isinstance(action, str): actions.append(cls.canonical_action(action))
+                else:
+                    item = dict(action)
+                    parsed = cls.canonical_action(item.get("name", item.get("action", "")))
+                    item["name"] = parsed["name"]
+                    if "amount" not in item: item["amount"] = parsed["amount"]
+                    item["valid"] = parsed["valid"]
+                    actions.append(item)
+        elif "action" in raw or "amount" in raw:
+            parsed = cls.canonical_action(raw.get("action", ""))
+            actions.append({"name": parsed["name"], "amount": raw.get("amount", parsed["amount"]), "target": raw.get("target", "source"), "valid": parsed["valid"]})
+        selector = dict(raw.get("select") or raw.get("selector") or {})
+        if raw.get("targets") and not selector:
+            selector = {"target_groups": list(raw.get("targets", [])), "count": raw.get("target_count", 0)}
+        targets = list(raw.get("targets") or [])
+        if raw.get("target_count") and not targets: selector["count"] = raw.get("target_count")
+        modifier = dict(raw.get("modifier") or raw.get("field_effect") or {})
+        if raw.get("field_effect") and not modifier.get("scope"): modifier["scope"] = "field"
+        if raw.get("field_effect") and modifier.get("atk") is not None:
+            modifier["stat"], modifier["operation"], modifier["amount"] = "attack", "add", modifier.pop("atk")
+        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), legacy)
+
+    def validate(self):
+        errors = []
+        if not self.effect_id: errors.append("effect id is required")
+        if not self.trigger: errors.append(f"{self.effect_id}: trigger is required")
+        phase = self.window.get("phase", "any")
+        if phase not in self.phases: errors.append(f"{self.effect_id}: unsupported phase {phase}")
+        if not self.actions and not self.modifier: errors.append(f"{self.effect_id}: action or modifier is required")
+        for action in self.actions:
+            if action.get("name") not in self.action_names: errors.append(f"{self.effect_id}: unsupported action {action.get('name')}")
+        if self.notify:
+            kind = self.notify.get("kind", self.notify.get("type", "info"))
+            if kind not in {"ok", "yes_no", "choose_target", "choose_cards", "info"}: errors.append(f"{self.effect_id}: unsupported notification {kind}")
+        return list(dict.fromkeys(errors))
+
+    def to_dict(self):
+        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media}
+
+
 class LogicRuntime:
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand"}
     node_kinds = {"trigger", "condition", "action"}
@@ -743,13 +825,7 @@ class LogicRuntime:
 
     @classmethod
     def normalize_action(cls, value):
-        text = str(value or "").strip().lower().replace("-", "_")
-        match = re.fullmatch(r"([a-z_]+)(?:\s+([-+]?\d+))?", text)
-        if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
-        name, amount = match.groups()
-        name = {"boost": "boost_attack", "increase_attack": "boost_attack", "increase_defense": "boost_defense", "graveyard": "send_to_graveyard"}.get(name, name)
-        valid = name in cls.action_names
-        return {"name": name, "amount": int(amount or 0), "raw": text, "valid": valid}
+        return EffectSpec.canonical_action(value)
 
     @classmethod
     def validate_graph(cls, graph):
@@ -1699,6 +1775,20 @@ class EffectEvent:
     trigger: str = ""
     status: str = "queued"
     result: dict = field(default_factory=dict)
+    source_zone: str = ""
+    source_actor: str = ""
+    policy: dict = field(default_factory=dict)
+
+
+@dataclass
+class Notification:
+    notification_id: int
+    kind: str
+    message: str
+    options: list
+    payload: dict = field(default_factory=dict)
+    status: str = "pending"
+    answer: str = ""
 
 
 class Duelist:
@@ -1719,6 +1809,7 @@ class Duelist:
         self.spells = [None] * 5
         self.graveyard = []
         self.banished = []
+        self.extra = []
 
     def draw(self, count=1):
         result = []
@@ -1734,10 +1825,96 @@ class Duelist:
         if card in self.hand: self.hand.remove(card)
         if card in self.graveyard: self.graveyard.remove(card)
         if card in self.banished: self.banished.remove(card)
+        if card in self.extra: self.extra.remove(card)
         for index, item in enumerate(self.monsters):
             if item is card: self.monsters[index] = None
         for index, item in enumerate(self.spells):
             if item is card: self.spells[index] = None
+
+
+class SelectorRuntime:
+    zones = {"monster", "spell_trap", "field", "deck", "hand", "graveyard", "banished", "extra", "any"}
+
+    def __init__(self, engine, actor, source=None):
+        self.engine = engine
+        self.actor = actor
+        self.source = source
+
+    def sides(self, value):
+        side = str(value or "any").lower()
+        if side in ["self", "player", "actor"]: return [self.actor]
+        if side in ["opponent", "enemy"]: return [self.engine.other(self.actor)]
+        if side in ["both", "any"]: return [self.actor, self.engine.other(self.actor)]
+        return [self.actor, self.engine.other(self.actor)]
+
+    def zone_items(self, duelist, zone):
+        if zone == "monster": return [item for item in duelist.monsters if item]
+        if zone == "spell_trap": return [item for item in duelist.spells if item]
+        if zone == "deck": return list(duelist.deck)
+        if zone == "hand": return list(duelist.hand)
+        if zone == "graveyard": return list(duelist.graveyard)
+        if zone == "banished": return list(duelist.banished)
+        if zone == "extra": return list(getattr(duelist, "extra", []))
+        if zone == "field":
+            return [self.engine.field_card] if self.engine.field_card and getattr(self.engine, "field_card_owner", self.actor) is duelist else []
+        if zone == "any":
+            return self.zone_items(duelist, "deck") + self.zone_items(duelist, "hand") + self.zone_items(duelist, "monster") + self.zone_items(duelist, "spell_trap") + self.zone_items(duelist, "graveyard") + self.zone_items(duelist, "banished") + self.zone_items(duelist, "extra") + self.zone_items(duelist, "field")
+        return []
+
+    @staticmethod
+    def compare(actual, operator, expected):
+        try: actual, expected = float(actual), float(expected)
+        except (TypeError, ValueError): return False
+        return {"equals": actual == expected, "==": actual == expected, "not_equals": actual != expected, "!=": actual != expected, "less_than": actual < expected, "<": actual < expected, "less_or_equal": actual <= expected, "<=": actual <= expected, "greater_than": actual > expected, ">": actual > expected, "greater_or_equal": actual >= expected, ">=": actual >= expected}.get(operator, False)
+
+    def matches(self, candidate, selector):
+        if isinstance(candidate, Duelist): return not any(key in selector for key in ["card_kind", "family", "origin", "face_up", "position", "stat"])
+        card = candidate.card
+        kinds = selector.get("card_kind", selector.get("kind", []))
+        if kinds and card.kind not in (kinds if isinstance(kinds, list) else [kinds]): return False
+        for key in ["family", "origin"]:
+            if selector.get(key) is not None and str(getattr(card, key, "")).lower() != str(selector[key]).lower(): return False
+        if selector.get("gender") is not None:
+            owner = self.engine.player if candidate in self.engine.player.hand + self.engine.player.graveyard + self.engine.player.banished else self.engine.opponent
+            if owner.character.gender.lower() != str(selector["gender"]).lower(): return False
+        if selector.get("face_up") is not None and bool(candidate.face_up) is not bool(selector["face_up"]): return False
+        if selector.get("position") and selector["position"] not in ["any", candidate.position]: return False
+        stat = selector.get("stat")
+        if stat:
+            field_name = stat.get("field", "attack")
+            actual = candidate.atk if field_name in ["attack", "atk"] else candidate.defense
+            if not self.compare(actual, stat.get("operator", "equals"), stat.get("value", 0)): return False
+        return True
+
+    def proximity(self, candidates, selector):
+        scope = selector.get("scope", "field")
+        if scope not in ["nearest", "adjacent", "aura"] or not isinstance(self.source, CardInstance): return candidates
+        owner = self.engine.owner_of(self.source)
+        if not owner: return candidates
+        slots = owner.monsters if self.source in owner.monsters else owner.spells
+        origin = next((index for index, item in enumerate(slots) if item is self.source), None)
+        if origin is None: return candidates
+        radius = int(selector.get("radius", 1) or 1)
+        ranked = sorted([(abs(index - origin), item) for index, item in enumerate(slots) if item in candidates], key=lambda value: value[0])
+        limit = radius if scope in ["nearest", "adjacent"] else len(ranked)
+        return [item for _, item in ranked if _ <= radius][:limit]
+
+    def select(self, selector):
+        selector = dict(selector or {})
+        zones = selector.get("zone", "any")
+        zones = zones if isinstance(zones, list) else [zones]
+        candidates = []
+        for duelist in self.sides(selector.get("side", "any")):
+            for zone in zones:
+                candidates.extend(self.zone_items(duelist, zone if zone in self.zones else "any"))
+        if selector.get("include_duelist"):
+            candidates.extend(self.sides(selector.get("side", "any")))
+        candidates = list(dict.fromkeys(item for item in candidates if self.matches(item, selector)))
+        candidates = self.proximity(candidates, selector)
+        count = selector.get("count")
+        if count == "all" or count is None: return candidates
+        try: return candidates[:max(0, int(count))]
+        except (TypeError, ValueError): return candidates
 
 
 class DuelEngine:
@@ -1755,6 +1932,8 @@ class DuelEngine:
         self.effect_queue = []
         self.resolution_history = []
         self.effect_sequence = 0
+        self.notifications = []
+        self.notification_sequence = 0
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
@@ -1769,7 +1948,10 @@ class DuelEngine:
         self.pending_discard = None
         self.pending_target = None
         self.pending_trap = None
+        self.pending_cost = None
+        self.pending_effect = None
         self.field_card = None
+        self.field_card_owner = None
         self.cpu = cpu
         self.team_effect = team_effect or {}
         self.opponent_team_effect = opponent_team_effect or {}
@@ -1786,6 +1968,26 @@ class DuelEngine:
 
     def other(self, side):
         return self.opponent if side is self.player else self.player
+
+    def notify(self, kind, message, options=("ok",), payload=None):
+        payload = dict(payload or {})
+        for notification in reversed(self.notifications):
+            if notification.status == "pending" and notification.kind == kind and notification.message == message and notification.payload == payload: return notification
+        self.notification_sequence += 1
+        notification = Notification(self.notification_sequence, kind, message, list(options), payload)
+        self.notifications.append(notification)
+        self.notifications = self.notifications[-32:]
+        return notification
+
+    def answer_notification(self, notification_id, answer):
+        notification = next((item for item in self.notifications if item.notification_id == notification_id and item.status == "pending"), None)
+        if not notification or answer not in notification.options: return False
+        notification.answer = answer
+        notification.status = "resolved"
+        return True
+
+    def pending_notification(self, kind=None):
+        return next((item for item in reversed(self.notifications) if item.status == "pending" and (kind is None or item.kind == kind)), None)
 
     def log(self, message):
         self.events.append(message)
@@ -1830,6 +2032,7 @@ class DuelEngine:
             self.react("draw", self.active.character.id, self.other(self.active).character.id, "opponent")
             if len(self.active.hand) > 6:
                 self.pending_discard = self.active
+                self.notify("discard", f"{self.active.name} must discard one card.", ["ok"], {"owner": self.active.name})
                 self.log(f"{self.active.name} must discard one card.")
                 return
         else:
@@ -1845,35 +2048,28 @@ class DuelEngine:
         card.position = "graveyard"
         owner.graveyard.append(card)
         self.pending_discard = None
+        notification = self.pending_notification("discard")
+        if notification: notification.status, notification.answer = "resolved", "ok"
         self.log(f"{owner.name} discards {card.card.name}.")
         return True, ""
 
-    def legal_targets(self, card, actor=None):
+    def legal_targets(self, card, actor=None, selector=None):
         actor = actor or self.player
-        other = self.other(actor)
-        target_types = set(card.card.targets or ["none"])
-        candidates = []
-        if "opponent" in target_types: candidates.append(other)
-        if "player" in target_types or "self" in target_types: candidates.append(actor)
-        if "opponent_monster" in target_types: candidates.extend(item for item in other.monsters if item)
-        if "player_monster" in target_types: candidates.extend(item for item in actor.monsters if item)
-        if "monster" in target_types or "any_monster" in target_types: candidates.extend(item for side in [actor, other] for item in side.monsters if item)
-        if "opponent_spell_trap" in target_types: candidates.extend(item for item in other.spells if item)
-        if "player_spell_trap" in target_types: candidates.extend(item for item in actor.spells if item)
-        if "card" in target_types or "any_card" in target_types:
-            candidates.extend(item for side in [actor, other] for item in side.monsters + side.spells if item)
-        return list(dict.fromkeys(candidates))
+        selector = selector or self.legacy_selector(card, actor)
+        if selector: return SelectorRuntime(self, actor, card).select(selector)
+        return []
 
     def select_target(self, target):
         if not self.pending_target: return False, "No target is currently pending."
         pending = self.pending_target
         card = pending["card"]
         actor = pending["actor"]
-        if target not in self.legal_targets(card, actor): return False, "That target is not legal."
+        candidates = pending.get("candidates", self.legal_targets(card, actor, pending.get("selector")))
+        if target not in candidates: return False, "That target is not legal."
         selected = pending.setdefault("selected", [])
         if target in selected: return False, "That target is already selected."
         selected.append(target)
-        required = max(1, int(card.card.target_count or 1))
+        required = max(1, int(pending.get("required", card.card.target_count or 1)))
         if len(selected) < required:
             self.log(f"{len(selected)}/{required} targets selected for {card.card.name}.")
             return True, ""
@@ -1883,6 +2079,8 @@ class DuelEngine:
         card.position = "graveyard"
         actor.graveyard.append(card)
         self.pending_target = None
+        notification = self.pending_notification("choose_target") or self.pending_notification("target")
+        if notification: notification.status, notification.answer = "resolved", "ok"
         target_name = target.name if hasattr(target, "name") else target.card.name
         self.log(f"{card.card.name} targets {target_name}.")
         self.resolve(card, trigger, resolved_target, actor)
@@ -1908,6 +2106,7 @@ class DuelEngine:
         self.player.spells[self.player.spells.index(card)] = None
         if card.card.kind == "field":
             self.field_card = card
+            self.field_card_owner = self.player
             card.position = "field"
             self.log(f"{self.player.name} activates set field card {card.card.name}.")
         else:
@@ -1931,14 +2130,61 @@ class DuelEngine:
             drawn = side.draw(amount)
             self.log(f"{side.name}'s team effect draws {len(drawn)} card(s).")
 
+    def modifier_records(self):
+        records = []
+        if self.field_card:
+            legacy = dict(self.field_card.card.field_effect or {})
+            if legacy: records.append({"source": self.field_card, "modifier": EffectSpec.from_dict({"id": "field_" + self.field_card.card.id, "field_effect": legacy}).modifier})
+            for effect in self.field_card.card.effects:
+                spec = EffectSpec.from_dict(effect, "field_" + self.field_card.card.id)
+                if spec.modifier: records.append({"source": self.field_card, "modifier": spec.modifier})
+        for effect in getattr(self.place, "effects", []) or []:
+            spec = EffectSpec.from_dict(effect, "place_" + self.place.id)
+            modifier = spec.modifier or (effect if isinstance(effect, dict) and effect.get("stat") else {})
+            if modifier: records.append({"source": self.place, "modifier": modifier})
+        for side, effect in [(self.player, self.team_effect), (self.opponent, self.opponent_team_effect)]:
+            selected = effect.get("selected", effect) if isinstance(effect, dict) else {}
+            if selected.get("kind") == "family_boost":
+                records.append({"source": side.character, "modifier": {"scope": "field", "selector": {"side": "self", "zone": "monster", "family": selected.get("family")}, "stat": "attack", "operation": "add", "amount": selected.get("atk", 0), "owner": side.name}})
+            elif isinstance(selected, dict) and selected.get("modifier"):
+                modifier = dict(selected["modifier"])
+                modifier.setdefault("owner", side.name)
+                records.append({"source": side.character, "modifier": modifier})
+        return records
+
+    def modifier_matches(self, modifier, card, side):
+        selector = dict(modifier.get("selector") or {})
+        if modifier.get("family") is not None: selector.setdefault("family", modifier["family"])
+        if modifier.get("card_kind") is not None: selector.setdefault("card_kind", modifier["card_kind"])
+        selector.setdefault("zone", "monster")
+        owner = modifier.get("owner")
+        if owner: return owner == side.name and SelectorRuntime(self, side).matches(card, selector)
+        if selector.get("side") == "self": selector["side"] = "self"
+        return SelectorRuntime(self, side, self.field_card).matches(card, selector)
+
+    def modifier_amount(self, modifier):
+        value = modifier.get("amount", 0)
+        if isinstance(value, dict): value = value.get("value", 0)
+        try: return int(value)
+        except (TypeError, ValueError): return 0
+
+    def effective_stat(self, card, side, stat):
+        base = card.atk if stat == "attack" else card.defense
+        for record in self.modifier_records():
+            modifier = record["modifier"]
+            if modifier.get("stat", "attack") != stat: continue
+            if not self.modifier_matches(modifier, card, side): continue
+            amount = self.modifier_amount(modifier)
+            if modifier.get("operation", "add") == "set": base = amount
+            elif modifier.get("operation", "add") == "multiply": base = int(base * amount)
+            else: base += amount
+        return base
+
     def effective_atk(self, card, side):
-        bonus = 0
-        if self.field_card and self.field_card.card.field_effect.get("family") == card.card.family:
-            bonus += int(self.field_card.card.field_effect.get("atk", 0))
-        effect = self.team_effect if side is self.player else self.opponent_team_effect
-        if effect.get("kind") == "family_boost" and effect.get("family") == card.card.family:
-            bonus += int(effect.get("atk", 0))
-        return card.atk + bonus
+        return self.effective_stat(card, side, "attack")
+
+    def effective_defense(self, card, side):
+        return self.effective_stat(card, side, "defense")
 
     def fusion_summon(self, card, materials):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
@@ -2016,16 +2262,22 @@ class DuelEngine:
             return False, "Activation is only available during your main phase."
         if card not in self.player.hand or card.card.kind not in ["spell", "field"]: return False, "Select a spell or field card in your hand."
         if card.card.timing not in ["main", "any"]: return False, "This card is waiting for a different timing window."
-        if card.card.target_count:
-            candidates = self.legal_targets(card, self.player)
+        effect_specs = [EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects)]
+        activate_spec = next((spec for spec in effect_specs if spec.trigger == "activate"), None)
+        selector = activate_spec.selector if activate_spec and activate_spec.selector else self.legacy_selector(card, self.player)
+        required = int(selector.get("count", card.card.target_count or 0) or 0)
+        if selector and required:
+            candidates = self.legal_targets(card, self.player, selector)
             if not candidates: return False, "This card has no legal target in the current field state."
-            if card.card.target_count > len(candidates): return False, "This card requires more legal targets than are currently available."
-            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player, "selected": []}
-            self.log(f"Select {card.card.target_count} legal target(s) for {card.card.name}.")
+            if required > len(candidates): return False, "This card requires more legal targets than are currently available."
+            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player, "selected": [], "candidates": candidates, "selector": selector, "required": required}
+            self.notify("choose_target", f"Select {required} legal target(s) for {card.card.name}.", ["ok"], {"card": card.card.id, "count": required})
+            self.log(f"Select {required} legal target(s) for {card.card.name}.")
             return True, ""
         self.player.hand.remove(card)
         if card.card.kind == "field":
             self.field_card = card
+            self.field_card_owner = self.player
             card.position = "field"
             self.log(f"{self.player.name} activates field card {card.card.name}.")
         else:
@@ -2039,12 +2291,16 @@ class DuelEngine:
 
     def owner_of(self, card):
         for duelist in [self.player, self.opponent]:
-            if card in duelist.hand or card in duelist.graveyard or card in duelist.banished or card in duelist.monsters or card in duelist.spells: return duelist
+            if card in duelist.deck or card in duelist.hand or card in duelist.graveyard or card in duelist.banished or card in duelist.extra or card in duelist.monsters or card in duelist.spells: return duelist
+        if card is self.field_card: return self.field_card_owner
         return None
 
     def move_card(self, card, destination, owner=None):
         owner = owner or self.owner_of(card)
         if not owner or not card: return False
+        if card is self.field_card:
+            self.field_card = None
+            self.field_card_owner = None
         owner.remove(card)
         card.position = destination
         if destination == "graveyard":
@@ -2056,6 +2312,14 @@ class DuelEngine:
         elif destination == "hand":
             card.face_up = True
             owner.hand.append(card)
+        elif destination == "deck":
+            card.face_up = False
+            card.position = "deck"
+            owner.deck.append(card)
+        elif destination == "extra":
+            card.face_up = False
+            card.position = "extra"
+            owner.extra.append(card)
         else:
             return False
         return True
@@ -2064,7 +2328,7 @@ class DuelEngine:
         normalized = LogicRuntime.normalize_action(f"{action} {amount}")
         if not normalized["valid"]: return None
         self.effect_sequence += 1
-        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger)
+        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger, "queued", {}, getattr(card, "position", ""), getattr(getattr(actor, "character", actor), "id", ""), {"source": source})
         self.effect_queue.append(event)
         return event
 
@@ -2074,7 +2338,7 @@ class DuelEngine:
             event.status = "resolving"
             event.result = self.apply_effect_now(event)
             event.status = event.result.get("status", "resolved")
-            self.resolution_history.append({"sequence": event.sequence, "action": event.action, "amount": event.amount, "source": getattr(getattr(event.source, "card", event.source), "name", str(event.source)), "status": event.status, "result": event.result})
+            self.resolution_history.append({"sequence": event.sequence, "action": event.action, "amount": event.amount, "source": getattr(getattr(event.source, "card", event.source), "name", str(event.source)), "source_zone": event.source_zone, "source_actor": event.source_actor, "trigger": event.trigger, "policy": event.policy, "status": event.status, "result": event.result})
         self.resolution_history = self.resolution_history[-64:]
         self.check_end()
 
@@ -2134,13 +2398,140 @@ class DuelEngine:
         for outcome in self.logic_runtime.run(trigger, context):
             self.apply_effect(card, outcome["action"], outcome["amount"], actor, target, f"Logic [{outcome['graph']}]")
 
+    def condition_matches(self, conditions, card, actor, target):
+        for condition in conditions or []:
+            if isinstance(condition, str):
+                if not self.logic_runtime.condition(condition, {"card": card, "actor": actor, "target": target}): return False
+                continue
+            subject = condition.get("subject", "source")
+            entity = {"source": card, "card": card, "actor": actor, "target": target}.get(subject, card)
+            field_name = condition.get("field", "")
+            if field_name.startswith("card."): entity, field_name = card, field_name.split(".", 1)[1]
+            if field_name.startswith("actor."): entity, field_name = actor, field_name.split(".", 1)[1]
+            if field_name.startswith("target."): entity, field_name = target, field_name.split(".", 1)[1]
+            actual = getattr(getattr(entity, "card", entity), field_name, getattr(entity, field_name, None))
+            if not SelectorRuntime.compare(actual, condition.get("operator", "equals"), condition.get("value")): return False
+        return True
+
+    def legacy_selector(self, card, actor):
+        types = set(card.card.targets or [])
+        if not types or types == {"none"}: return {}
+        selector = {"count": max(1, int(card.card.target_count or 1))}
+        if "opponent" in types: selector.update({"side": "opponent", "zone": "any", "include_duelist": True})
+        elif "player" in types or "self" in types: selector.update({"side": "self", "zone": "any", "include_duelist": True})
+        elif "opponent_monster" in types: selector.update({"side": "opponent", "zone": "monster"})
+        elif "player_monster" in types: selector.update({"side": "self", "zone": "monster"})
+        elif "monster" in types or "any_monster" in types: selector.update({"side": "both", "zone": "monster"})
+        elif "opponent_spell_trap" in types: selector.update({"side": "opponent", "zone": "spell_trap"})
+        elif "player_spell_trap" in types: selector.update({"side": "self", "zone": "spell_trap"})
+        else: selector.update({"side": "both", "zone": "any"})
+        return selector
+
+    def cost_candidates(self, cost, card, actor):
+        selector = cost.get("select") or cost.get("selector") or {}
+        if not selector:
+            selector = {"side": "self", "zone": "hand", "count": cost.get("count", 1)}
+        selector = dict(selector)
+        selector["count"] = "all"
+        return [item for item in SelectorRuntime(self, actor, card).select(selector) if item is not card]
+
+    def pay_costs(self, spec, card, actor):
+        for cost in spec.costs:
+            kind = cost.get("kind", cost.get("action", ""))
+            if kind in ["discard", "tribute", "send_to_graveyard"]:
+                candidates = self.cost_candidates(cost, card, actor)
+                required = max(1, int(cost.get("count", (cost.get("select") or {}).get("count", 1)) or 1))
+                if len(candidates) < required: return False, {"status": "blocked", "reason": "insufficient_cost_candidates", "kind": kind}
+                if kind == "discard":
+                    self.pending_cost = {"kind": kind, "card": card, "spec": spec, "actor": actor, "candidates": candidates, "required": required, "selected": []}
+                    self.notify("choose_cards", cost.get("notify", {}).get("text", "Choose cards to discard."), ["ok"], {"required": required, "kind": kind})
+                    return False, {"status": "pending", "kind": kind, "required": required}
+                for item in candidates[:required]: self.move_card(item, "graveyard", actor)
+            elif kind == "pay_hp":
+                amount = int(cost.get("amount", 0))
+                if actor.hp < amount: return False, {"status": "blocked", "reason": "insufficient_hp"}
+                actor.hp -= amount
+        return True, {"status": "paid"}
+
+    def resolve_pending_cost(self, cards):
+        pending = self.pending_cost
+        if not pending or pending["kind"] != "discard": return False, "No card cost is pending."
+        selected = list(cards if isinstance(cards, list) else [cards])
+        if len(selected) != pending["required"] or any(item not in pending["candidates"] for item in selected): return False, "Those cards cannot pay this cost."
+        if len(set(selected)) != len(selected): return False, "A card cannot be selected twice."
+        for item in selected: self.move_card(item, "graveyard", pending["actor"])
+        card, spec, actor = pending["card"], pending["spec"], pending["actor"]
+        self.pending_cost = None
+        notification = self.pending_notification("choose_cards")
+        if notification: notification.status, notification.answer = "resolved", "ok"
+        self.execute_effect_spec(card, spec, actor, self.other(actor))
+        return True, ""
+
+    def execute_effect_spec(self, card, spec, actor, default_target):
+        selector = spec.selector or self.legacy_selector(card, actor)
+        if selector:
+            if isinstance(default_target, list): selected = list(default_target)
+            elif isinstance(default_target, CardInstance): selected = [default_target]
+            else: selected = SelectorRuntime(self, actor, card).select(selector)
+        elif spec.targets:
+            selected = []
+            for target_group in spec.targets:
+                if isinstance(target_group, dict): selector = target_group.get("selector", {})
+                elif str(target_group) in ["opponent", "player", "self"]: selector = {"side": "opponent" if str(target_group) == "opponent" else "self", "zone": "any", "include_duelist": True, "count": 1}
+                else: selector = {"side": "both", "zone": str(target_group), "count": 1}
+                selected.extend(SelectorRuntime(self, actor, card).select(selector))
+        else:
+            selected = []
+        target_map = {"target": selected, "selected": selected}
+        for index, action in enumerate(spec.actions):
+            action_name = action.get("name", "")
+            if not action.get("valid", action_name in EffectSpec.action_names): continue
+            target_value = action.get("target", "")
+            if target_value in target_map: resolved = target_map[target_value]
+            elif target_value in ["actor", "self"]: resolved = actor
+            elif target_value in ["opponent", "enemy"]: resolved = default_target
+            elif target_value in ["source", "card"] or not target_value: resolved = card if action_name in ["boost_attack", "boost_defense"] else default_target
+            else: resolved = selected
+            amount = action.get("amount", 0)
+            if isinstance(amount, dict): amount = amount.get("value", 0)
+            self.apply_effect(card, action_name, int(amount or 0), actor, resolved, card.card.name, spec.trigger)
+        if spec.media: self.reaction_events.append({"event": spec.media.get("cue", spec.effect_id), "actor": actor.character.id, "target": default_target.character.id, "selection": spec.media, "time": time.time()})
+        return True
+
+    def answer_pending_effect(self, answer):
+        pending = self.pending_effect
+        notification = self.pending_notification("yes_no")
+        if not pending or not notification or answer not in notification.options: return False, "No optional effect decision is pending."
+        notification.status, notification.answer = "resolved", answer
+        self.pending_effect = None
+        if answer == "no": return True, ""
+        paid, result = self.pay_costs(pending["spec"], pending["card"], pending["actor"])
+        if not paid: return False, result.get("reason", "The effect cost could not be paid.")
+        self.execute_effect_spec(pending["card"], pending["spec"], pending["actor"], pending["target"])
+        return True, ""
+
     def resolve(self, card, trigger, target=None, actor=None):
         actor = actor or (self.player if card in self.player.hand or card in self.player.monsters or card in self.player.spells else self.opponent)
         target = target if target is not None else self.other(actor)
-        for effect in card.card.effects:
-            if effect.get("trigger") != trigger: continue
-            action = LogicRuntime.normalize_action(f"{effect.get('action', '')} {effect.get('amount', 0)}")
-            if action["valid"]: self.apply_effect(card, action["name"], action["amount"], actor, target, card.card.name)
+        for index, raw_effect in enumerate(card.card.effects):
+            spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+            if spec.trigger != trigger: continue
+            if spec.window.get("phase", "any") not in ["any", self.phase.lower().replace(" 1", "").replace(" 2", "")]: continue
+            if spec.window.get("event") not in [None, "", trigger, self.phase.lower(), self.phase.lower().replace(" ", "_")]: continue
+            if spec.validate():
+                self.log("Unsupported effect " + spec.effect_id + ": " + ", ".join(spec.validate()))
+                continue
+            if not self.condition_matches(spec.conditions, card, actor, target): continue
+            if spec.notify:
+                kind = spec.notify.get("kind", spec.notify.get("type", "info"))
+                options = spec.notify.get("options", ["yes", "no"] if kind == "yes_no" else ["ok"])
+                if kind == "yes_no":
+                    self.pending_effect = {"card": card, "spec": spec, "actor": actor, "target": target}
+                    self.notify(kind, spec.notify.get("text", "Activate this effect?"), options, {"effect": spec.effect_id})
+                    continue
+            paid, result = self.pay_costs(spec, card, actor)
+            if not paid: continue
+            self.execute_effect_spec(card, spec, actor, target)
 
     def attack(self, card, target=None):
         if self.finished or self.active is not self.player or self.phase != "BATTLE": return False, "Attacks are only available during Battle."
@@ -2254,6 +2645,7 @@ class DuelEngine:
             traps = [item for item in self.player.spells if item and item.card.kind == "trap" and not item.face_up]
             if attacker and traps:
                 self.pending_trap = {"trap": traps[0], "attacker": attacker}
+                self.notify("question", f"Activate {traps[0].card.name}?", ["yes", "no"], {"trap": traps[0].card.id, "attacker": attacker.card.id})
                 self.log(f"Trap window: {traps[0].card.name} can answer {attacker.card.name}.")
                 self.react("trap_window", self.player.character.id, self.opponent.character.id, "opponent", "cards", traps[0].card.id)
                 return
@@ -2903,6 +3295,7 @@ class DuelScene(Scene):
                     return
         if self.question:
             if event.button == 3 and self.question.get("stage") == "confirm":
+                if self.question.get("kind") == "notifier": self.engine.answer_pending_effect("no")
                 self.question = None
                 return
             if not (self.question.get("kind") == "discard" and self.question.get("stage") == "choose_card" and event.button == 1):
@@ -2955,6 +3348,11 @@ class DuelScene(Scene):
                 self.message = self.engine.events[-1] if success else msg
                 return
             if self.hover_hand:
+                if self.engine.pending_cost and self.question and self.question.get("stage") == "choose_card":
+                    success, msg = self.engine.resolve_pending_cost(self.hover_hand)
+                    self.message = msg or (self.engine.events[-1] if success and self.engine.events else "")
+                    if success: self.question = None
+                    return
                 if self.engine.pending_discard is self.engine.player and self.question and self.question.get("stage") == "choose_card":
                     self.engine.selected_hand = self.hover_hand
                     self.do_action("discard")
@@ -3017,10 +3415,34 @@ class DuelScene(Scene):
             self.action_mode = "summon" if self.hover_hand.card.kind not in ["spell", "field"] else "activate"
             self.action_mode_card = self.hover_hand
 
+    def sync_notification(self):
+        notification = self.engine.pending_notification()
+        if self.question and self.question.get("notification_id"):
+            current = next((item for item in self.engine.notifications if item.notification_id == self.question["notification_id"]), None)
+            if not current or current.status != "pending": self.question = None
+        if self.question or not notification: return
+        kind = "discard" if notification.kind in ["discard", "choose_cards"] else "notifier"
+        stage = "confirm" if "no" in notification.options else "await_ok"
+        self.question = {"kind": kind, "stage": stage, "notification_id": notification.notification_id, "text": notification.message, "options": notification.options}
+
     def handle_question(self, pos):
         if not self.question: return
         kind, stage = self.question["kind"], self.question["stage"]
-        if kind == "surrender" and stage == "confirm":
+        if kind == "notifier" and stage == "confirm":
+            if self.layout.question_action_rect("yes").collidepoint(pos):
+                success, msg = self.engine.answer_pending_effect("yes")
+                self.message = msg or (self.engine.events[-1] if success and self.engine.events else "")
+                self.question = None if success else self.question
+            elif self.layout.question_action_rect("no").collidepoint(pos):
+                success, msg = self.engine.answer_pending_effect("no")
+                self.message = msg
+                self.question = None if success else self.question
+        elif kind == "notifier" and stage == "await_ok":
+            if self.layout.question_action_rect("ok").collidepoint(pos):
+                notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id")), None)
+                if notification and "ok" in notification.options: self.engine.answer_notification(notification.notification_id, "ok")
+                self.question = None
+        elif kind == "surrender" and stage == "confirm":
             if self.layout.question_action_rect("yes").collidepoint(pos):
                 self.surrender()
                 self.question = None
@@ -3097,6 +3519,7 @@ class DuelScene(Scene):
         super().update(dt)
         if self.engine.pending_discard is self.engine.player and self.question is None:
             self.question = {"kind": "discard", "stage": "await_ok"}
+        self.sync_notification()
         if self.engine.active is self.engine.opponent and not self.engine.finished:
             self.ai_timer += dt
             if self.ai_timer > 0.6:
@@ -3232,19 +3655,21 @@ class DuelScene(Scene):
         kind, stage = self.question["kind"], self.question["stage"]
         if kind == "surrender":
             text = "Surrender the duel?"
+        elif kind == "notifier":
+            text = self.question.get("text", "Resolve the notification.")
         elif stage == "await_ok":
-            text = "Discard one card."
+            text = self.question.get("text", "Discard one card.")
         else:
-            text = "Choose a card to discard."
+            text = self.question.get("text", "Choose a card to discard.")
         draw_text(surface, text, (panel.centerx, panel.y + 27), self.app.assets.font(12, True), COLORS["ink"], "center")
-        if kind == "surrender" and stage == "confirm":
+        if kind in ["surrender", "notifier"] and stage == "confirm":
             for role, rect, label in [("prompt_yes", self.layout.question_action_rect("yes"), "YES"), ("prompt_no", self.layout.question_action_rect("no"), "NO")]:
                 image = self.app.assets.role_image(role, rect.size)
                 if image: surface.blit(image, rect.topleft)
                 else:
                     rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
                     draw_text(surface, label, rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
-        elif kind == "discard" and stage == "await_ok":
+        elif kind in ["discard", "notifier"] and stage == "await_ok":
             rect = self.layout.question_action_rect("ok")
             image = self.app.assets.role_image("prompt_ok", rect.size)
             if image: surface.blit(image, rect.topleft)

@@ -1,0 +1,135 @@
+{
+  "schema": "cbp.effect.v1",
+  "description": "Declarative effect definitions normalized by the CBP rules runtime.",
+  "effect": {
+    "id": "stable_effect_id",
+    "trigger": "on_summon",
+    "window": {
+      "phase": "main",
+      "event": "summon",
+      "priority": 0,
+      "speed": 1
+    },
+    "when": [
+      {
+        "subject": "source",
+        "field": "card.family",
+        "operator": "equals",
+        "value": "warrior"
+      }
+    ],
+    "cost": [
+      {
+        "kind": "discard",
+        "select": {
+          "side": "self",
+          "zone": "hand",
+          "count": 1
+        },
+        "notify": {
+          "kind": "ok",
+          "text": "Discard one card to activate this effect."
+        }
+      }
+    ],
+    "select": {
+      "side": "opponent",
+      "zone": "monster",
+      "card_kind": ["normal", "effect", "fusion", "ritual", "legendary"],
+      "count": 1,
+      "distinct": true,
+      "optional": false
+    },
+    "targets": [
+      {
+        "id": "target",
+        "selector": {
+          "side": "opponent",
+          "zone": "monster",
+          "family": "warrior",
+          "count": 1
+        }
+      }
+    ],
+    "actions": [
+      {
+        "id": "damage_target",
+        "name": "damage",
+        "amount": {
+          "value": 500,
+          "unit": "lp"
+        },
+        "target": "target",
+        "duration": "instant",
+        "media": {
+          "cue": "effect.damage"
+        }
+      }
+    ],
+    "modifier": {
+      "scope": "field",
+      "selector": {
+        "side": "both",
+        "zone": "monster",
+        "family": "warrior"
+      },
+      "stat": "attack",
+      "operation": "add",
+      "amount": 200,
+      "duration": "while_face_up"
+    },
+    "once": "per_turn",
+    "notify": {
+      "kind": "yes_no",
+      "text": "Activate this effect?",
+      "optional": true,
+      "default": "no"
+    },
+    "media": {
+      "cue": "card.effect",
+      "variants": 10,
+      "wait": false
+    }
+  },
+  "selector": {
+    "side": ["self", "opponent", "both", "any"],
+    "zone": ["deck", "hand", "monster", "spell_trap", "field", "graveyard", "banished", "extra", "any"],
+    "card_kind": "string or array of strings",
+    "family": "monster family/type",
+    "origin": "card origin",
+    "gender": "character gender predicate",
+    "face_up": "boolean",
+    "position": ["attack", "defense", "any"],
+    "stat": {
+      "field": "attack or defense",
+      "operator": ["equals", "not_equals", "less_than", "less_or_equal", "greater_than", "greater_or_equal"],
+      "value": "number"
+    },
+    "scope": ["field", "nearest", "adjacent", "aura", "source_controller", "selected"],
+    "radius": "number of ordered card slots",
+    "count": "integer or all",
+    "distinct": "boolean",
+    "optional": "boolean"
+  },
+  "action": {
+    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "fusion_summon", "ritual_summon", "shuffle"],
+    "amount": "number, expression, or object",
+    "target": "selector id, source, actor, or explicit target",
+    "duration": "instant, until_end_of_turn, per_turn, while_face_up, permanent, or phase window",
+    "condition": "optional predicate list",
+    "media": "optional cue metadata"
+  },
+  "notification": {
+    "kind": ["ok", "yes_no", "choose_target", "choose_cards", "info"],
+    "text": "template string",
+    "options": "optional explicit option list",
+    "optional": "boolean",
+    "default": "answer used only when an automatic policy is explicitly allowed",
+    "payload": "structured data for the renderer and resolver"
+  },
+  "legacy_compatibility": {
+    "supported": true,
+    "accepted_fields": ["trigger", "action", "amount", "targets", "target_count", "timing", "field_effect"],
+    "rule": "Legacy records are normalized to this schema at load time and never require card-name branches."
+  }
+}
