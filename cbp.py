@@ -843,11 +843,12 @@ class ProcedureSpec:
     source_selector: dict = field(default_factory=dict)
     source_method: str = ""
     required_count: int = 0
+    costs: list = field(default_factory=list)
 
     @classmethod
     def normal_tribute(cls, card):
         count = 0 if int(card.card.stars) <= 4 else 1 if int(card.card.stars) <= 6 else 2
-        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count)
+        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count, [])
 
     @classmethod
     def from_card(cls, card):
@@ -864,7 +865,9 @@ class ProcedureSpec:
         source_method = str(raw.get("source_method", kind) or kind)
         derived_count = 0 if int(getattr(card.card, "stars", 0)) <= 4 else 1 if int(getattr(card.card, "stars", 0)) <= 6 else 2
         required_count = int(raw.get("required_count", raw.get("count", derived_count if kind == "tribute" else 0)) or 0)
-        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count)
+        costs = raw.get("costs", raw.get("cost", [])) or []
+        if isinstance(costs, dict): costs = [costs]
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs))
 
 
 class LogicRuntime:
@@ -2178,9 +2181,9 @@ class DuelEngine:
                 if not result[0]: return result
             return result
         if notification.kind == "choose_cards":
+            if self.pending_cost: return self.resolve_pending_cost(selection)
             if self.pending_procedure: return self.resolve_pending_procedure(selection)
             if selection is None: return False, "Choose the required card(s)."
-            if self.pending_cost: return self.resolve_pending_cost(selection)
             return False, "No card selection is pending."
         if self.answer_notification(notification_id, answer): return True, ""
         return False, "The notification could not be resolved."
@@ -2501,6 +2504,26 @@ class DuelEngine:
         self.record_summon(card, actor, method, source_zone, source_card, source_effect_id)
         return True, ""
 
+    def prompt_summon_procedure(self):
+        pending = self.pending_procedure
+        if not pending: return False, "No summon procedure is pending."
+        card, actor, procedure = pending["card"], pending["actor"], pending["procedure"]
+        candidates = self.procedure_material_candidates(card, actor, procedure)
+        required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else procedure.required_count
+        if procedure.kind == "fusion" and len(candidates) < required:
+            if pending.get("costs_paid"): self.pending_procedure = None
+            return False, "There are not enough legal fusion materials."
+        if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars:
+            if pending.get("costs_paid"): self.pending_procedure = None
+            return False, "There are not enough legal ritual material stars."
+        if procedure.kind == "tribute" and len(candidates) < procedure.required_count:
+            if pending.get("costs_paid"): self.pending_procedure = None
+            return False, "There are not enough legal tribute candidates."
+        pending.update({"candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]})
+        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
+        self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
+        return True, "pending_procedure"
+
     def begin_summon_procedure(self, card, actor, procedure=None):
         procedure = procedure or ProcedureSpec.from_card(card)
         if card not in actor.hand: return False, "Select a summon card in your hand."
@@ -2509,15 +2532,20 @@ class DuelEngine:
         if procedure.kind not in ["fusion", "ritual", "tribute"]: return False, "This summon procedure is not implemented."
         if procedure.kind == "tribute" and self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         if not any(value is None for value in actor.monsters): return False, "All five monster zones are occupied."
-        candidates = self.procedure_material_candidates(card, actor, procedure)
-        required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else 0
-        if procedure.kind == "fusion" and len(candidates) < required: return False, "There are not enough legal fusion materials."
-        if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars: return False, "There are not enough legal ritual material stars."
-        if procedure.kind == "tribute" and len(candidates) < procedure.required_count: return False, "There are not enough legal tribute candidates."
-        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]}
-        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required or procedure.required_count, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
-        self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
-        return True, "pending_procedure"
+        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False}
+        if procedure.costs:
+            cost_spec = EffectSpec.from_dict({"id": card.card.id + "_procedure_cost", "trigger": "summon", "cost": procedure.costs}, card.card.id + "_procedure_cost")
+            paid, result = self.pay_costs(cost_spec, card, actor, 0, "procedure_cost")
+            if not paid:
+                if result.get("status") == "pending":
+                    if self.pending_cost: self.pending_cost.update({"kind": "procedure_cost", "procedure": procedure})
+                    notification = self.pending_notification("choose_cards")
+                    if notification: notification.payload.update({"kind": "procedure_cost", "procedure": procedure.kind, "card": card.card.id})
+                    return True, "pending_cost"
+                self.pending_procedure = None
+                return False, result.get("reason", "The summon procedure cost could not be paid.")
+            self.pending_procedure["costs_paid"] = True
+        return self.prompt_summon_procedure()
 
     def toggle_procedure_material(self, material):
         pending = self.pending_procedure
@@ -3044,16 +3072,18 @@ class DuelEngine:
         selector["count"] = "all"
         return [item for item in SelectorRuntime(self, actor, card).select(selector) if item is not card]
 
-    def pay_costs(self, spec, card, actor):
-        for cost in spec.costs:
+    def pay_costs(self, spec, card, actor, start_index=0, continuation_kind=""):
+        for index in range(start_index, len(spec.costs)):
+            cost = spec.costs[index]
             kind = cost.get("kind", cost.get("action", ""))
             if kind in ["discard", "tribute", "send_to_graveyard"]:
                 candidates = self.cost_candidates(cost, card, actor)
                 required = max(1, int(cost.get("count", (cost.get("select") or {}).get("count", 1)) or 1))
                 if len(candidates) < required: return False, {"status": "blocked", "reason": "insufficient_cost_candidates", "kind": kind}
                 if kind == "discard":
-                    self.pending_cost = {"kind": kind, "card": card, "spec": spec, "actor": actor, "candidates": candidates, "required": required, "selected": []}
-                    self.notify("choose_cards", cost.get("notify", {}).get("text", "Choose cards to discard."), ["ok"], {"required": required, "kind": kind})
+                    pending_kind = continuation_kind or kind
+                    self.pending_cost = {"kind": pending_kind, "card": card, "spec": spec, "actor": actor, "candidates": candidates, "required": required, "selected": [], "cost_index": index, "cost_kind": kind}
+                    self.notify("choose_cards", cost.get("notify", {}).get("text", "Choose cards to discard."), ["ok"], {"required": required, "kind": pending_kind, "cost_kind": kind})
                     return False, {"status": "pending", "kind": kind, "required": required}
                 for item in candidates[:required]: self.move_card(item, "graveyard", actor)
             elif kind == "pay_hp":
@@ -3064,7 +3094,7 @@ class DuelEngine:
 
     def resolve_pending_cost(self, cards):
         pending = self.pending_cost
-        if not pending or pending["kind"] not in ["discard", "discard_action", "response_cost"]: return False, "No card cost is pending."
+        if not pending or pending["kind"] not in ["discard", "discard_action", "response_cost", "procedure_cost"]: return False, "No card cost is pending."
         selected = list(cards if isinstance(cards, list) else [cards])
         if len(selected) != pending["required"] or any(item not in pending["candidates"] for item in selected): return False, "Those cards cannot pay this cost."
         if len(set(selected)) != len(selected): return False, "A card cannot be selected twice."
@@ -3082,6 +3112,18 @@ class DuelEngine:
             owner.graveyard.append(card)
             target = pending.get("response_target") or self.other(actor)
             return self.add_chain_link(card, spec, actor, target, spec.trigger, {"response": True, "cost_paid": True, "target_snapshot": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        if pending_kind == "procedure_cost":
+            next_index = int(pending.get("cost_index", 0)) + 1
+            paid, result = self.pay_costs(spec, card, actor, next_index, "procedure_cost")
+            if not paid:
+                if result.get("status") == "pending":
+                    notification = self.pending_notification("choose_cards")
+                    if notification: notification.payload.update({"kind": "procedure_cost", "card": card.card.id})
+                    return True, "pending_cost"
+                self.pending_procedure = None
+                return False, result.get("reason", "The summon procedure cost could not be paid.")
+            if self.pending_procedure: self.pending_procedure["costs_paid"] = True
+            return self.prompt_summon_procedure()
         completed = self.execute_effect_spec(card, spec, actor, self.other(actor), pending.get("action_index", 0) + 1) if pending_kind == "discard_action" else self.execute_effect_spec(card, spec, actor, self.other(actor))
         if completed: self.mark_effect_used(card, spec)
         return True, ""

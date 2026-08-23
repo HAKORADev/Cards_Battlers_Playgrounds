@@ -13,7 +13,8 @@
       "material_destination": ["graveyard", "banished"],
       "source_selector": "optional selector for the summon card's source state",
       "source_method": "provenance method recorded for the summoned card",
-      "required_count": "exact material count for tribute procedures; normal level rules derive 0, 1, or 2"
+      "required_count": "exact material count for tribute procedures; normal level rules derive 0, 1, or 2",
+      "costs": "ordered reusable cost objects; discard costs can pause and resume before material selection"
     }
   },
   "effect": {
@@ -149,7 +150,8 @@
       "material_destination": "graveyard or banished; unsupported destinations are blocked explicitly",
       "source_selector": "optional selector for the summon card source",
       "source_method": "provenance method recorded on the summon",
-      "required_count": "exact material count for tribute procedures"
+      "required_count": "exact material count for tribute procedures",
+      "costs": "ordered reusable cost objects applied before material selection"
     },
     "draw": {
       "amount": "number of cards",
