@@ -3,8 +3,10 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
-    "enemies": [],
-    "allies": [],
+    "activity": "idle",
+    "current_place": "",
+    "cooldown_until": 0.0,
+    "availability": "free",
     "library_cards": [
       "aqua_sentinel",
       "aqua_sentinel",
@@ -50,16 +52,10 @@
       "void_titan",
       "cinder_knight",
       "cinder_knight",
-      "aqua_sentinel"
+      "aqua_sentinel",
+      "iron_fridge"
     ],
-    "activity": "idle",
-    "cooldown_until": 0.0,
-    "learned_cards": {
-      "cinder_knight": 78,
-      "aqua_sentinel": 39,
-      "iron_fridge": 39,
-      "sky_archer": 39
-    },
+    "borrowed_cards": [],
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -93,31 +89,10 @@
         "BATTLE": 1.0
       }
     },
-    "movement_progress": 0.0,
-    "mood": "focused",
-    "learned_opponents": {
-      "player": 39
-    },
-    "destination": "",
-    "current_place": "",
-    "availability": "free",
-    "relationship": "rival",
+    "enemies": [],
+    "allies": [],
+    "rank": 10,
     "history": [
-      {
-        "opponent": "player",
-        "result": "win",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "cinder_knight",
-          "cinder_knight",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer"
-        ],
-        "traded_card": "cinder_knight",
-        "time": 1787493377.1426187
-      },
       {
         "opponent": "player",
         "result": "win",
@@ -402,9 +377,35 @@
         ],
         "traded_card": "aqua_sentinel",
         "time": 1787516731.6625123
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787518138.0907352
       }
     ],
-    "borrowed_cards": [],
-    "rank": 10
+    "movement_progress": 0.0,
+    "learned_cards": {
+      "cinder_knight": 80,
+      "aqua_sentinel": 40,
+      "iron_fridge": 40,
+      "sky_archer": 40
+    },
+    "mood": "focused",
+    "learned_opponents": {
+      "player": 40
+    },
+    "destination": "",
+    "relationship": "rival"
   }
 }

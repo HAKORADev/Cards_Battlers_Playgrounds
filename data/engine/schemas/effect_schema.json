@@ -116,13 +116,27 @@
     "optional": "boolean"
   },
   "action": {
-    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"],
+    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"],
     "declared_but_unsupported": ["control", "summon", "fusion_summon", "ritual_summon"],
-    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"],
+    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"],
     "summon": {
       "method": "special, normal, fusion, ritual, or authored method key",
       "select": "selector for cards to summon from deck, hand, graveyard, banished, or another legal zone",
       "count": "number of cards to summon"
+    },
+    "draw": {
+      "amount": "number of cards",
+      "target": "actor or selected duelist"
+    },
+    "discard": {
+      "select": "selector for cards to discard",
+      "count": "number of cards",
+      "notify": "optional choose_cards prompt metadata"
+    },
+    "grant_normal_summon": {
+      "count": "number of additional normal summon permissions",
+      "per_turn": "whether the grant is replenished at the owner's next turn",
+      "cost": "optional cost object, including pay_hp amount"
     },
     "amount": "number, expression, or object",
     "target": "selector id, source, actor, or explicit target",

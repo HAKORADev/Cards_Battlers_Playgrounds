@@ -752,8 +752,8 @@ class EffectSpec:
     media: dict = field(default_factory=dict)
     legacy: bool = False
 
-    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"}
+    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
 
     @classmethod
@@ -1998,6 +1998,7 @@ class DuelEngine:
         self.pending_trap = None
         self.pending_cost = None
         self.pending_effect = None
+        self.summon_permissions = {"player": {"base": 1, "used": 0, "grants": []}, "opponent": {"base": 1, "used": 0, "grants": []}}
         self.field_card = None
         self.field_card_owner = None
         self.cpu = cpu
@@ -2009,6 +2010,42 @@ class DuelEngine:
         self.apply_team_start_effect(self.player, self.team_effect)
         self.apply_team_start_effect(self.opponent, self.opponent_team_effect)
         self.log("The duel begins. The accepting side enters first.")
+
+    def side_key(self, side):
+        return "player" if side is self.player else "opponent"
+
+    def reset_summon_permissions(self, side):
+        state = self.summon_permissions[self.side_key(side)]
+        state["used"] = 0
+        for grant in state["grants"]: grant["remaining"] = grant.get("per_turn", grant.get("remaining", 0))
+
+    def normal_summon_remaining(self, side):
+        state = self.summon_permissions[self.side_key(side)]
+        return max(0, int(state.get("base", 1)) - int(state.get("used", 0))) + sum(max(0, int(grant.get("remaining", 0))) for grant in state.get("grants", []))
+
+    def grant_normal_summon(self, side, count=1, cost=None, per_turn=False, source=None):
+        amount = max(1, int(count or 1))
+        state = self.summon_permissions[self.side_key(side)]
+        grant = {"remaining": amount, "per_turn": amount if per_turn else 0, "cost": dict(cost or {}), "source": source or "effect"}
+        state["grants"].append(grant)
+        self.log(f"{side.name} gains {amount} additional normal summon permission(s).")
+        return grant
+
+    def consume_normal_summon(self, side):
+        state = self.summon_permissions[self.side_key(side)]
+        if state.get("used", 0) < state.get("base", 1):
+            state["used"] += 1
+            return True, ""
+        grant = next((item for item in state.get("grants", []) if item.get("remaining", 0) > 0), None)
+        if not grant: return False, "No normal summon permission remains this turn."
+        cost = grant.get("cost") or {}
+        if cost.get("kind") == "pay_hp":
+            amount = max(0, int(cost.get("amount", 0) or 0))
+            if side.hp < amount: return False, "The extra normal summon cost cannot be paid."
+            side.hp -= amount
+            self.check_end()
+        grant["remaining"] -= 1
+        return True, ""
 
     @property
     def phase(self):
@@ -2093,6 +2130,7 @@ class DuelEngine:
             self.phase_index = 0
             self.active, _ = self.other(self.active), self.active
             self.turn += 1
+            self.reset_summon_permissions(self.active)
             for card in self.active.monsters:
                 if card: card.attacked = False
             drawn = self.active.draw(1)
@@ -2360,11 +2398,14 @@ class DuelEngine:
             return False, "Summoning is only available during your main phase."
         if card not in self.player.hand or card.card.kind not in ["normal", "effect", "legendary"]:
             return False, "Select a monster from your hand."
+        if self.normal_summon_remaining(self.player) <= 0: return False, "No normal summon permission remains this turn."
         zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
         tribute = 0 if card.card.stars <= 4 else 1 if card.card.stars <= 6 else 2
         occupied = [item for item in self.player.monsters if item]
         if len(occupied) < tribute: return False, f"This summon requires {tribute} tribute(s)."
+        permission, reason = self.consume_normal_summon(self.player)
+        if not permission: return False, reason
         source_zone = card.position
         for item in occupied[:tribute]: self.destroy(self.player, item)
         self.player.hand.remove(card)
@@ -2508,9 +2549,11 @@ class DuelEngine:
             result["value"] = values[0] if len(values) == 1 else values
             self.log(f"{source} restores {amount} health to {len(recipients)} target(s).")
         elif action == "draw":
-            drawn = actor.draw(max(1, amount))
-            result["value"] = len(drawn)
-            self.log(f"{source} lets {actor.name} draw {len(drawn)} card(s).")
+            recipients = [item for item in targets if isinstance(item, Duelist)] or [actor]
+            values = []
+            for recipient in recipients: values.append(len(recipient.draw(max(1, amount))))
+            result["value"] = values[0] if len(values) == 1 else values
+            self.log(f"{source} lets {len(recipients)} duelist(s) draw {sum(values)} card(s).")
         elif action in ["set_face_up", "set_face_down", "switch_position"]:
             selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
             values = []
@@ -2633,7 +2676,7 @@ class DuelEngine:
 
     def resolve_pending_cost(self, cards):
         pending = self.pending_cost
-        if not pending or pending["kind"] != "discard": return False, "No card cost is pending."
+        if not pending or pending["kind"] not in ["discard", "discard_action"]: return False, "No card cost is pending."
         selected = list(cards if isinstance(cards, list) else [cards])
         if len(selected) != pending["required"] or any(item not in pending["candidates"] for item in selected): return False, "Those cards cannot pay this cost."
         if len(set(selected)) != len(selected): return False, "A card cannot be selected twice."
@@ -2642,10 +2685,11 @@ class DuelEngine:
         self.pending_cost = None
         notification = self.pending_notification("choose_cards")
         if notification: notification.status, notification.answer = "resolved", "ok"
-        self.execute_effect_spec(card, spec, actor, self.other(actor))
+        if pending["kind"] == "discard_action": self.execute_effect_spec(card, spec, actor, self.other(actor), pending.get("action_index", 0) + 1)
+        else: self.execute_effect_spec(card, spec, actor, self.other(actor))
         return True, ""
 
-    def execute_effect_spec(self, card, spec, actor, default_target):
+    def execute_effect_spec(self, card, spec, actor, default_target, start_index=0):
         selector = spec.selector or self.legacy_selector(card, actor)
         if selector:
             if isinstance(default_target, list): selected = list(default_target)
@@ -2661,7 +2705,8 @@ class DuelEngine:
         else:
             selected = []
         target_map = {"target": selected, "selected": selected}
-        for index, action in enumerate(spec.actions):
+        for index in range(start_index, len(spec.actions)):
+            action = spec.actions[index]
             action_name = action.get("name", "")
             if not action.get("valid", action_name in EffectSpec.action_names): continue
             target_value = action.get("target", "")
@@ -2671,6 +2716,21 @@ class DuelEngine:
             elif target_value in ["opponent", "enemy"]: resolved = default_target
             elif target_value in ["source", "card"] or not target_value: resolved = card if action_name in ["boost_attack", "boost_defense"] else default_target
             else: resolved = selected
+            if action_name == "discard":
+                discard_selector = dict(action.get("select") or action.get("selector") or {"side": "self", "zone": "hand", "count": action.get("count", 1)})
+                discard_selector["count"] = "all"
+                candidates = SelectorRuntime(self, actor, card).select(discard_selector)
+                required = max(1, int(action.get("count", (action.get("select") or {}).get("count", 1)) or 1))
+                if len(candidates) < required: return False
+                self.pending_cost = {"kind": "discard_action", "card": card, "spec": spec, "actor": actor, "candidates": candidates, "required": required, "selected": [], "action_index": index}
+                self.notify("choose_cards", action.get("notify", {}).get("text", "Choose cards to discard."), ["ok"], {"required": required, "kind": "discard_action", "effect": spec.effect_id})
+                return False
+            if action_name == "grant_normal_summon":
+                amount = action.get("count", action.get("amount", 1))
+                if isinstance(amount, dict): amount = amount.get("value", 1)
+                cost = action.get("cost") or ({"kind": "pay_hp", "amount": action.get("cost_amount", 0)} if action.get("cost_amount") is not None else {})
+                self.grant_normal_summon(actor, amount, cost, bool(action.get("per_turn", False)), card.card.id)
+                continue
             if action_name == "special_summon":
                 summon_selector = action.get("select") or (target_value if isinstance(target_value, dict) else spec.selector)
                 summon_method = action.get("method", "special")

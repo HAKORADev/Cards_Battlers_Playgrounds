@@ -3,21 +3,15 @@
   "id": "player",
   "category": "characters",
   "state": {
-    "enemies": [],
-    "allies": [],
+    "activity": "idle",
+    "current_place": "",
+    "cooldown_until": 0.0,
+    "availability": "free",
     "library_cards": [
-      "iron_fridge",
       "sky_archer",
       "void_titan"
     ],
-    "activity": "idle",
-    "cooldown_until": 0.0,
-    "learned_cards": {
-      "aqua_sentinel": 78,
-      "iron_fridge": 39,
-      "sky_archer": 39,
-      "void_titan": 39
-    },
+    "borrowed_cards": [],
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -51,31 +45,10 @@
         "BATTLE": 1.0
       }
     },
-    "movement_progress": 0.0,
-    "mood": "neutral",
-    "learned_opponents": {
-      "rival_echo": 39
-    },
-    "destination": "",
-    "current_place": "",
-    "availability": "free",
-    "relationship": "self",
+    "enemies": [],
+    "allies": [],
+    "rank": 1,
     "history": [
-      {
-        "opponent": "rival_echo",
-        "result": "loss",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "aqua_sentinel",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer",
-          "void_titan"
-        ],
-        "traded_card": "cinder_knight",
-        "time": 1787493377.1426198
-      },
       {
         "opponent": "rival_echo",
         "result": "loss",
@@ -360,9 +333,35 @@
         ],
         "traded_card": "aqua_sentinel",
         "time": 1787516731.662514
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787518138.0907366
       }
     ],
-    "borrowed_cards": [],
-    "rank": 1
+    "movement_progress": 0.0,
+    "learned_cards": {
+      "aqua_sentinel": 80,
+      "iron_fridge": 40,
+      "sky_archer": 40,
+      "void_titan": 40
+    },
+    "mood": "neutral",
+    "learned_opponents": {
+      "rival_echo": 40
+    },
+    "destination": "",
+    "relationship": "self"
   }
 }
