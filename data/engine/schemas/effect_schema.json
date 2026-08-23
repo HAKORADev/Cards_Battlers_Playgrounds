@@ -140,6 +140,10 @@
     },
     "amount": "number, expression, or object",
     "target": "selector id, source, actor, or explicit target",
+    "target_policy": {
+      "revalidate": "boolean; declarative effects default true, legacy effects preserve prior behavior",
+      "snapshot": "captured legal target IDs at selection-window creation"
+    },
     "duration": "instant, until_end_of_turn, per_turn, while_face_up, permanent, or phase window",
     "condition": "optional predicate list; summon_method, summon_source_zone, summon_source_card_id, and summon_source_effect_id are supported provenance fields",
     "summon_provenance": {

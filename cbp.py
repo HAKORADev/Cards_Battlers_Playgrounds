@@ -750,6 +750,7 @@ class EffectSpec:
     priority: int = 0
     notify: dict = field(default_factory=dict)
     media: dict = field(default_factory=dict)
+    target_policy: dict = field(default_factory=dict)
     legacy: bool = False
 
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
@@ -795,11 +796,13 @@ class EffectSpec:
             selector = {"target_groups": list(raw.get("targets", [])), "count": raw.get("target_count", 0)}
         targets = list(raw.get("targets") or [])
         if raw.get("target_count") and not targets: selector["count"] = raw.get("target_count")
+        target_policy = dict(raw.get("target_policy") or raw.get("target_resolution") or {})
+        if "revalidate" not in target_policy: target_policy["revalidate"] = not legacy
         modifier = dict(raw.get("modifier") or raw.get("field_effect") or {})
         if raw.get("field_effect") and not modifier.get("scope"): modifier["scope"] = "field"
         if raw.get("field_effect") and modifier.get("atk") is not None:
             modifier["stat"], modifier["operation"], modifier["amount"] = "attack", "add", modifier.pop("atk")
-        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), legacy)
+        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, legacy)
 
     def validate(self):
         errors = []
@@ -819,7 +822,7 @@ class EffectSpec:
         return list(dict.fromkeys(errors))
 
     def to_dict(self):
-        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media}
+        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy}
 
 
 class LogicRuntime:
@@ -2184,12 +2187,19 @@ class DuelEngine:
         if selector: return SelectorRuntime(self, actor, card).select(selector)
         return []
 
+    def revalidate_pending_targets(self, pending):
+        if not pending.get("target_policy", {}).get("revalidate", True): return True, ""
+        current = self.legal_targets(pending["card"], pending["actor"], pending.get("selector"))
+        invalid = [item for item in pending.get("selected", []) if item not in current]
+        if invalid: return False, "A selected target is no longer legal."
+        return True, ""
+
     def select_target(self, target):
         if not self.pending_target: return False, "No target is currently pending."
         pending = self.pending_target
         card = pending["card"]
         actor = pending["actor"]
-        candidates = pending.get("candidates", self.legal_targets(card, actor, pending.get("selector")))
+        candidates = self.legal_targets(card, actor, pending.get("selector")) if pending.get("target_policy", {}).get("revalidate", True) else pending.get("candidates", [])
         if target not in candidates: return False, "That target is not legal."
         selected = pending.setdefault("selected", [])
         if target in selected: return False, "That target is already selected."
@@ -2198,6 +2208,8 @@ class DuelEngine:
         if len(selected) < required:
             self.log(f"{len(selected)}/{required} targets selected for {card.card.name}.")
             return True, ""
+        valid, reason = self.revalidate_pending_targets(pending)
+        if not valid: return False, reason
         trigger = pending["trigger"]
         resolved_target = selected[0] if required == 1 else selected
         actor.hand.remove(card)
@@ -2464,7 +2476,7 @@ class DuelEngine:
             candidates = self.legal_targets(card, self.player, selector)
             if not candidates: return False, "This card has no legal target in the current field state."
             if required > len(candidates): return False, "This card requires more legal targets than are currently available."
-            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player, "selected": [], "candidates": candidates, "selector": selector, "required": required}
+            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player, "selected": [], "candidates": candidates, "selector": selector, "required": required, "target_policy": activate_spec.target_policy if activate_spec else {"revalidate": False}, "snapshot": [getattr(item.card, "id", getattr(item, "name", "")) for item in candidates]}
             self.notify("choose_target", f"Select {required} legal target(s) for {card.card.name}.", ["ok"], {"card": card.card.id, "count": required})
             self.log(f"Select {required} legal target(s) for {card.card.name}.")
             return True, ""
