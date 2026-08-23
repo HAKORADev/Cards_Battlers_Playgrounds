@@ -17,6 +17,15 @@
       "costs": "ordered reusable cost objects; discard costs can pause and resume before material selection"
     }
   },
+  "place": {
+    "event_response_policies": {
+      "event_name": {
+        "enabled": "boolean; false or absent keeps the event non-blocking",
+        "priority": "opposite or explicitly authored priority side",
+        "response_trigger": "optional normalized trigger override"
+      }
+    }
+  },
   "effect": {
     "id": "stable_effect_id",
     "trigger": "on_summon",

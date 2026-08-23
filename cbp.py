@@ -528,6 +528,7 @@ class PlaceDef:
     day_night: bool
     media_folder: str = ""
     effects: list = field(default_factory=list)
+    event_response_policies: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1682,6 +1683,7 @@ class ContentStore:
         if "capacity" in values: place.capacity = clamp(int(values["capacity"]), 1, 10)
         if "background" in values and values["background"]: place.background = str(values["background"])
         if "day_night" in values: place.day_night = bool(values["day_night"])
+        if "event_response_policies" in values and isinstance(values["event_response_policies"], dict): place.event_response_policies = dict(values["event_response_policies"])
         self.save()
         return place
 
@@ -2806,12 +2808,15 @@ class DuelEngine:
 
     def open_event_response_window(self, trigger, actor, source=None, target=None, metadata=None):
         if self.chain_window or actor is None: return None
-        priority = self.other(actor)
-        candidates = self.response_candidates(priority, trigger)
+        policy = dict((metadata or {}).get("response_policy", {}) or {})
+        priority_key = str(policy.get("priority", "opposite")).lower()
+        priority = self.player if priority_key == "player" else self.opponent if priority_key == "opponent" else self.other(actor)
+        response_trigger = str(policy.get("response_trigger", trigger) or trigger)
+        candidates = self.response_candidates(priority, response_trigger)
         if not candidates: return None
         context = dict(metadata or {})
-        context.update({"event_window": True, "event_trigger": trigger, "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
-        return self.open_chain_window(priority, trigger, source, target, context)
+        context.update({"event_window": True, "event_trigger": trigger, "response_trigger": response_trigger, "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        return self.open_chain_window(priority, response_trigger, source, target, context)
 
     def open_chain_window(self, actor, trigger, source=None, target=None, context=None):
         if self.chain_window: return self.chain_window
@@ -3343,6 +3348,10 @@ class DuelEngine:
 
     def emit_event(self, trigger, actor, source=None, target=None, metadata=None, include_source=True):
         self.rule_event_sequence += 1
+        event_metadata = dict(metadata or {})
+        policy = dict(getattr(self.place, "event_response_policies", {}).get(trigger, {}) or {})
+        if policy.get("enabled", False):
+            event_metadata.update({"response_window": True, "response_policy": policy})
         source_cards = [source] if include_source and isinstance(source, CardInstance) else []
         if not source_cards:
             source_cards = [item for side in [self.player, self.opponent] for item in side.monsters + side.spells if item and item.face_up]
@@ -3350,7 +3359,7 @@ class DuelEngine:
             if not include_source and isinstance(source, CardInstance): source_cards = [item for item in source_cards if item is not source]
         source_cards = list(dict.fromkeys(source_cards))
         target_items = target if isinstance(target, list) else [target] if target is not None else []
-        context = RuleContext(f"rule_{self.rule_event_sequence}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(source, "card", source), "id", ""), getattr(source, "last_zone", getattr(source, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, dict(metadata or {}))
+        context = RuleContext(f"rule_{self.rule_event_sequence}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(source, "card", source), "id", ""), getattr(source, "last_zone", getattr(source, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, event_metadata)
         if trigger in self.event_dispatch_stack:
             self.event_history.append(context.__dict__.copy())
             self.event_history = self.event_history[-128:]
@@ -3378,7 +3387,7 @@ class DuelEngine:
             group["resolved"].append(effect_id)
         self.event_dispatch_stack.pop()
         self.active_rule_context = previous_context
-        if metadata and metadata.get("response_window") and not self.chain_window: self.open_event_response_window(trigger, actor, source, target, metadata)
+        if event_metadata.get("response_window") and not self.chain_window: self.open_event_response_window(trigger, actor, source, target, event_metadata)
         return context
 
     def resolve(self, card, trigger, target=None, actor=None, context=None, effect_id=""):
