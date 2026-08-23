@@ -3,10 +3,10 @@
   "id": "trio_team",
   "category": "teams",
   "state": {
-    "effect_locked": false,
-    "history": [],
     "relationship": "engine",
+    "rank": 1,
+    "history": [],
     "team_effect": {},
-    "rank": 1
+    "effect_locked": false
   }
 }

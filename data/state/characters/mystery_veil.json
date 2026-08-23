@@ -3,19 +3,13 @@
   "id": "mystery_veil",
   "category": "characters",
   "state": {
-    "availability": "free",
+    "movement_progress": 0.0,
+    "mood": "watchful",
     "learned_opponents": {},
     "enemies": [],
-    "library_cards": [
-      "trio_relic",
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
-    "mood": "watchful",
-    "borrowed_cards": [],
+    "relationship": "engine team",
+    "destination": "",
+    "availability": "free",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -49,15 +43,21 @@
         "BATTLE": 1.0
       }
     },
-    "rank": 1,
     "activity": "idle",
-    "history": [],
-    "relationship": "engine team",
-    "destination": "",
     "allies": [],
-    "learned_cards": {},
     "current_place": "",
-    "movement_progress": 0.0,
+    "borrowed_cards": [],
+    "history": [],
+    "rank": 1,
+    "learned_cards": {},
+    "library_cards": [
+      "trio_relic",
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ],
     "cooldown_until": 0.0
   }
 }

@@ -3,19 +3,15 @@
   "id": "player",
   "category": "characters",
   "state": {
-    "availability": "free",
+    "movement_progress": 0.0,
+    "mood": "neutral",
     "learned_opponents": {
-      "rival_echo": 32
+      "rival_echo": 33
     },
     "enemies": [],
-    "library_cards": [
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan"
-    ],
-    "mood": "neutral",
-    "borrowed_cards": [],
+    "relationship": "self",
+    "destination": "",
+    "availability": "free",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -49,24 +45,11 @@
         "BATTLE": 1.0
       }
     },
-    "rank": 1,
     "activity": "idle",
+    "allies": [],
+    "current_place": "",
+    "borrowed_cards": [],
     "history": [
-      {
-        "opponent": "rival_echo",
-        "result": "loss",
-        "turns": 4,
-        "reason": "health",
-        "cards_seen": [
-          "aqua_sentinel",
-          "aqua_sentinel",
-          "iron_fridge",
-          "sky_archer",
-          "void_titan"
-        ],
-        "traded_card": "cinder_knight",
-        "time": 1787489437.9795418
-      },
       {
         "opponent": "rival_echo",
         "result": "loss",
@@ -351,19 +334,35 @@
         ],
         "traded_card": "cinder_knight",
         "time": 1787511136.6763825
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787513746.9559658
       }
     ],
-    "relationship": "self",
-    "destination": "",
-    "allies": [],
+    "rank": 1,
     "learned_cards": {
-      "aqua_sentinel": 64,
-      "iron_fridge": 32,
-      "sky_archer": 32,
-      "void_titan": 32
+      "aqua_sentinel": 66,
+      "iron_fridge": 33,
+      "sky_archer": 33,
+      "void_titan": 33
     },
-    "current_place": "",
-    "movement_progress": 0.0,
+    "library_cards": [
+      "iron_fridge",
+      "sky_archer",
+      "void_titan"
+    ],
     "cooldown_until": 0.0
   }
 }

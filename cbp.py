@@ -1688,6 +1688,19 @@ class CardInstance:
         return self.card.defense + self.defense_bonus
 
 
+@dataclass
+class EffectEvent:
+    sequence: int
+    action: str
+    amount: int
+    actor: object
+    source: object
+    target: object = None
+    trigger: str = ""
+    status: str = "queued"
+    result: dict = field(default_factory=dict)
+
+
 class Duelist:
     def __init__(self, character, store):
         self.character = character
@@ -1739,6 +1752,9 @@ class DuelEngine:
         self.phase_index = 0
         self.turn = 1
         self.events = []
+        self.effect_queue = []
+        self.resolution_history = []
+        self.effect_sequence = 0
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
@@ -1832,24 +1848,44 @@ class DuelEngine:
         self.log(f"{owner.name} discards {card.card.name}.")
         return True, ""
 
-    def legal_targets(self, card):
+    def legal_targets(self, card, actor=None):
+        actor = actor or self.player
+        other = self.other(actor)
         target_types = set(card.card.targets or ["none"])
-        if "opponent" in target_types: return [self.opponent]
-        if "player" in target_types: return [self.player]
-        if "monster" in target_types or "any_monster" in target_types: return [item for side in [self.player, self.opponent] for item in side.monsters if item]
-        return []
+        candidates = []
+        if "opponent" in target_types: candidates.append(other)
+        if "player" in target_types or "self" in target_types: candidates.append(actor)
+        if "opponent_monster" in target_types: candidates.extend(item for item in other.monsters if item)
+        if "player_monster" in target_types: candidates.extend(item for item in actor.monsters if item)
+        if "monster" in target_types or "any_monster" in target_types: candidates.extend(item for side in [actor, other] for item in side.monsters if item)
+        if "opponent_spell_trap" in target_types: candidates.extend(item for item in other.spells if item)
+        if "player_spell_trap" in target_types: candidates.extend(item for item in actor.spells if item)
+        if "card" in target_types or "any_card" in target_types:
+            candidates.extend(item for side in [actor, other] for item in side.monsters + side.spells if item)
+        return list(dict.fromkeys(candidates))
 
     def select_target(self, target):
-        if not self.pending_target or target not in self.legal_targets(self.pending_target["card"]): return False, "That target is not legal."
-        card = self.pending_target["card"]
-        actor = self.pending_target["actor"]
-        trigger = self.pending_target["trigger"]
+        if not self.pending_target: return False, "No target is currently pending."
+        pending = self.pending_target
+        card = pending["card"]
+        actor = pending["actor"]
+        if target not in self.legal_targets(card, actor): return False, "That target is not legal."
+        selected = pending.setdefault("selected", [])
+        if target in selected: return False, "That target is already selected."
+        selected.append(target)
+        required = max(1, int(card.card.target_count or 1))
+        if len(selected) < required:
+            self.log(f"{len(selected)}/{required} targets selected for {card.card.name}.")
+            return True, ""
+        trigger = pending["trigger"]
+        resolved_target = selected[0] if required == 1 else selected
         actor.hand.remove(card)
         card.position = "graveyard"
         actor.graveyard.append(card)
         self.pending_target = None
-        self.log(f"{card.card.name} targets {target.name if hasattr(target, 'name') else target.card.name}.")
-        self.resolve(card, trigger, target, actor)
+        target_name = target.name if hasattr(target, "name") else target.card.name
+        self.log(f"{card.card.name} targets {target_name}.")
+        self.resolve(card, trigger, resolved_target, actor)
         self.run_logic(card, trigger, actor, self.other(actor))
         return True, ""
 
@@ -1981,8 +2017,11 @@ class DuelEngine:
         if card not in self.player.hand or card.card.kind not in ["spell", "field"]: return False, "Select a spell or field card in your hand."
         if card.card.timing not in ["main", "any"]: return False, "This card is waiting for a different timing window."
         if card.card.target_count:
-            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player}
-            self.log(f"Select a legal target for {card.card.name}.")
+            candidates = self.legal_targets(card, self.player)
+            if not candidates: return False, "This card has no legal target in the current field state."
+            if card.card.target_count > len(candidates): return False, "This card requires more legal targets than are currently available."
+            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player, "selected": []}
+            self.log(f"Select {card.card.target_count} legal target(s) for {card.card.name}.")
             return True, ""
         self.player.hand.remove(card)
         if card.card.kind == "field":
@@ -2021,29 +2060,74 @@ class DuelEngine:
             return False
         return True
 
-    def apply_effect(self, card, action, amount, actor, target=None, source="Effect"):
+    def queue_effect(self, card, action, amount, actor, target=None, source="Effect", trigger=""):
+        normalized = LogicRuntime.normalize_action(f"{action} {amount}")
+        if not normalized["valid"]: return None
+        self.effect_sequence += 1
+        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger)
+        self.effect_queue.append(event)
+        return event
+
+    def resolve_effect_queue(self):
+        while self.effect_queue:
+            event = self.effect_queue.pop(0)
+            event.status = "resolving"
+            event.result = self.apply_effect_now(event)
+            event.status = event.result.get("status", "resolved")
+            self.resolution_history.append({"sequence": event.sequence, "action": event.action, "amount": event.amount, "source": getattr(getattr(event.source, "card", event.source), "name", str(event.source)), "status": event.status, "result": event.result})
+        self.resolution_history = self.resolution_history[-64:]
+        self.check_end()
+
+    def apply_effect_now(self, event):
+        card, action, amount, actor, target = event.source, event.action, event.amount, event.actor, event.target
+        source = getattr(getattr(card, "card", card), "name", "Effect")
+        result = {"status": "resolved", "action": action, "amount": amount}
+        targets = target if isinstance(target, list) else [target] if target is not None else []
         if action == "damage":
-            recipient = target if target is not None and hasattr(target, "hp") else self.other(actor)
-            recipient.hp = max(0, recipient.hp - amount)
-            self.log(f"{source} deals {amount} damage.")
+            recipients = [item for item in targets if hasattr(item, "hp")] or [self.other(actor)]
+            values = []
+            for recipient in recipients:
+                before = recipient.hp
+                recipient.hp = max(0, recipient.hp - amount)
+                values.append(before - recipient.hp)
+            result["value"] = values[0] if len(values) == 1 else values
+            self.log(f"{source} deals {amount} damage to {len(recipients)} target(s).")
         elif action == "heal":
-            recipient = target if target is not None and hasattr(target, "hp") else actor
-            recipient.hp = min(8000, recipient.hp + amount)
-            self.log(f"{source} restores {amount} health.")
+            recipients = [item for item in targets if hasattr(item, "hp")] or [actor]
+            values = []
+            for recipient in recipients:
+                before = recipient.hp
+                recipient.hp = min(8000, recipient.hp + amount)
+                values.append(recipient.hp - before)
+            result["value"] = values[0] if len(values) == 1 else values
+            self.log(f"{source} restores {amount} health to {len(recipients)} target(s).")
         elif action == "draw":
             drawn = actor.draw(max(1, amount))
+            result["value"] = len(drawn)
             self.log(f"{source} lets {actor.name} draw {len(drawn)} card(s).")
         elif action == "boost_attack":
             card.attack_bonus += amount
+            result["value"] = card.attack_bonus
             self.log(f"{source} gives {card.card.name} {amount} ATK.")
         elif action == "boost_defense":
             card.defense_bonus += amount
+            result["value"] = card.defense_bonus
             self.log(f"{source} gives {card.card.name} {amount} DEF.")
         elif action in ["banish", "send_to_graveyard", "return_to_hand"]:
-            selected = target if isinstance(target, CardInstance) else card
+            selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
             destination = "banished" if action == "banish" else "graveyard" if action == "send_to_graveyard" else "hand"
-            if self.move_card(selected, destination): self.log(f"{source} moves {selected.card.name} to {destination}.")
-        self.check_end()
+            moved = [item.card.id for item in selected_cards if self.move_card(item, destination)]
+            result["value"] = moved[0] if len(moved) == 1 else moved
+            result["status"] = "resolved" if moved else "blocked"
+            if moved: self.log(f"{source} moves {len(moved)} card(s) to {destination}.")
+        else: result["status"] = "blocked"
+        return result
+
+    def apply_effect(self, card, action, amount, actor, target=None, source="Effect", trigger=""):
+        event = self.queue_effect(card, action, amount, actor, target, source, trigger)
+        if event is None: return {"status": "blocked", "action": action, "amount": amount}
+        self.resolve_effect_queue()
+        return event.result
 
     def run_logic(self, card, trigger, actor, target):
         context = {"card": card, "actor": actor, "target": target}
