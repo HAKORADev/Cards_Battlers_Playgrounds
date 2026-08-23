@@ -2226,9 +2226,12 @@ class DuelEngine:
         self.phase_index += 1
         if self.phase_index >= len(self.phases):
             self.phase_index = 0
+            ending = self.active
+            self.emit_event("turn_end", ending, metadata={"turn": self.turn, "ending_side": self.side_key(ending)})
             self.active, _ = self.other(self.active), self.active
             self.turn += 1
             self.reset_summon_permissions(self.active)
+            self.emit_event("turn_start", self.active, metadata={"turn": self.turn, "starting_side": self.side_key(self.active)})
             for card in self.active.monsters:
                 if card: card.attacked = False
             drawn = self.active.draw(1)
@@ -3409,6 +3412,7 @@ class DuelEngine:
         if target is not None and target not in targets: return False, "That target is not on the opponent field."
         target = target or (min(targets, key=lambda item: item.defense) if targets else None)
         self.emit_event("attack", self.player, source=card, target=target, metadata={"attacker": card.card.id, "target": self.entity_id(target) if target else "", "direct": not bool(targets)})
+        self.emit_event("attacked", self.opponent, source=None, target=target or self.opponent, metadata={"attacker": card.card.id, "target": self.entity_id(target) if target else self.opponent.character.id, "direct": not bool(targets)})
         if not targets:
             damage = self.effective_atk(card, self.player)
             self.opponent.hp = max(0, self.opponent.hp - damage)
