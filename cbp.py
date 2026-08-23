@@ -2170,8 +2170,8 @@ class DuelEngine:
                 if not result[0]: return result
             return result
         if notification.kind == "choose_cards":
-            if selection is None: return False, "Choose the required card(s)."
             if self.pending_procedure: return self.resolve_pending_procedure(selection)
+            if selection is None: return False, "Choose the required card(s)."
             if self.pending_cost: return self.resolve_pending_cost(selection)
             return False, "No card selection is pending."
         if self.answer_notification(notification_id, answer): return True, ""
@@ -2503,14 +2503,48 @@ class DuelEngine:
         if procedure.kind == "fusion" and len(candidates) < required: return False, "There are not enough legal fusion materials."
         if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars: return False, "There are not enough legal ritual material stars."
         self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]}
-        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact}
+        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
         self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
         return True, "pending_procedure"
 
-    def resolve_pending_procedure(self, materials):
+    def toggle_procedure_material(self, material):
         pending = self.pending_procedure
-        selected = list(materials if isinstance(materials, list) else [materials])
         if not pending: return False, "No summon procedure is pending."
+        if material not in pending["candidates"]: return False, "That card is not a legal procedure material."
+        selected = pending["selected"]
+        if material in selected:
+            selected.remove(material)
+        else:
+            if pending["procedure"].kind == "fusion" and pending["required"] and len(selected) >= pending["required"]:
+                return False, "The required number of fusion materials is already selected."
+            selected.append(material)
+        notification = self.pending_notification("choose_cards")
+        if notification:
+            notification.payload["selected_ids"] = [self.entity_id(item) for item in selected]
+            notification.payload["selected_stars"] = sum(item.card.stars for item in selected)
+        return True, ""
+
+    def cancel_pending_procedure(self):
+        if not self.pending_procedure: return False
+        self.pending_procedure = None
+        notification = self.pending_notification("choose_cards")
+        if notification:
+            notification.status, notification.answer = "resolved", "cancel"
+        return True
+
+    def procedure_selection_summary(self):
+        pending = self.pending_procedure
+        if not pending: return ""
+        selected = pending["selected"]
+        stars = sum(item.card.stars for item in selected)
+        if pending["procedure"].kind == "ritual": return f"{len(selected)} material(s), {stars}/{pending['procedure'].min_stars} stars"
+        return f"{len(selected)}/{pending['required']} material(s)"
+
+    def resolve_pending_procedure(self, materials=None):
+        pending = self.pending_procedure
+        if not pending: return False, "No summon procedure is pending."
+        if materials is None: materials = pending["selected"]
+        selected = list(materials if isinstance(materials, list) else [materials])
         valid, reason = self.validate_procedure_materials(pending["card"], selected, pending["actor"], pending["procedure"])
         if not valid: return False, reason
         paid, reason = self.pay_procedure_materials(selected, pending["actor"], pending["procedure"].material_destination)
@@ -3886,6 +3920,7 @@ class DuelScene(Scene):
         self.hover_attacker = None
         self.hover_target = None
         self.hover_set = None
+        self.hover_procedure = None
         self.action_mode = "summon"
         self.action_mode_card = None
         self.question = None
@@ -3909,6 +3944,7 @@ class DuelScene(Scene):
             return
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE and self.question:
+                if self.engine.pending_procedure: self.engine.cancel_pending_procedure()
                 self.question = None
                 return
             if event.key == pygame.K_SPACE and not self.question: self.next_phase()
@@ -3929,7 +3965,7 @@ class DuelScene(Scene):
                 if self.question.get("kind") == "notifier": self.engine.answer_pending_effect("no")
                 self.question = None
                 return
-            if not (self.question.get("kind") == "discard" and self.question.get("stage") == "choose_card" and event.button == 1):
+            if not (self.question.get("kind") in ["discard", "procedure"] and self.question.get("stage") == "choose_card" and event.button == 1 and (self.question.get("kind") == "discard" or self.hover_procedure)):
                 self.handle_question(event.pos)
                 return
         if self.card_list_popup:
@@ -3960,6 +3996,10 @@ class DuelScene(Scene):
             self.action_mode_card = self.hover_hand
             return
         if event.button == 1:
+            if self.engine.pending_procedure and self.hover_procedure:
+                success, msg = self.engine.toggle_procedure_material(self.hover_procedure)
+                self.message = self.engine.procedure_selection_summary() if success else msg
+                return
             if self.engine.phase == "BATTLE" and self.engine.selected_monster and self.hover_target:
                 success, msg = self.engine.attack(self.engine.selected_monster, self.hover_target)
                 self.message = self.engine.events[-1] if success else msg
@@ -3981,6 +4021,10 @@ class DuelScene(Scene):
                 self.message = self.engine.events[-1] if success else msg
                 return
             if self.hover_hand:
+                if self.engine.pending_procedure:
+                    success, msg = self.engine.toggle_procedure_material(self.hover_hand)
+                    self.message = self.engine.procedure_selection_summary() if success else msg
+                    return
                 if self.engine.pending_cost and self.question and self.question.get("stage") == "choose_card":
                     success, msg = self.engine.respond_notification(self.question.get("notification_id"), "ok", self.hover_hand)
                     self.message = msg or (self.engine.events[-1] if success and self.engine.events else "")
@@ -4038,10 +4082,16 @@ class DuelScene(Scene):
         return None
 
     def update_hover(self, pos):
+        self.hover_procedure = None
         self.hover_hand, self.hover_hand_rect = self.hand_card_at(pos)
         self.hover_attacker = self.player_monster_at(pos) if self.engine.phase == "BATTLE" else None
         self.hover_target = self.opponent_monster_at(pos) if self.engine.phase == "BATTLE" else None
         self.hover_set = self.player_set_at(pos)
+        if self.engine.pending_procedure:
+            if self.hover_hand in self.engine.pending_procedure["candidates"]: self.hover_procedure = self.hover_hand
+            else:
+                candidate = self.player_monster_at(pos)
+                self.hover_procedure = candidate if candidate in self.engine.pending_procedure["candidates"] else None
         if self.engine.pending_discard is self.engine.player and self.question and self.question.get("stage") == "choose_card":
             return
         if self.hover_hand and self.hover_hand is not self.action_mode_card:
@@ -4054,8 +4104,8 @@ class DuelScene(Scene):
             current = next((item for item in self.engine.notifications if item.notification_id == self.question["notification_id"]), None)
             if not current or current.status != "pending": self.question = None
         if self.question or not notification: return
-        kind = "discard" if notification.kind in ["discard", "choose_cards"] else "chain" if notification.kind == "chain_response" else "notifier"
-        stage = "confirm" if "no" in notification.options else "await_ok"
+        kind = "procedure" if notification.kind == "choose_cards" and notification.payload.get("kind") == "procedure_materials" else "discard" if notification.kind in ["discard", "choose_cards"] else "chain" if notification.kind == "chain_response" else "notifier"
+        stage = "choose_card" if kind == "procedure" else "confirm" if "no" in notification.options else "await_ok"
         self.question = {"kind": kind, "stage": stage, "notification_id": notification.notification_id, "text": notification.message, "options": notification.options}
 
     def handle_question(self, pos):
@@ -4089,6 +4139,11 @@ class DuelScene(Scene):
                 self.question = None
         elif kind == "discard" and stage == "await_ok" and self.layout.question_action_rect("ok").collidepoint(pos):
             self.question["stage"] = "choose_card"
+        elif kind == "procedure" and stage == "choose_card" and self.layout.question_action_rect("ok").collidepoint(pos):
+            notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id")), None)
+            result = self.engine.respond_notification(notification.notification_id, "ok", list(self.engine.pending_procedure["selected"])) if notification and self.engine.pending_procedure else (False, "No summon procedure is pending.")
+            self.message = result[1] or (self.engine.events[-1] if result[0] and self.engine.events else "")
+            if result[0]: self.question = None
 
     def select_hand(self, pos):
         card, _ = self.hand_card_at(pos)
@@ -4119,16 +4174,9 @@ class DuelScene(Scene):
         if action == "summon" and self.engine.selected_hand:
             card = self.engine.selected_hand
             if card.card.summon_method == "fusion":
-                materials = [item for item in self.engine.player.hand if item.card.id in card.card.materials][:len(card.card.materials)]
-                success, msg = self.engine.fusion_summon(card, materials)
+                success, msg = self.engine.fusion_summon(card)
             elif card.card.summon_method == "ritual":
-                materials = []
-                total = 0
-                for item in self.engine.player.hand:
-                    if item is card: continue
-                    materials.append(item); total += item.card.stars
-                    if total >= card.card.ritual_cost: break
-                success, msg = self.engine.ritual_summon(card, materials)
+                success, msg = self.engine.ritual_summon(card)
             else: success, msg = self.engine.summon(card)
         elif action == "set" and self.engine.selected_hand: success, msg = self.engine.set_card(self.engine.selected_hand)
         elif action == "activate" and self.engine.selected_hand: success, msg = self.engine.activate(self.engine.selected_hand)
