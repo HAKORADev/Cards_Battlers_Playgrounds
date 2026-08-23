@@ -1,6 +1,20 @@
 {
   "schema": "cbp.effect.v1",
   "description": "Declarative effect definitions normalized by the CBP rules runtime.",
+  "card": {
+    "summon_procedure": {
+      "optional": true,
+      "kind": ["fusion", "ritual", "authored procedure key"],
+      "material_selector": "selector predicate for eligible materials; Fusion and Ritual default to monster kinds",
+      "required_card_ids": "ordered or repeated authored card IDs; exact matching uses instance-safe multisets",
+      "min_stars": "minimum total stars for threshold procedures such as Ritual",
+      "locations": ["hand", "monster"],
+      "exact": "boolean; exact Fusion procedures compare the selected card-ID multiset",
+      "material_destination": ["graveyard", "banished"],
+      "source_selector": "optional selector for the summon card's source state",
+      "source_method": "provenance method recorded for the summoned card"
+    }
+  },
   "effect": {
     "id": "stable_effect_id",
     "trigger": "on_summon",
@@ -123,6 +137,17 @@
       "method": "special, normal, fusion, ritual, or authored method key",
       "select": "selector for cards to summon from deck, hand, graveyard, banished, or another legal zone",
       "count": "number of cards to summon"
+    },
+    "summon_procedure": {
+      "kind": "fusion, ritual, or authored procedure key",
+      "material_selector": "shared selector predicate for eligible materials",
+      "required_card_ids": "exact material IDs when exact is true",
+      "min_stars": "minimum material-star total",
+      "locations": "allowed source zones such as hand and monster",
+      "exact": "whether the selected IDs must equal required_card_ids",
+      "material_destination": "graveyard or banished; unsupported destinations are blocked explicitly",
+      "source_selector": "optional selector for the summon card source",
+      "source_method": "provenance method recorded on the summon"
     },
     "draw": {
       "amount": "number of cards",

@@ -476,6 +476,7 @@ class CardDef:
     art_folder: str = ""
     art_variant: int = 1
     frame_schema: str = "classic_card_v1"
+    summon_procedure: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -828,6 +829,34 @@ class EffectSpec:
 
     def to_dict(self):
         return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy, "speed": self.speed, "response": self.response}
+
+
+@dataclass
+class ProcedureSpec:
+    kind: str
+    material_selector: dict = field(default_factory=dict)
+    required_card_ids: list = field(default_factory=list)
+    min_stars: int = 0
+    locations: list = field(default_factory=lambda: ["hand", "monster"])
+    exact: bool = False
+    material_destination: str = "graveyard"
+    source_selector: dict = field(default_factory=dict)
+    source_method: str = ""
+
+    @classmethod
+    def from_card(cls, card):
+        raw = dict(getattr(card.card, "summon_procedure", {}) or {})
+        method = str(getattr(card.card, "summon_method", "normal") or "normal")
+        kind = str(raw.get("kind", method) or method)
+        required = list(raw.get("required_card_ids", raw.get("materials", getattr(card.card, "materials", []))) or [])
+        selector = dict(raw.get("material_selector", raw.get("selector", {})) or {})
+        minimum = int(raw.get("min_stars", raw.get("ritual_cost", getattr(card.card, "ritual_cost", 0))) or 0)
+        locations = list(raw.get("locations", ["hand", "monster"]) or ["hand", "monster"])
+        exact = bool(raw.get("exact", kind == "fusion" and bool(required)))
+        destination = str(raw.get("material_destination", "graveyard") or "graveyard")
+        source_selector = dict(raw.get("source_selector", {}) or {})
+        source_method = str(raw.get("source_method", kind) or kind)
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method)
 
 
 class LogicRuntime:
@@ -2029,6 +2058,7 @@ class DuelEngine:
         self.pending_summon = None
         self.pending_trap = None
         self.pending_cost = None
+        self.pending_procedure = None
         self.pending_effect = None
         self.effect_usage = {}
         self.summon_permissions = {"player": {"base": 1, "used": 0, "grants": []}, "opponent": {"base": 1, "used": 0, "grants": []}}
@@ -2140,8 +2170,10 @@ class DuelEngine:
                 if not result[0]: return result
             return result
         if notification.kind == "choose_cards":
-            if selection is None or not self.pending_cost: return False, "Choose the required card(s)."
-            return self.resolve_pending_cost(selection)
+            if selection is None: return False, "Choose the required card(s)."
+            if self.pending_procedure: return self.resolve_pending_procedure(selection)
+            if self.pending_cost: return self.resolve_pending_cost(selection)
+            return False, "No card selection is pending."
         if self.answer_notification(notification_id, answer): return True, ""
         return False, "The notification could not be resolved."
 
@@ -2414,47 +2446,120 @@ class DuelEngine:
         if notification: self.answer_notification(notification.notification_id, "ok")
         return self.special_summon(pending["selector"], pending["actor"], pending["method"], pending["source_card"], pending["source_effect_id"], pending["required"], selected)
 
-    def fusion_summon(self, card, materials):
-        if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
-        if card.card.summon_method != "fusion" or card not in self.player.hand: return False, "Select a fusion card in your hand."
-        required = list(card.card.materials)
-        material_ids = [item.card.id for item in materials]
-        if sorted(required) != sorted(material_ids): return False, "The exact fusion materials are not available."
-        if any(item not in self.player.hand and item not in self.player.monsters for item in materials): return False, "Every fusion material must be in your hand or field."
-        zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
+    def procedure_material_candidates(self, card, actor, procedure=None):
+        procedure = procedure or ProcedureSpec.from_card(card)
+        candidates = []
+        selector = dict(procedure.material_selector or {})
+        if procedure.kind in ["fusion", "ritual"]: selector.setdefault("card_kind", ["normal", "effect", "fusion", "ritual", "legendary"])
+        for zone in procedure.locations:
+            for item in SelectorRuntime(self, actor, card).zone_items(actor, zone):
+                if item is card or item in candidates: continue
+                if not SelectorRuntime(self, actor, card).matches(item, selector): continue
+                candidates.append(item)
+        return candidates
+
+    def validate_procedure_materials(self, card, materials, actor, procedure=None):
+        procedure = procedure or ProcedureSpec.from_card(card)
+        selected = list(materials or [])
+        candidates = self.procedure_material_candidates(card, actor, procedure)
+        if len(selected) != len(set(selected)): return False, "A procedure material cannot be selected twice."
+        if any(item not in candidates for item in selected): return False, "Every procedure material must be in an allowed source zone and match its selector."
+        if procedure.kind == "fusion":
+            selected_ids = sorted(item.card.id for item in selected)
+            required_ids = sorted(procedure.required_card_ids)
+            if procedure.exact and selected_ids != required_ids: return False, "The exact fusion material set is not available."
+            if not procedure.exact and not selected: return False, "Fusion requires at least one material."
+        if procedure.kind == "ritual" and sum(item.card.stars for item in selected) < procedure.min_stars:
+            return False, f"Ritual summoning requires {procedure.min_stars} material stars."
+        return True, ""
+
+    def pay_procedure_materials(self, materials, actor, destination="graveyard"):
+        if destination not in ["graveyard", "banished"]: return False, "This procedure material destination is not implemented."
+        if any(not self.move_card(item, destination, actor) for item in materials): return False, f"A procedure material could not be moved to {destination}."
+        return True, ""
+
+    def place_procedure_summon(self, card, actor, method, source_zone, source_card=None, source_effect_id=""):
+        zone = next((index for index, value in enumerate(actor.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
-        source_zone = card.position
-        for item in materials: self.destroy(self.player, item)
-        self.player.hand.remove(card)
+        if card in actor.hand: actor.hand.remove(card)
         card.last_zone = source_zone
         card.position = "field"
         card.face_up = True
         card.battle_position = "attack"
-        self.player.monsters[zone] = card
+        card.owner = actor.name
+        actor.monsters[zone] = card
+        self.record_summon(card, actor, method, source_zone, source_card, source_effect_id)
+        return True, ""
+
+    def begin_summon_procedure(self, card, actor, procedure=None):
+        procedure = procedure or ProcedureSpec.from_card(card)
+        if card not in actor.hand: return False, "Select a summon card in your hand."
+        if procedure.source_selector and not SelectorRuntime(self, actor, card).matches(card, procedure.source_selector): return False, "The summon card is not in its allowed source state."
+        if procedure.source_selector.get("zone") and str(procedure.source_selector.get("zone")) not in [str(card.position), "hand"]: return False, "The summon card is not in its allowed source zone."
+        if procedure.kind not in ["fusion", "ritual"]: return False, "This summon procedure is not implemented."
+        if not any(value is None for value in actor.monsters): return False, "All five monster zones are occupied."
+        candidates = self.procedure_material_candidates(card, actor, procedure)
+        required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else 0
+        if procedure.kind == "fusion" and len(candidates) < required: return False, "There are not enough legal fusion materials."
+        if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars: return False, "There are not enough legal ritual material stars."
+        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]}
+        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact}
+        self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
+        return True, "pending_procedure"
+
+    def resolve_pending_procedure(self, materials):
+        pending = self.pending_procedure
+        selected = list(materials if isinstance(materials, list) else [materials])
+        if not pending: return False, "No summon procedure is pending."
+        valid, reason = self.validate_procedure_materials(pending["card"], selected, pending["actor"], pending["procedure"])
+        if not valid: return False, reason
+        paid, reason = self.pay_procedure_materials(selected, pending["actor"], pending["procedure"].material_destination)
+        if not paid: return False, reason
+        card, actor, procedure = pending["card"], pending["actor"], pending["procedure"]
+        source_zone = card.position
+        placed, reason = self.place_procedure_summon(card, actor, procedure.source_method or procedure.kind, source_zone, None, procedure.kind + "_procedure")
+        if not placed: return False, reason
+        self.pending_procedure = None
+        notification = self.pending_notification("choose_cards")
+        if notification: notification.status, notification.answer = "resolved", "ok"
+        self.log(f"{actor.name} {procedure.kind} summons {card.card.name}.")
+        self.react(procedure.kind + "_summon", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id)
+        self.run_logic(card, "summon", actor, self.other(actor))
+        return True, ""
+
+    def fusion_summon(self, card, materials=None):
+        if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
+        if card.card.summon_method != "fusion" or card not in self.player.hand: return False, "Select a fusion card in your hand."
+        if materials is None: return self.begin_summon_procedure(card, self.player, ProcedureSpec.from_card(card))
+        procedure = ProcedureSpec.from_card(card)
+        valid, reason = self.validate_procedure_materials(card, materials, self.player, procedure)
+        if not valid: return False, reason
+        if not any(value is None for value in self.player.monsters): return False, "All five monster zones are occupied."
+        source_zone = card.position
+        paid, reason = self.pay_procedure_materials(materials, self.player, procedure.material_destination)
+        if not paid: return False, reason
+        placed, reason = self.place_procedure_summon(card, self.player, procedure.source_method or "fusion", source_zone, None, "fusion_procedure")
+        if not placed: return False, reason
         self.log(f"{self.player.name} fusion summons {card.card.name}.")
         self.react("fusion_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.record_summon(card, self.player, "fusion", source_zone, None, "fusion_procedure")
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
-    def ritual_summon(self, card, tributes):
+    def ritual_summon(self, card, tributes=None):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Ritual summoning is only available during your main phase."
         if card.card.summon_method != "ritual" or card not in self.player.hand: return False, "Select a ritual card in your hand."
-        if sum(item.card.stars for item in tributes) < card.card.ritual_cost: return False, f"Ritual summoning requires {card.card.ritual_cost} stars of tribute."
-        if any(item not in self.player.hand and item not in self.player.monsters for item in tributes): return False, "Every ritual tribute must be in your hand or field."
-        zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
-        if zone is None: return False, "All five monster zones are occupied."
+        if tributes is None: return self.begin_summon_procedure(card, self.player, ProcedureSpec.from_card(card))
+        procedure = ProcedureSpec.from_card(card)
+        valid, reason = self.validate_procedure_materials(card, tributes, self.player, procedure)
+        if not valid: return False, reason
+        if not any(value is None for value in self.player.monsters): return False, "All five monster zones are occupied."
         source_zone = card.position
-        for item in tributes: self.destroy(self.player, item)
-        self.player.hand.remove(card)
-        card.last_zone = source_zone
-        card.position = "field"
-        card.face_up = True
-        card.battle_position = "attack"
-        self.player.monsters[zone] = card
+        paid, reason = self.pay_procedure_materials(tributes, self.player, procedure.material_destination)
+        if not paid: return False, reason
+        placed, reason = self.place_procedure_summon(card, self.player, procedure.source_method or "ritual", source_zone, None, "ritual_procedure")
+        if not placed: return False, reason
         self.log(f"{self.player.name} ritual summons {card.card.name}.")
         self.react("ritual_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.record_summon(card, self.player, "ritual", source_zone, None, "ritual_procedure")
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
