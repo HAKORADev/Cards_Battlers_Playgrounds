@@ -842,6 +842,12 @@ class ProcedureSpec:
     material_destination: str = "graveyard"
     source_selector: dict = field(default_factory=dict)
     source_method: str = ""
+    required_count: int = 0
+
+    @classmethod
+    def normal_tribute(cls, card):
+        count = 0 if int(card.card.stars) <= 4 else 1 if int(card.card.stars) <= 6 else 2
+        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count)
 
     @classmethod
     def from_card(cls, card):
@@ -856,7 +862,9 @@ class ProcedureSpec:
         destination = str(raw.get("material_destination", "graveyard") or "graveyard")
         source_selector = dict(raw.get("source_selector", {}) or {})
         source_method = str(raw.get("source_method", kind) or kind)
-        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method)
+        derived_count = 0 if int(getattr(card.card, "stars", 0)) <= 4 else 1 if int(getattr(card.card, "stars", 0)) <= 6 else 2
+        required_count = int(raw.get("required_count", raw.get("count", derived_count if kind == "tribute" else 0)) or 0)
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count)
 
 
 class LogicRuntime:
@@ -2471,6 +2479,8 @@ class DuelEngine:
             if not procedure.exact and not selected: return False, "Fusion requires at least one material."
         if procedure.kind == "ritual" and sum(item.card.stars for item in selected) < procedure.min_stars:
             return False, f"Ritual summoning requires {procedure.min_stars} material stars."
+        if procedure.kind == "tribute" and len(selected) != procedure.required_count:
+            return False, f"This normal summon requires exactly {procedure.required_count} tribute(s)."
         return True, ""
 
     def pay_procedure_materials(self, materials, actor, destination="graveyard"):
@@ -2496,14 +2506,16 @@ class DuelEngine:
         if card not in actor.hand: return False, "Select a summon card in your hand."
         if procedure.source_selector and not SelectorRuntime(self, actor, card).matches(card, procedure.source_selector): return False, "The summon card is not in its allowed source state."
         if procedure.source_selector.get("zone") and str(procedure.source_selector.get("zone")) not in [str(card.position), "hand"]: return False, "The summon card is not in its allowed source zone."
-        if procedure.kind not in ["fusion", "ritual"]: return False, "This summon procedure is not implemented."
+        if procedure.kind not in ["fusion", "ritual", "tribute"]: return False, "This summon procedure is not implemented."
+        if procedure.kind == "tribute" and self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         if not any(value is None for value in actor.monsters): return False, "All five monster zones are occupied."
         candidates = self.procedure_material_candidates(card, actor, procedure)
         required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else 0
         if procedure.kind == "fusion" and len(candidates) < required: return False, "There are not enough legal fusion materials."
         if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars: return False, "There are not enough legal ritual material stars."
+        if procedure.kind == "tribute" and len(candidates) < procedure.required_count: return False, "There are not enough legal tribute candidates."
         self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]}
-        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
+        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required or procedure.required_count, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
         self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
         return True, "pending_procedure"
 
@@ -2515,7 +2527,7 @@ class DuelEngine:
         if material in selected:
             selected.remove(material)
         else:
-            if pending["procedure"].kind == "fusion" and pending["required"] and len(selected) >= pending["required"]:
+            if pending["procedure"].kind in ["fusion", "tribute"] and pending["required"] and len(selected) >= pending["required"]:
                 return False, "The required number of fusion materials is already selected."
             selected.append(material)
         notification = self.pending_notification("choose_cards")
@@ -2547,9 +2559,12 @@ class DuelEngine:
         selected = list(materials if isinstance(materials, list) else [materials])
         valid, reason = self.validate_procedure_materials(pending["card"], selected, pending["actor"], pending["procedure"])
         if not valid: return False, reason
-        paid, reason = self.pay_procedure_materials(selected, pending["actor"], pending["procedure"].material_destination)
-        if not paid: return False, reason
         card, actor, procedure = pending["card"], pending["actor"], pending["procedure"]
+        if procedure.kind == "tribute":
+            permission, reason = self.consume_normal_summon(actor)
+            if not permission: return False, reason
+        paid, reason = self.pay_procedure_materials(selected, actor, procedure.material_destination)
+        if not paid: return False, reason
         source_zone = card.position
         placed, reason = self.place_procedure_summon(card, actor, procedure.source_method or procedure.kind, source_zone, None, procedure.kind + "_procedure")
         if not placed: return False, reason
@@ -2606,12 +2621,10 @@ class DuelEngine:
         zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
         tribute = 0 if card.card.stars <= 4 else 1 if card.card.stars <= 6 else 2
-        occupied = [item for item in self.player.monsters if item]
-        if len(occupied) < tribute: return False, f"This summon requires {tribute} tribute(s)."
+        if tribute: return self.begin_summon_procedure(card, self.player, ProcedureSpec.normal_tribute(card))
         permission, reason = self.consume_normal_summon(self.player)
         if not permission: return False, reason
         source_zone = card.position
-        for item in occupied[:tribute]: self.destroy(self.player, item)
         self.player.hand.remove(card)
         card.last_zone = source_zone
         card.position = "field"
