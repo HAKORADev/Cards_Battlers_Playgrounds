@@ -529,6 +529,7 @@ class PlaceDef:
     media_folder: str = ""
     effects: list = field(default_factory=list)
     event_response_policies: dict = field(default_factory=dict)
+    trigger_order_policies: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1684,6 +1685,7 @@ class ContentStore:
         if "background" in values and values["background"]: place.background = str(values["background"])
         if "day_night" in values: place.day_night = bool(values["day_night"])
         if "event_response_policies" in values and isinstance(values["event_response_policies"], dict): place.event_response_policies = dict(values["event_response_policies"])
+        if "trigger_order_policies" in values and isinstance(values["trigger_order_policies"], dict): place.trigger_order_policies = dict(values["trigger_order_policies"])
         self.save()
         return place
 
@@ -2049,6 +2051,7 @@ class DuelEngine:
         self.event_history = []
         self.trigger_group_sequence = 0
         self.trigger_groups = []
+        self.pending_trigger_order = None
         self.active_rule_context = None
         self.event_dispatch_stack = []
         self.chain_links = []
@@ -2182,6 +2185,9 @@ class DuelEngine:
             notification.status, notification.answer = "resolved", answer
             self.notification_history.append({"id": notification.notification_id, "kind": notification.kind, "answer": answer, "payload": notification.payload, "time": time.time()})
             return self.pass_chain_priority(self.chain_priority)
+        if notification.kind == "choose_trigger_order":
+            if answer != "ok": return False, "Confirm the selected trigger order."
+            return self.resolve_trigger_order(selection)
         if notification.kind == "choose_target":
             selected = selection if isinstance(selection, list) else [selection]
             if self.pending_response: return self.resolve_pending_response(selected)
@@ -3384,6 +3390,47 @@ class DuelEngine:
         if completed: self.mark_effect_used(pending["card"], pending["spec"])
         return True, ""
 
+    def normalize_trigger_order_policy(self, trigger):
+        raw = dict(getattr(self.place, "trigger_order_policies", {}).get(trigger, {}) or {})
+        chooser = str(raw.get("chooser", "actor")).lower()
+        if chooser not in ["actor", "player", "opponent"]: chooser = "actor"
+        return {"enabled": bool(raw.get("enabled", False)), "chooser": chooser, "mandatory": bool(raw.get("mandatory", True)), "fallback": str(raw.get("fallback", "deterministic")).lower()}
+
+    def dispatch_trigger_group(self, group, ordered, trigger, actor, target, context):
+        previous_context = self.active_rule_context
+        self.active_rule_context = context
+        self.event_dispatch_stack.append(trigger)
+        for _, _, effect_id, source_card, spec in ordered:
+            self.resolve(source_card, trigger, target, actor, context, effect_id)
+            group["resolved"].append(effect_id)
+        self.event_dispatch_stack.pop()
+        self.active_rule_context = previous_context
+        group["status"] = "resolved"
+
+    def resolve_trigger_order(self, selection):
+        pending = self.pending_trigger_order
+        if not pending: return False, "No trigger order is pending."
+        selected = selection if isinstance(selection, list) else [selection]
+        selected_ids = [item if isinstance(item, str) else getattr(getattr(item, "card", item), "id", "") for item in selected]
+        expected = [item["effect_id"] for item in pending["members"]]
+        if len(selected_ids) != len(expected) or len(set(selected_ids)) != len(expected) or set(selected_ids) != set(expected): return False, "Choose every simultaneous effect exactly once."
+        ordered_by_id = {item[2]: item for item in pending["ordered"]}
+        ordered = [ordered_by_id[item] for item in selected_ids]
+        group = pending["group"]
+        group["selected_order"] = list(selected_ids)
+        group["order_mode"] = "prompt"
+        self.pending_trigger_order = None
+        notification = self.pending_notification("choose_trigger_order")
+        if notification: notification.status, notification.answer = "resolved", "ok"
+        self.dispatch_trigger_group(group, ordered, pending["trigger"], pending["actor"], pending["target"], pending["context"])
+        self.active_rule_context = pending["previous_context"]
+        return True, ""
+
+    def ai_resolve_pending_trigger_order(self):
+        pending = self.pending_trigger_order
+        if not pending or pending["chooser"] is not self.opponent: return False
+        return self.resolve_trigger_order([item["effect_id"] for item in pending["members"]])
+
     def emit_event(self, trigger, actor, source=None, target=None, metadata=None, include_source=True):
         self.rule_event_sequence += 1
         event_metadata = dict(metadata or {})
@@ -3414,17 +3461,19 @@ class DuelEngine:
         context.metadata.update({"trigger_group_id": group_id, "trigger_group_size": len(members), "trigger_group_order": [item["effect_id"] for item in members]})
         self.event_history.append(context.__dict__.copy())
         self.event_history = self.event_history[-128:]
-        group = {"group_id": group_id, "context_id": context.context_id, "trigger": trigger, "phase": self.phase, "turn": self.turn, "members": members, "resolved": []}
+        group = {"group_id": group_id, "context_id": context.context_id, "trigger": trigger, "phase": self.phase, "turn": self.turn, "members": members, "resolved": [], "status": "pending" if len(members) > 1 else "ready"}
         self.trigger_groups.append(group)
         self.trigger_groups = self.trigger_groups[-64:]
-        previous_context = self.active_rule_context
-        self.active_rule_context = context
-        self.event_dispatch_stack.append(trigger)
-        for _, _, effect_id, source_card, spec in ordered:
-            self.resolve(source_card, trigger, target, actor, context, effect_id)
-            group["resolved"].append(effect_id)
-        self.event_dispatch_stack.pop()
-        self.active_rule_context = previous_context
+        order_policy = self.normalize_trigger_order_policy(trigger)
+        if len(ordered) > 1 and order_policy["enabled"]:
+            chooser = actor if order_policy["chooser"] == "actor" else self.player if order_policy["chooser"] == "player" else self.opponent
+            group["order_mode"] = "prompt"
+            group["chooser"] = self.side_key(chooser)
+            self.pending_trigger_order = {"group": group, "members": members, "ordered": ordered, "trigger": trigger, "actor": actor, "target": target, "context": context, "previous_context": self.active_rule_context, "chooser": chooser}
+            self.notify("choose_trigger_order", "Choose the order of simultaneous effects.", ["ok"], {"kind": "trigger_order", "group_id": group_id, "trigger": trigger, "members": members, "selected_ids": [], "required_count": len(members), "chooser": self.side_key(chooser), "mandatory": order_policy["mandatory"], "fallback": order_policy["fallback"]})
+        else:
+            group["order_mode"] = "deterministic"
+            self.dispatch_trigger_group(group, ordered, trigger, actor, target, context)
         if event_metadata.get("response_window") and not self.chain_window: self.open_event_response_window(trigger, actor, source, target, event_metadata)
         return context
 
@@ -3598,7 +3647,9 @@ class DuelEngine:
         return card.atk + card.card.stars * 40 + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * (200 if card.card.family == "spell" else 0)
 
     def ai_step(self):
-        if self.finished or self.active is not self.opponent: return
+        if self.finished: return
+        if self.ai_resolve_pending_trigger_order(): return
+        if self.active is not self.opponent: return
         if self.ai_resolve_pending_procedure(): return
         if self.pending_discard is self.opponent:
             self.discard(self.opponent.hand[-1])

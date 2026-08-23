@@ -62,7 +62,15 @@
       "group_id": "stable trigger batch ID",
       "context_id": "associated RuleContext ID",
       "members": "ordered effect descriptors with priority and ordering_key",
-      "resolved": "effect IDs dispatched in the recorded order"
+      "resolved": "effect IDs dispatched in the recorded order",
+      "selected_order": "optional player or AI-selected effect order",
+      "order_mode": ["deterministic", "prompt"]
+    },
+    "trigger_order_policy": {
+      "enabled": "boolean; enable an order prompt when more than one effect matches",
+      "chooser": ["actor", "player", "opponent"],
+      "mandatory": "boolean; the selected order must include every group member",
+      "fallback": "deterministic fallback label for non-prompt paths"
     },
     "window": {
       "phase": "main",
