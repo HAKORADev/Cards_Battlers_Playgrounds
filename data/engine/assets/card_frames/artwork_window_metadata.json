@@ -1,0 +1,22 @@
+{
+  "canvas_size": [
+    247,
+    361
+  ],
+  "guide_bbox_inclusive": [
+    22,
+    64,
+    225,
+    265
+  ],
+  "transparent_window_bbox_inclusive": [
+    29,
+    71,
+    218,
+    258
+  ],
+  "frame_inset_px": 7,
+  "transparent_window_shape": "rounded_rectangle",
+  "transparent_pixel_count": 35700,
+  "alpha_convention": "0 = transparent artwork window; 255 = retained card pixels"
+}

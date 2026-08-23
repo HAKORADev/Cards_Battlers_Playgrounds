@@ -1,0 +1,658 @@
+[
+  {
+    "id": "cinder_knight",
+    "name": "Cinder Knight",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 4,
+    "atk": 1800,
+    "defense": 1200,
+    "family": "warrior",
+    "description": "When summoned, this knight gains a burning edge.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "boost",
+        "amount": 200
+      }
+    ],
+    "art_color": [
+      218,
+      88,
+      60
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "starter_logic",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/cinder_knight_1787428876562_cinder_knight",
+    "art_folder": "cards/cinder_knight_1787428876562_cinder_knight",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "aqua_sentinel",
+    "name": "Aqua Sentinel",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 4,
+    "atk": 1500,
+    "defense": 1900,
+    "family": "aqua",
+    "description": "When summoned, restore 300 health.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "heal",
+        "amount": 300
+      }
+    ],
+    "art_color": [
+      45,
+      152,
+      204
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/aqua_sentinel_1787428876564_aqua_sentinel",
+    "art_folder": "cards/aqua_sentinel_1787428876564_aqua_sentinel",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "iron_fridge",
+    "name": "Iron Fridge",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 3,
+    "atk": 1300,
+    "defense": 1600,
+    "family": "machine",
+    "description": "A durable appliance with an unexpected battle spirit.",
+    "effects": [],
+    "art_color": [
+      132,
+      142,
+      160
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/iron_fridge_1787428876565_iron_fridge",
+    "art_folder": "cards/iron_fridge_1787428876565_iron_fridge",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "sky_archer",
+    "name": "Sky Archer",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 5,
+    "atk": 2100,
+    "defense": 1400,
+    "family": "warrior",
+    "description": "When summoned, draw a card.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "art_color": [
+      103,
+      88,
+      214
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/sky_archer_1787428876566_sky_archer",
+    "art_folder": "cards/sky_archer_1787428876566_sky_archer",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "void_titan",
+    "name": "Void Titan",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 6,
+    "atk": 2400,
+    "defense": 1800,
+    "family": "fiend",
+    "description": "When summoned, deal 400 damage.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "damage",
+        "amount": 400
+      }
+    ],
+    "art_color": [
+      125,
+      42,
+      128
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/void_titan_1787428876567_void_titan",
+    "art_folder": "cards/void_titan_1787428876567_void_titan",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "solar_burst",
+    "name": "Solar Burst",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "spell",
+    "description": "Deal 700 damage to the opponent.",
+    "effects": [
+      {
+        "trigger": "activate",
+        "action": "damage",
+        "amount": 700
+      }
+    ],
+    "art_color": [
+      232,
+      172,
+      45
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "opponent"
+    ],
+    "target_count": 1,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/solar_burst_1787428876568_solar_burst",
+    "art_folder": "cards/solar_burst_1787428876568_solar_burst",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "repair_matrix",
+    "name": "Repair Matrix",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "spell",
+    "description": "Restore 800 health and draw one card.",
+    "effects": [
+      {
+        "trigger": "activate",
+        "action": "heal",
+        "amount": 800
+      },
+      {
+        "trigger": "activate",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "art_color": [
+      47,
+      190,
+      130
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/repair_matrix_1787428876569_repair_matrix",
+    "art_folder": "cards/repair_matrix_1787428876569_repair_matrix",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "mirror_trap",
+    "name": "Mirror Trap",
+    "kind": "trap",
+    "frame": "pink",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "trap",
+    "description": "A trap that answers an attack with 900 damage.",
+    "effects": [
+      {
+        "trigger": "battle",
+        "action": "damage",
+        "amount": 900
+      }
+    ],
+    "art_color": [
+      214,
+      72,
+      145
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "opponent"
+    ],
+    "target_count": 0,
+    "timing": "opponent_attack",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/mirror_trap_1787428876570_mirror_trap",
+    "art_folder": "cards/mirror_trap_1787428876570_mirror_trap",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "trio_relic",
+    "name": "Trio Relic",
+    "kind": "legendary",
+    "frame": "red",
+    "stars": 11,
+    "atk": 3000,
+    "defense": 2600,
+    "family": "god_of_cards",
+    "description": "A legendary card whose arrival changes the duel.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "damage",
+        "amount": 1000
+      }
+    ],
+    "art_color": [
+      215,
+      170,
+      58
+    ],
+    "legendary": true,
+    "limit": 1,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/trio_relic_1787428876570_trio_relic",
+    "art_folder": "cards/trio_relic_1787428876570_trio_relic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "ember_drone",
+    "name": "Ember Drone",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 2,
+    "atk": 900,
+    "defense": 700,
+    "family": "machine",
+    "description": "A small machine with a hot core.",
+    "effects": [],
+    "art_color": [
+      213,
+      116,
+      48
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/ember_drone_1787428876571_ember_drone",
+    "art_folder": "cards/ember_drone_1787428876571_ember_drone",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "tide_mender",
+    "name": "Tide Mender",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 3,
+    "atk": 1100,
+    "defense": 1500,
+    "family": "aqua",
+    "description": "When summoned, restore 200 health.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "heal",
+        "amount": 200
+      }
+    ],
+    "art_color": [
+      44,
+      175,
+      190
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/tide_mender_1787428876572_tide_mender",
+    "art_folder": "cards/tide_mender_1787428876572_tide_mender",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "glass_sphinx",
+    "name": "Glass Sphinx",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 5,
+    "atk": 2000,
+    "defense": 1700,
+    "family": "fiend",
+    "description": "When summoned, draw one card.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "art_color": [
+      159,
+      111,
+      218
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/glass_sphinx_1787428876573_glass_sphinx",
+    "art_folder": "cards/glass_sphinx_1787428876573_glass_sphinx",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "echo_bolt",
+    "name": "Echo Bolt",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "spell",
+    "description": "Deal 500 damage to the opponent.",
+    "effects": [
+      {
+        "trigger": "activate",
+        "action": "damage",
+        "amount": 500
+      }
+    ],
+    "art_color": [
+      87,
+      158,
+      240
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/echo_bolt_1787428876573_echo_bolt",
+    "art_folder": "cards/echo_bolt_1787428876573_echo_bolt",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "sunlit_field",
+    "name": "Sunlit Field",
+    "kind": "field",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "field",
+    "description": "Warrior monsters on this field gain 300 ATK.",
+    "effects": [],
+    "art_color": [
+      68,
+      156,
+      118
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {
+      "family": "warrior",
+      "atk": 300
+    },
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/sunlit_field_1787428876574_sunlit_field",
+    "art_folder": "cards/sunlit_field_1787428876574_sunlit_field",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "ember_chimera",
+    "name": "Ember Chimera",
+    "kind": "fusion",
+    "frame": "violet",
+    "stars": 7,
+    "atk": 2600,
+    "defense": 2100,
+    "family": "fusion",
+    "description": "Fusion summon with Ember Drone and Sky Archer.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "damage",
+        "amount": 500
+      }
+    ],
+    "art_color": [
+      187,
+      70,
+      168
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [
+      "ember_drone",
+      "sky_archer"
+    ],
+    "ritual_cost": 0,
+    "summon_method": "fusion",
+    "media_folder": "cards/ember_chimera_1787428876575_ember_chimera",
+    "art_folder": "cards/ember_chimera_1787428876575_ember_chimera",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "ritual_warden",
+    "name": "Ritual Warden",
+    "kind": "ritual",
+    "frame": "blue",
+    "stars": 8,
+    "atk": 2500,
+    "defense": 2000,
+    "family": "ritual",
+    "description": "Ritual summon requiring seven tribute stars.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "heal",
+        "amount": 400
+      }
+    ],
+    "art_color": [
+      72,
+      112,
+      212
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 7,
+    "summon_method": "ritual",
+    "media_folder": "cards/ritual_warden_1787428876575_ritual_warden",
+    "art_folder": "cards/ritual_warden_1787428876575_ritual_warden",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  },
+  {
+    "id": "night_lure",
+    "name": "Night Lure",
+    "kind": "trap",
+    "frame": "pink",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "trap",
+    "description": "A prepared answer waiting for battle.",
+    "effects": [
+      {
+        "trigger": "battle",
+        "action": "damage",
+        "amount": 600
+      }
+    ],
+    "art_color": [
+      178,
+      78,
+      159
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "opponent"
+    ],
+    "target_count": 0,
+    "timing": "opponent_attack",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/night_lure_1787428876576_night_lure",
+    "art_folder": "cards/night_lure_1787428876576_night_lure",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1"
+  }
+]

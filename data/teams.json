@@ -1,0 +1,40 @@
+[
+  {
+    "id": "the_duelers",
+    "name": "The Duelers",
+    "members": [
+      "player",
+      "rival_echo",
+      "mystery_arc"
+    ],
+    "leader": "player",
+    "preferred_places": [
+      "neon_playground"
+    ],
+    "relationship": "engine",
+    "team_effect": {},
+    "effect_locked": false,
+    "rank": 1,
+    "history": [],
+    "media_folder": "teams/the_duelers_1787428876584_the_duelers"
+  },
+  {
+    "id": "trio_team",
+    "name": "Trio Mysterio",
+    "members": [
+      "trio_mysterio",
+      "mystery_veil",
+      "mystery_arc"
+    ],
+    "leader": "trio_mysterio",
+    "preferred_places": [
+      "mystery_void"
+    ],
+    "relationship": "engine",
+    "team_effect": {},
+    "effect_locked": false,
+    "rank": 1,
+    "history": [],
+    "media_folder": "teams/trio_mysterio_1787428876585_trio_team"
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "schema": 3,
+  "id": "mystery_void",
+  "name": "Mystery Void",
+  "category": "places",
+  "created": 1787428876.5895107,
+  "folders": [
+    "animations/draw",
+    "animations/in-duel",
+    "animations/lose",
+    "animations/pre-duel",
+    "animations/spin-dice",
+    "animations/win",
+    "audio/draw",
+    "audio/in-duel",
+    "audio/lose",
+    "audio/near-lose",
+    "audio/near-win",
+    "audio/pre-duel",
+    "audio/spin-dice",
+    "audio/win",
+    "background/day",
+    "background/night",
+    "logic",
+    "music"
+  ],
+  "asset_contract": "gdd_nested_v1"
+}

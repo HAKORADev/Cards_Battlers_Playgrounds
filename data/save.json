@@ -1,0 +1,11 @@
+{
+  "player_name": "Player",
+  "fullscreen": false,
+  "resolution": "1280x720",
+  "music": true,
+  "sfx": true,
+  "vocals": true,
+  "difficulty": "normal",
+  "history": [],
+  "setup_complete": false
+}

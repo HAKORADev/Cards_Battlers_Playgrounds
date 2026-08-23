@@ -1,0 +1,20 @@
+[
+  {
+    "id": "neon_playground",
+    "name": "Neon Playground",
+    "capacity": 3,
+    "current_duels": 0,
+    "background": "duel_field",
+    "day_night": true,
+    "media_folder": "places/neon_playground_1787428876586_neon_playground"
+  },
+  {
+    "id": "mystery_void",
+    "name": "Mystery Void",
+    "capacity": 3,
+    "current_duels": 0,
+    "background": "trio_mysterio",
+    "day_night": false,
+    "media_folder": "places/mystery_void_1787428876588_mystery_void"
+  }
+]

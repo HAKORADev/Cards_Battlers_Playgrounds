@@ -1,0 +1,39 @@
+{
+  "name": "Cinder Summon Logic",
+  "nodes": [
+    {
+      "node_id": "n1",
+      "kind": "trigger",
+      "label": "WHEN",
+      "value": "on_summon",
+      "level": 1,
+      "x": 90,
+      "y": 120,
+      "inputs": []
+    },
+    {
+      "node_id": "n2",
+      "kind": "condition",
+      "label": "IF",
+      "value": "card.family == warrior",
+      "level": 2,
+      "x": 300,
+      "y": 120,
+      "inputs": [
+        "n1"
+      ]
+    },
+    {
+      "node_id": "n3",
+      "kind": "action",
+      "label": "DO",
+      "value": "boost_attack +200",
+      "level": 3,
+      "x": 540,
+      "y": 120,
+      "inputs": [
+        "n2"
+      ]
+    }
+  ]
+}
