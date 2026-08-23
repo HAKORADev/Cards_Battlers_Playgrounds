@@ -138,6 +138,11 @@
       "per_turn": "whether the grant is replenished at the owner's next turn",
       "cost": "optional cost object, including pay_hp amount"
     },
+    "response_cost": {
+      "discard": "response activation may emit choose_cards and resume as a chain link after payment",
+      "pay_hp": "response activation may pay HP before adding its chain link",
+      "cost_paid": "chain context marker preventing a resolved response from paying twice"
+    },
     "amount": "number, expression, or object",
     "target": "selector id, source, actor, or explicit target",
     "target_policy": {

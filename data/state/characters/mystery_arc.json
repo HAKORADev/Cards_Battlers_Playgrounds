@@ -3,15 +3,23 @@
   "id": "mystery_arc",
   "category": "characters",
   "state": {
-    "allies": [],
-    "destination": "",
-    "history": [],
-    "learned_cards": {},
-    "availability": "free",
-    "activity": "idle",
-    "movement_progress": 0.0,
-    "rank": 1,
     "cooldown_until": 0.0,
+    "activity": "idle",
+    "current_place": "",
+    "rank": 1,
+    "enemies": [],
+    "availability": "free",
+    "library_cards": [
+      "trio_relic",
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ],
+    "learned_opponents": {},
+    "movement_progress": 0.0,
+    "destination": "",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -46,18 +54,10 @@
       }
     },
     "relationship": "engine team",
-    "learned_opponents": {},
     "borrowed_cards": [],
-    "current_place": "",
-    "enemies": [],
     "mood": "curious",
-    "library_cards": [
-      "trio_relic",
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ]
+    "allies": [],
+    "history": [],
+    "learned_cards": {}
   }
 }

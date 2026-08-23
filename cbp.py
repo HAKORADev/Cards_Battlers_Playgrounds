@@ -2634,16 +2634,19 @@ class DuelEngine:
             selected = target if isinstance(target, list) else [target]
             if len(selected) != required or any(item not in candidate["targets"] for item in selected): return False, "That response target is not legal."
             target = selected[0] if required == 1 else selected
+        target = target or self.other(actor)
         paid, result = self.pay_costs(spec, card, actor)
         if not paid:
-            if result.get("status") == "pending": return True, "pending_cost"
+            if result.get("status") == "pending":
+                if self.pending_cost: self.pending_cost.update({"kind": "response_cost", "response_target": target, "response_effect_id": spec.effect_id})
+                return True, "pending_cost"
             return False, result.get("reason", "The response cost could not be paid.")
         owner = self.owner_of(card) or actor
         owner.remove(card)
         card.face_up = True
         card.position = "graveyard"
         owner.graveyard.append(card)
-        return self.add_chain_link(card, spec, actor, target or self.other(actor), spec.trigger, {"response": True, "target_snapshot": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        return self.add_chain_link(card, spec, actor, target or self.other(actor), spec.trigger, {"response": True, "cost_paid": True, "target_snapshot": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
 
     def resolve_pending_response(self, cards):
         pending = self.pending_response
@@ -2909,16 +2912,25 @@ class DuelEngine:
 
     def resolve_pending_cost(self, cards):
         pending = self.pending_cost
-        if not pending or pending["kind"] not in ["discard", "discard_action"]: return False, "No card cost is pending."
+        if not pending or pending["kind"] not in ["discard", "discard_action", "response_cost"]: return False, "No card cost is pending."
         selected = list(cards if isinstance(cards, list) else [cards])
         if len(selected) != pending["required"] or any(item not in pending["candidates"] for item in selected): return False, "Those cards cannot pay this cost."
         if len(set(selected)) != len(selected): return False, "A card cannot be selected twice."
         for item in selected: self.move_card(item, "graveyard", pending["actor"])
         card, spec, actor = pending["card"], pending["spec"], pending["actor"]
+        pending_kind = pending["kind"]
         self.pending_cost = None
         notification = self.pending_notification("choose_cards")
         if notification: notification.status, notification.answer = "resolved", "ok"
-        completed = self.execute_effect_spec(card, spec, actor, self.other(actor), pending.get("action_index", 0) + 1) if pending["kind"] == "discard_action" else self.execute_effect_spec(card, spec, actor, self.other(actor))
+        if pending_kind == "response_cost":
+            owner = self.owner_of(card) or actor
+            owner.remove(card)
+            card.face_up = True
+            card.position = "graveyard"
+            owner.graveyard.append(card)
+            target = pending.get("response_target") or self.other(actor)
+            return self.add_chain_link(card, spec, actor, target, spec.trigger, {"response": True, "cost_paid": True, "target_snapshot": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        completed = self.execute_effect_spec(card, spec, actor, self.other(actor), pending.get("action_index", 0) + 1) if pending_kind == "discard_action" else self.execute_effect_spec(card, spec, actor, self.other(actor))
         if completed: self.mark_effect_used(card, spec)
         return True, ""
 
@@ -3040,8 +3052,10 @@ class DuelEngine:
                     self.pending_effect = {"card": card, "spec": spec, "actor": actor, "target": target}
                     self.notify(kind, spec.notify.get("text", "Activate this effect?"), options, {"effect": spec.effect_id})
                     continue
-            paid, result = self.pay_costs(spec, card, actor)
-            if not paid: continue
+            cost_paid = context.get("cost_paid", False) if isinstance(context, dict) else False
+            if not cost_paid:
+                paid, result = self.pay_costs(spec, card, actor)
+                if not paid: continue
             if self.execute_effect_spec(card, spec, actor, target): self.mark_effect_used(card, spec)
         self.active_rule_context = previous_context
 
