@@ -132,9 +132,9 @@
     "optional": "boolean"
   },
   "action": {
-    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"],
+    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "negate_chain", "shuffle"],
     "declared_but_unsupported": ["control", "summon", "fusion_summon", "ritual_summon"],
-    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"],
+    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"],
     "summon": {
       "method": "special, normal, fusion, ritual, or authored method key",
       "select": "selector for cards to summon from deck, hand, graveyard, banished, or another legal zone",
@@ -166,6 +166,12 @@
       "count": "number of additional normal summon permissions",
       "per_turn": "whether the grant is replenished at the owner's next turn",
       "cost": "optional cost object, including pay_hp amount"
+    },
+    "negate_chain": {
+      "reference": "previous, latest, oldest, link ID, or a link selector object; the active link cannot negate itself",
+      "selector": "optional link selector containing link_id, effect_id, trigger, actor, or speed",
+      "status": "only pending links are legal negation targets",
+      "history": "records source link and source effect provenance in chain history"
     },
     "response_cost": {
       "discard": "response activation may emit choose_cards and resume as a chain link after payment",
@@ -204,7 +210,8 @@
     "options": "optional explicit option list",
     "optional": "boolean",
     "default": "answer used only when an automatic policy is explicitly allowed",
-    "payload": "structured data for the renderer and resolver; procedure_materials payloads include procedure, card, candidate_ids, required, min_stars, locations, exact, material_destination, selected_ids, and selected_stars"
+          "payload": "structured data for the renderer and resolver; procedure_materials payloads include procedure, card, candidate_ids, required, min_stars, locations, exact, material_destination, selected_ids, and selected_stars; chain_response payloads include chain ID, priority, and legal response card IDs"
+
   },
   "legacy_compatibility": {
     "supported": true,

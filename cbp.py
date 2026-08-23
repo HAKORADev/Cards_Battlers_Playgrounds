@@ -756,8 +756,8 @@ class EffectSpec:
     response: dict = field(default_factory=dict)
     legacy: bool = False
 
-    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"}
+    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "negate_chain", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
     once_policies = {"", "once", "once_per_duel", "once_per_turn", "per_turn"}
 
@@ -768,7 +768,7 @@ class EffectSpec:
         match = re.fullmatch(r"([a-z_]+)(?:\s+([-+]?\d+))?", text)
         if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
         name, amount = match.groups()
-        name = {"boost": "boost_attack", "increase_attack": "boost_attack", "increase_defense": "boost_defense", "graveyard": "send_to_graveyard"}.get(name, name)
+        name = {"boost": "boost_attack", "increase_attack": "boost_attack", "increase_defense": "boost_defense", "graveyard": "send_to_graveyard", "negate": "negate_chain", "negate_link": "negate_chain", "negate_chain_link": "negate_chain"}.get(name, name)
         return {"name": name, "amount": int(amount or 0), "raw": text, "valid": name in cls.action_names}
 
     @classmethod
@@ -2052,6 +2052,7 @@ class DuelEngine:
         self.chain_priority = None
         self.chain_passes = []
         self.chain_window = None
+        self.active_chain_link_id = ""
         self.pending_response = None
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
@@ -2917,12 +2918,25 @@ class DuelEngine:
         self.notify("chain_response", "Chain response window is open.", ["pass"], self.chain_prompt_payload())
         return True, ""
 
-    def negate_chain_link(self, link_id):
+    def negation_link_candidate(self, action):
+        pending = [item for item in self.chain_links if item.status == "pending" and item.link_id != self.active_chain_link_id]
+        reference = action.get("selector", action.get("link_id", action.get("chain_link", action.get("reference", "previous"))))
+        if isinstance(reference, dict):
+            selector = reference
+            pending = [item for item in pending if (not selector.get("link_id") or item.link_id == selector.get("link_id")) and (not selector.get("effect_id") or item.effect_id == selector.get("effect_id")) and (not selector.get("trigger") or item.trigger == selector.get("trigger")) and (not selector.get("speed") or item.speed == int(selector.get("speed"))) and (not selector.get("actor") or self.side_key(item.actor) == str(selector.get("actor")))]
+            return pending[-1] if pending else None
+        text = str(reference or "previous").lower()
+        if text in ["previous", "latest", "top"]: return pending[-1] if pending else None
+        if text in ["oldest", "first"]: return pending[0] if pending else None
+        return next((item for item in pending if item.link_id == reference), None)
+
+    def negate_chain_link(self, link_id, source_link_id="", source_effect_id=""):
         link = next((item for item in self.chain_links if item.link_id == link_id and item.status == "pending"), None)
         if not link: return False, "That chain link is not pending."
+        if source_link_id and link.link_id == source_link_id: return False, "A chain link cannot negate itself."
         link.negated = True
         link.status = "negated"
-        self.chain_history.append({"event": "link_negated", "chain_id": self.chain_window["chain_id"] if self.chain_window else "", "link_id": link.link_id, "index": link.index})
+        self.chain_history.append({"event": "link_negated", "chain_id": self.chain_window["chain_id"] if self.chain_window else "", "link_id": link.link_id, "index": link.index, "source_link_id": source_link_id, "source_effect_id": source_effect_id})
         return True, ""
 
     def chain_link_targets_legal(self, link):
@@ -2945,7 +2959,10 @@ class DuelEngine:
                 self.chain_history.append({"event": "link_fizzled", "chain_id": chain["chain_id"], "link_id": link.link_id, "index": link.index, "status": link.status, "targets": link.context.get("target_snapshot", [])})
                 continue
             spec_card = link.source
+            previous_link_id = self.active_chain_link_id
+            self.active_chain_link_id = link.link_id
             self.resolve(spec_card, link.trigger, link.target, link.actor, link.context, link.effect_id)
+            self.active_chain_link_id = previous_link_id
             link.status = "resolved"
             self.chain_history.append({"event": "link_resolved", "chain_id": chain["chain_id"], "link_id": link.link_id, "index": link.index, "status": link.status, "targets": link.context.get("target_snapshot", [])})
         for notification in self.notifications:
@@ -2956,6 +2973,7 @@ class DuelEngine:
         self.chain_window = None
         self.chain_priority = None
         self.chain_passes = []
+        self.active_chain_link_id = ""
         return True, result
 
     def queue_effect(self, card, action, amount, actor, target=None, source="Effect", trigger=""):
@@ -3230,6 +3248,12 @@ class DuelEngine:
                 if isinstance(amount, dict): amount = amount.get("value", 1)
                 cost = action.get("cost") or ({"kind": "pay_hp", "amount": action.get("cost_amount", 0)} if action.get("cost_amount") is not None else {})
                 self.grant_normal_summon(actor, amount, cost, bool(action.get("per_turn", False)), card.card.id)
+                continue
+            if action_name == "negate_chain":
+                link = self.negation_link_candidate(action)
+                if not link: return False
+                negated, _ = self.negate_chain_link(link.link_id, self.active_chain_link_id, spec.effect_id)
+                if not negated: return False
                 continue
             if action_name == "special_summon":
                 summon_selector = action.get("select") or (target_value if isinstance(target_value, dict) else spec.selector)
