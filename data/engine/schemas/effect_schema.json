@@ -20,6 +20,18 @@
   "effect": {
     "id": "stable_effect_id",
     "trigger": "on_summon",
+    "event_vocabulary": ["phase_enter", "draw", "summon", "special_summon", "fusion_summon", "ritual_summon", "activate", "set", "attack", "damage", "heal", "destroy", "movement", "set_face_up", "set_face_down", "switch_position"],
+    "event_record": {
+      "context_id": "stable rule-event sequence ID",
+      "trigger": "normalized event name",
+      "phase": "current duel phase",
+      "turn": "current turn number",
+      "actor_id": "duelist responsible for the event",
+      "source_card_id": "card causing or carrying the event",
+      "source_zone": "source card zone at event creation",
+      "target_ids": "resolved target entity IDs",
+      "metadata": "event-specific movement, damage, summon, attack, or state fields"
+    },
     "window": {
       "phase": "main",
       "event": "summon",

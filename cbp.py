@@ -2046,6 +2046,7 @@ class DuelEngine:
         self.rule_event_sequence = 0
         self.event_history = []
         self.active_rule_context = None
+        self.event_dispatch_stack = []
         self.chain_links = []
         self.chain_history = []
         self.chain_sequence = 0
@@ -2233,6 +2234,7 @@ class DuelEngine:
                 self.finish(self.other(self.active), "deck-out")
                 return
             self.log(f"{self.active.name} draws {drawn[0].card.name}.")
+            self.emit_event("draw", self.active, source=drawn[0], target=self.active, metadata={"count": len(drawn), "card_ids": [item.card.id for item in drawn]})
             self.react("draw", self.active.character.id, self.other(self.active).character.id, "opponent")
             if len(self.active.hand) > 6:
                 self.pending_discard = self.active
@@ -2295,6 +2297,7 @@ class DuelEngine:
         self.pending_target = None
         notification = self.pending_notification("choose_target") or self.pending_notification("target")
         if notification: notification.status, notification.answer = "resolved", "ok"
+        self.emit_event("activate", actor, source=card, target=resolved_target, metadata={"zone": card.position, "target_ids": [self.entity_id(item) for item in (resolved_target if isinstance(resolved_target, list) else [resolved_target])]}, include_source=False)
         target_name = target.name if hasattr(target, "name") else target.card.name
         self.log(f"{card.card.name} targets {target_name}.")
         effect_specs = [EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects)]
@@ -2314,6 +2317,7 @@ class DuelEngine:
         self.player.graveyard.append(trap)
         self.pending_trap = None
         self.log(f"{self.player.name} activates {trap.card.name} in the opponent attack window.")
+        self.emit_event("activate", self.player, source=trap, target=self.opponent, metadata={"zone": "spell_trap", "trap_window": True})
         self.react("trap", self.player.character.id, self.opponent.character.id, "opponent", "cards", trap.card.id)
         self.resolve(trap, "battle", self.opponent, self.player)
         return True, ""
@@ -2332,6 +2336,7 @@ class DuelEngine:
             card.position = "graveyard"
             self.player.graveyard.append(card)
             self.log(f"{self.player.name} activates set spell {card.card.name}.")
+        self.emit_event("activate", self.player, source=card, target=self.opponent, metadata={"zone": "field" if card.card.kind == "field" else "graveyard", "set_activation": True}, include_source=False)
         self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
         self.resolve(card, "activate", actor=self.player)
         self.run_logic(card, "activate", self.player, self.opponent)
@@ -2717,6 +2722,7 @@ class DuelEngine:
         if target is self.player.monsters: card.battle_position = "defense"
         target[zone] = card
         self.log(f"{self.player.name} sets a card.")
+        self.emit_event("set", self.player, source=card, target=card, metadata={"zone": "monster" if target is self.player.monsters else "spell_trap", "face_up": False})
         self.react("set", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
         return True, ""
 
@@ -2747,6 +2753,7 @@ class DuelEngine:
             card.position = "graveyard"
             self.player.graveyard.append(card)
             self.log(f"{self.player.name} activates {card.card.name}.")
+        self.emit_event("activate", self.player, source=card, target=self.opponent, metadata={"zone": "field" if card.card.kind == "field" else "graveyard"}, include_source=False)
         self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
         if self.chain_enabled(activate_spec):
             self.add_chain_link(card, activate_spec, self.player, self.opponent, "activate", {"target_snapshot": [self.opponent.character.id]})
@@ -2789,6 +2796,7 @@ class DuelEngine:
             owner.extra.append(card)
         else:
             return False
+        self.emit_event("movement", owner, source=card, target=card, metadata={"from_zone": card.last_zone, "to_zone": destination, "owner": owner.character.id})
         return True
 
     def open_chain_window(self, actor, trigger, source=None, target=None, context=None):
@@ -3038,6 +3046,7 @@ class DuelEngine:
                 recipient.hp = max(0, recipient.hp - amount)
                 values.append(before - recipient.hp)
             result["value"] = values[0] if len(values) == 1 else values
+            for recipient, value in zip(recipients, values): self.emit_event("damage", actor, source=card, target=recipient, metadata={"amount": value, "requested": amount})
             self.log(f"{source} deals {amount} damage to {len(recipients)} target(s).")
         elif action == "heal":
             recipients = [item for item in targets if hasattr(item, "hp")] or [actor]
@@ -3047,11 +3056,15 @@ class DuelEngine:
                 recipient.hp = min(8000, recipient.hp + amount)
                 values.append(recipient.hp - before)
             result["value"] = values[0] if len(values) == 1 else values
+            for recipient, value in zip(recipients, values): self.emit_event("heal", actor, source=card, target=recipient, metadata={"amount": value, "requested": amount})
             self.log(f"{source} restores {amount} health to {len(recipients)} target(s).")
         elif action == "draw":
             recipients = [item for item in targets if isinstance(item, Duelist)] or [actor]
             values = []
-            for recipient in recipients: values.append(len(recipient.draw(max(1, amount))))
+            for recipient in recipients:
+                drawn = recipient.draw(max(1, amount))
+                values.append(len(drawn))
+                self.emit_event("draw", recipient, source=card, target=recipient, metadata={"count": len(drawn), "card_ids": [item.card.id for item in drawn]})
             result["value"] = values[0] if len(values) == 1 else values
             self.log(f"{source} lets {len(recipients)} duelist(s) draw {sum(values)} card(s).")
         elif action in ["set_face_up", "set_face_down", "switch_position"]:
@@ -3062,6 +3075,7 @@ class DuelEngine:
                 elif action == "set_face_down": selected_card.face_up = False
                 elif selected_card.face_up: selected_card.battle_position = "defense" if selected_card.battle_position == "attack" else "attack"
                 values.append({"id": selected_card.card.id, "face_up": selected_card.face_up, "position": selected_card.battle_position})
+                self.emit_event(action, actor, source=card, target=selected_card, metadata={"face_up": selected_card.face_up, "position": selected_card.battle_position})
             result["value"] = values
             self.log(f"{source} changes state of {len(selected_cards)} card(s).")
         elif action in ["boost_attack", "boost_defense"]:
@@ -3313,25 +3327,30 @@ class DuelEngine:
         if completed: self.mark_effect_used(pending["card"], pending["spec"])
         return True, ""
 
-    def emit_event(self, trigger, actor, source=None, target=None, metadata=None):
+    def emit_event(self, trigger, actor, source=None, target=None, metadata=None, include_source=True):
         self.rule_event_sequence += 1
-        source_cards = [source] if isinstance(source, CardInstance) else []
+        source_cards = [source] if include_source and isinstance(source, CardInstance) else []
         if not source_cards:
             source_cards = [item for side in [self.player, self.opponent] for item in side.monsters + side.spells if item and item.face_up]
             if self.field_card and self.field_card.face_up: source_cards.append(self.field_card)
+            if not include_source and isinstance(source, CardInstance): source_cards = [item for item in source_cards if item is not source]
         source_cards = list(dict.fromkeys(source_cards))
         target_items = target if isinstance(target, list) else [target] if target is not None else []
         context = RuleContext(f"rule_{self.rule_event_sequence}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(source, "card", source), "id", ""), getattr(source, "last_zone", getattr(source, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, dict(metadata or {}))
         self.event_history.append(context.__dict__.copy())
         self.event_history = self.event_history[-128:]
+        if trigger in self.event_dispatch_stack: return context
         ordered = []
         for source_card in source_cards:
             for index, raw_effect in enumerate(source_card.card.effects):
                 spec = EffectSpec.from_dict(raw_effect, source_card.card.id + "_effect_" + str(index))
                 if spec.trigger == trigger and not spec.validate(): ordered.append((spec.priority, source_card.card.id, source_card, spec))
+        previous_context = self.active_rule_context
         self.active_rule_context = context
+        self.event_dispatch_stack.append(trigger)
         for _, _, source_card, spec in sorted(ordered, key=lambda item: (item[0], item[1])): self.resolve(source_card, trigger, target, actor, context, spec.effect_id)
-        self.active_rule_context = None
+        self.event_dispatch_stack.pop()
+        self.active_rule_context = previous_context
         return context
 
     def resolve(self, card, trigger, target=None, actor=None, context=None, effect_id=""):
@@ -3373,13 +3392,15 @@ class DuelEngine:
         card.attacked = True
         targets = [item for item in self.opponent.monsters if item]
         if target is not None and target not in targets: return False, "That target is not on the opponent field."
+        target = target or (min(targets, key=lambda item: item.defense) if targets else None)
+        self.emit_event("attack", self.player, source=card, target=target, metadata={"attacker": card.card.id, "target": self.entity_id(target) if target else "", "direct": not bool(targets)})
         if not targets:
             damage = self.effective_atk(card, self.player)
             self.opponent.hp = max(0, self.opponent.hp - damage)
+            self.emit_event("damage", self.player, source=card, target=self.opponent, metadata={"amount": damage, "source": "battle", "direct": True})
             self.log(f"{card.card.name} attacks directly for {damage}.")
             self.react("attack", self.player.character.id, self.opponent.character.id, "opponent")
         else:
-            target = target or min(targets, key=lambda item: item.defense)
             if not target.face_up:
                 target.face_up = True
                 self.log(f"{target.card.name} flips face-up.")
@@ -3388,12 +3409,14 @@ class DuelEngine:
             if attack_value > defense_value:
                 damage = attack_value - defense_value
                 self.opponent.hp = max(0, self.opponent.hp - damage)
+                self.emit_event("damage", self.player, source=card, target=self.opponent, metadata={"amount": damage, "source": "battle", "direct": False, "defeated": target.card.id})
                 self.destroy(self.opponent, target)
                 self.log(f"{card.card.name} defeats {target.card.name} for {damage} damage.")
                 self.react("damage", self.player.character.id, self.opponent.character.id, "opponent")
             elif attack_value < defense_value:
                 damage = defense_value - attack_value
                 self.player.hp = max(0, self.player.hp - damage)
+                self.emit_event("damage", self.opponent, source=target, target=self.player, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": card.card.id})
                 self.log(f"{card.card.name} is stopped. You take {damage} damage.")
             else:
                 self.destroy(self.player, card)
@@ -3403,9 +3426,12 @@ class DuelEngine:
         return True, ""
 
     def destroy(self, duelist, card):
+        from_zone = card.position
         duelist.remove(card)
         card.position = "graveyard"
         duelist.graveyard.append(card)
+        self.emit_event("destroy", duelist, source=card, target=card, metadata={"from_zone": from_zone, "to_zone": "graveyard", "owner": duelist.character.id})
+        self.emit_event("movement", duelist, source=card, target=card, metadata={"from_zone": from_zone, "to_zone": "graveyard", "owner": duelist.character.id})
 
     def check_end(self):
         if self.player.hp <= 0 and self.opponent.hp <= 0: self.finish(None, "simultaneous zero HP")
