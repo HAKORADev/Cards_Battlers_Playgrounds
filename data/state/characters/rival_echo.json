@@ -1,0 +1,403 @@
+{
+  "schema": 1,
+  "id": "rival_echo",
+  "category": "characters",
+  "state": {
+    "availability": "free",
+    "learned_opponents": {
+      "player": 32
+    },
+    "enemies": [],
+    "library_cards": [
+      "aqua_sentinel",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "cinder_knight"
+    ],
+    "mood": "focused",
+    "borrowed_cards": [],
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 9.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 2.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 2.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      }
+    },
+    "rank": 10,
+    "activity": "idle",
+    "history": [
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787489437.9795406
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787489542.9818337
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787490921.6030443
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787490940.197514
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787491063.0224476
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "void_titan",
+        "time": 1787492213.993367
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787493277.3511317
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787493377.1426187
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787493435.1347003
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787494879.5057404
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787500587.3560414
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "void_titan",
+        "time": 1787501841.4339356
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787502228.3043625
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787503501.0650845
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787503663.6881676
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787505071.7043638
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787506312.3492255
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "void_titan",
+        "time": 1787507722.872766
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787508244.7298126
+      },
+      {
+        "opponent": "player",
+        "result": "win",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "cinder_knight",
+          "cinder_knight",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787511136.676381
+      }
+    ],
+    "relationship": "rival",
+    "destination": "",
+    "allies": [],
+    "learned_cards": {
+      "cinder_knight": 64,
+      "aqua_sentinel": 32,
+      "iron_fridge": 32,
+      "sky_archer": 32
+    },
+    "current_place": "",
+    "movement_progress": 0.0,
+    "cooldown_until": 0.0
+  }
+}

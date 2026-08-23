@@ -45,11 +45,17 @@ COLORS = {
 }
 
 DUEL_PHASE_LABELS = [("DP", "DRAW"), ("SP", "STANDBY"), ("M1", "MAIN 1"), ("BP", "BATTLE"), ("M2", "MAIN 2"), ("EP", "END")]
+CHARACTER_RUNTIME_FIELDS = {"mood", "allies", "enemies", "history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "behavior_weights", "learned_cards", "learned_opponents"}
+TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked"}
+STATE_DIR = DATA / "state"
+STATE_CHARACTERS = STATE_DIR / "characters"
+STATE_TEAMS = STATE_DIR / "teams"
+STATE_WORLD = STATE_DIR / "world.json"
 
 
 def ensure_dirs():
 
-    for path in [DATA, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "engine", DATA / "engine" / "assets", DATA / "engine" / "assets" / "menu", DATA / "engine" / "animations", DATA / "engine" / "audio", DATA / "engine" / "menu" / "background", DATA / "engine" / "menu" / "duelers" / "left", DATA / "engine" / "menu" / "duelers" / "center", DATA / "engine" / "menu" / "duelers" / "right", DATA / "engine" / "menu" / "ui", DATA / "engine" / "menu" / "audio", DATA / "exports"]:
+    for path in [DATA, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "engine", DATA / "engine" / "assets", DATA / "engine" / "assets" / "menu", DATA / "engine" / "animations", DATA / "engine" / "audio", DATA / "engine" / "menu" / "background", DATA / "engine" / "menu" / "duelers" / "left", DATA / "engine" / "menu" / "duelers" / "center", DATA / "engine" / "menu" / "duelers" / "right", DATA / "engine" / "menu" / "ui", DATA / "engine" / "menu" / "audio", DATA / "exports", STATE_DIR, STATE_CHARACTERS, STATE_TEAMS]:
         path.mkdir(parents=True, exist_ok=True)
 
 
@@ -729,48 +735,87 @@ class LogicGraph:
 
 
 class LogicRuntime:
+    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand"}
+    node_kinds = {"trigger", "condition", "action"}
+
     def __init__(self, graphs):
         self.graphs = graphs
+
+    @classmethod
+    def normalize_action(cls, value):
+        text = str(value or "").strip().lower().replace("-", "_")
+        match = re.fullmatch(r"([a-z_]+)(?:\s+([-+]?\d+))?", text)
+        if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
+        name, amount = match.groups()
+        name = {"boost": "boost_attack", "increase_attack": "boost_attack", "increase_defense": "boost_defense", "graveyard": "send_to_graveyard"}.get(name, name)
+        valid = name in cls.action_names
+        return {"name": name, "amount": int(amount or 0), "raw": text, "valid": valid}
+
+    @classmethod
+    def validate_graph(cls, graph):
+        errors = []
+        seen = set()
+        for node in graph.nodes:
+            if node.node_id in seen: errors.append(f"duplicate node id: {node.node_id}")
+            seen.add(node.node_id)
+            if node.kind not in cls.node_kinds: errors.append(f"unsupported node kind: {node.kind}")
+            if node.kind == "action" and not cls.normalize_action(node.value)["valid"]: errors.append(f"unsupported action: {node.value}")
+            if node.level < 1: errors.append(f"invalid level: {node.node_id}")
+        for node in graph.nodes:
+            for parent in node.inputs:
+                if parent not in seen: errors.append(f"missing input {parent} for {node.node_id}")
+        visiting, visited = set(), set()
+        by_id = {node.node_id: node for node in graph.nodes}
+        def visit(node_id):
+            if node_id in visiting: return True
+            if node_id in visited: return False
+            visiting.add(node_id)
+            cycle = any(visit(parent) for parent in by_id[node_id].inputs if parent in by_id)
+            visiting.remove(node_id)
+            visited.add(node_id)
+            return cycle
+        if any(visit(node.node_id) for node in graph.nodes): errors.append("logic graph contains a cycle")
+        return list(dict.fromkeys(errors))
 
     def run(self, trigger, context):
         outcomes = []
         card = context.get("card")
         for graph_key, graph in self.graphs.items():
-            if card and getattr(card.card, "logic_graph", "") != graph_key:
-                continue
+            if card and getattr(card.card, "logic_graph", "") != graph_key: continue
+            if self.validate_graph(graph): continue
             nodes = sorted(graph.nodes, key=lambda node: (node.level, node.node_id))
             active = set()
-            blocked = set()
             for node in nodes:
-                parents_ready = all(parent in active for parent in node.inputs)
-                if node.kind == "trigger":
-                    if node.value == trigger and parents_ready:
-                        active.add(node.node_id)
-                    else:
-                        blocked.add(node.node_id)
-                elif node.kind == "condition":
-                    if parents_ready and self.condition(node.value, context):
-                        active.add(node.node_id)
-                    else:
-                        blocked.add(node.node_id)
+                if not all(parent in active for parent in node.inputs): continue
+                if node.kind == "trigger" and node.value == trigger: active.add(node.node_id)
+                elif node.kind == "condition" and self.condition(node.value, context): active.add(node.node_id)
                 elif node.kind == "action":
-                    if parents_ready:
-                        active.add(node.node_id)
-                        outcomes.append({"graph": graph.name, "node": node.node_id, "value": node.value})
-                    else:
-                        blocked.add(node.node_id)
+                    active.add(node.node_id)
+                    action = self.normalize_action(node.value)
+                    outcomes.append({"graph": graph.name, "node": node.node_id, "value": node.value, "action": action["name"], "amount": action["amount"]})
         return outcomes
 
     def condition(self, expression, context):
-        expression = expression.strip().lower()
+        expression = str(expression or "").strip().lower()
         card = context.get("card")
-        if expression in ("always", "true", "any"):
-            return True
-        match = re.match(r"card\.(family|kind|name)\s*==\s*(.+)", expression)
+        if expression in ("always", "true", "any"): return True
+        match = re.fullmatch(r"card\.(family|kind|name)\s*==\s*(.+)", expression)
         if match and card:
             key, expected = match.groups()
-            expected = expected.strip().strip("\"'")
-            return str(getattr(card.card, key, "")).lower() == expected
+            return str(getattr(card.card, key, "")).lower() == expected.strip().strip("\"'")
+        match = re.fullmatch(r"card\.(stars|atk|defense)\s*(>=|<=|==|>|<)\s*(\d+)", expression)
+        if match and card:
+            key, operator, expected = match.groups()
+            actual = int(getattr(card, key, getattr(card.card, key, 0)))
+            expected = int(expected)
+            return {">=": actual >= expected, "<=": actual <= expected, "==": actual == expected, ">": actual > expected, "<": actual < expected}[operator]
+        match = re.fullmatch(r"(actor|target)\.hp\s*(>=|<=|==|>|<)\s*(\d+)", expression)
+        if match:
+            subject, operator, expected = match.groups()
+            entity = context.get(subject)
+            if not entity: return False
+            actual, expected = int(entity.hp), int(expected)
+            return {">=": actual >= expected, "<=": actual <= expected, "==": actual == expected, ">": actual > expected, "<": actual < expected}[operator]
         return False
 
 
@@ -854,22 +899,61 @@ class ContentStore:
         for folder in ["cards", "characters", "teams", "places", "decks"]:
             (DATA / folder).mkdir(exist_ok=True)
 
+    def state_path(self, category, entity_id):
+        root = STATE_CHARACTERS if category == "characters" else STATE_TEAMS
+        return root / f"{entity_id}.json"
+
+    def migrate_runtime_state(self, entries, category, fields):
+        for entry in entries:
+            entity_id = entry.get("id", "")
+            if not entity_id: continue
+            path = self.state_path(category, entity_id)
+            if path.exists(): continue
+            state = {key: entry[key] for key in fields if key in entry}
+            write_json(path, {"schema": 1, "id": entity_id, "category": category, "state": state})
+
+    def overlay_runtime_state(self, entry, category, fields):
+        result = dict(entry)
+        path = self.state_path(category, entry.get("id", ""))
+        stored = read_json(path, {}) if path.exists() else {}
+        state = stored.get("state", stored) if isinstance(stored, dict) else {}
+        for key in fields:
+            if key in state: result[key] = state[key]
+        return result
+
+    def migrate_world_state(self, legacy):
+        if not STATE_WORLD.exists(): write_json(STATE_WORLD, {"schema": 1, "category": "world", "state": legacy})
+        stored = read_json(STATE_WORLD, {})
+        return stored.get("state", stored) if isinstance(stored, dict) else legacy
+
+    def authored_entry(self, entity, runtime_fields):
+        return {key: value for key, value in entity.__dict__.items() if key not in runtime_fields}
+
+    def runtime_entry(self, entity, runtime_fields):
+        return {key: getattr(entity, key) for key in runtime_fields if hasattr(entity, key)}
+
     def load(self):
-        self.cards = {entry["id"]: CardDef(**entry) for entry in read_json(DATA / "cards.json", [])}
+        cards_data = read_json(DATA / "cards.json", [])
+        character_data = read_json(DATA / "characters.json", [])
+        team_data = read_json(DATA / "teams.json", [])
+        self.migrate_runtime_state(character_data, "characters", CHARACTER_RUNTIME_FIELDS)
+        self.migrate_runtime_state(team_data, "teams", TEAM_RUNTIME_FIELDS)
+        self.cards = {entry["id"]: CardDef(**entry) for entry in cards_data}
         migrated_cards = False
         if "cinder_knight" in self.cards and not self.cards["cinder_knight"].logic_graph:
             self.cards["cinder_knight"].logic_graph = "starter_logic"
             migrated_cards = True
         if migrated_cards:
             write_json(DATA / "cards.json", [card.__dict__ for card in self.cards.values()])
-        self.characters = {entry["id"]: CharacterDef(**entry) for entry in read_json(DATA / "characters.json", [])}
+        self.characters = {entry["id"]: CharacterDef(**self.overlay_runtime_state(entry, "characters", CHARACTER_RUNTIME_FIELDS)) for entry in character_data}
         self.decks = read_json(DATA / "decks.json", {})
         for character in self.characters.values():
             if not character.library_cards: character.library_cards = list(self.decks.get(character.deck_id, {}).get("cards", []))[:6]
         for deck in self.decks.values(): deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.cards)
         self.places = {entry["id"]: PlaceDef(**entry) for entry in read_json(DATA / "places.json", [])}
-        self.teams = {entry["id"]: TeamDef(**entry) for entry in read_json(DATA / "teams.json", [])}
-        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
+        self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
+        legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
+        self.world = self.migrate_world_state(legacy_world)
         for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", [])]: self.world.setdefault(key, default)
         self.logic = {}
         for path in (DATA / "logic").glob("*.json"):
@@ -926,11 +1010,13 @@ class ContentStore:
     def save(self):
         self.media.scan()
         write_json(DATA / "cards.json", [card.__dict__ for card in self.cards.values()])
-        write_json(DATA / "characters.json", [char.__dict__ for char in self.characters.values()])
+        write_json(DATA / "characters.json", [self.authored_entry(char, CHARACTER_RUNTIME_FIELDS) for char in self.characters.values()])
         write_json(DATA / "decks.json", self.decks)
         write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
-        write_json(DATA / "teams.json", [team.__dict__ for team in self.teams.values()])
-        write_json(DATA / "world.json", self.world)
+        write_json(DATA / "teams.json", [self.authored_entry(team, TEAM_RUNTIME_FIELDS) for team in self.teams.values()])
+        for char in self.characters.values(): write_json(self.state_path("characters", char.id), {"schema": 1, "id": char.id, "category": "characters", "state": self.runtime_entry(char, CHARACTER_RUNTIME_FIELDS)})
+        for team in self.teams.values(): write_json(self.state_path("teams", team.id), {"schema": 1, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
+        write_json(STATE_WORLD, {"schema": 1, "category": "world", "state": self.world})
         write_json(SAVE, self.save_data)
         for key, graph in self.logic.items():
             write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
@@ -1268,6 +1354,20 @@ class ContentStore:
             self.save()
         return transferred
 
+    def validate_card_definition(self, kind, stars, atk, defense, family, description, targets=None, target_count=0, timing="main", materials=None, ritual_cost=0, summon_method="normal"):
+        errors = []
+        monster_kinds = {"normal", "effect", "fusion", "ritual", "legendary"}
+        if not str(family or "").strip(): errors.append("family is required")
+        if not str(description or "").strip(): errors.append("description is required")
+        if kind in monster_kinds and int(stars) < 1: errors.append("monster cards require at least one star")
+        if kind not in monster_kinds and (int(stars) != 0 or int(atk) != 0 or int(defense) != 0): errors.append("non-monster cards cannot carry monster stats")
+        if kind == "fusion" and (summon_method != "fusion" or not materials): errors.append("fusion cards require fusion summon mode and materials")
+        if kind == "ritual" and (summon_method != "ritual" or int(ritual_cost) < 1): errors.append("ritual cards require ritual summon mode and a ritual cost")
+        if kind not in ["fusion", "ritual"] and summon_method not in ["normal", ""]: errors.append("only fusion and ritual cards may use special summon modes")
+        if int(target_count) > 0 and (not targets or targets == ["none"]): errors.append("target count requires a target type")
+        if timing not in ["main", "opponent_attack", "any"]: errors.append("unsupported timing")
+        return list(dict.fromkeys(errors))
+
     def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path=""):
         card_id = "card_" + str(int(time.time() * 1000))
         frame = "yellow" if kind == "normal" else "orange" if kind == "effect" else "sky" if kind in ["spell", "field"] else "pink" if kind == "trap" else "violet" if kind == "fusion" else "blue" if kind == "ritual" else "red"
@@ -1388,25 +1488,70 @@ class ContentStore:
         if changed:
             self.save()
 
+    def create_place(self, name, capacity=3, background="duel_field", day_night=True):
+        place_id = "place_" + str(int(time.time() * 1000))
+        display_name = name or "New Place"
+        folder = self.scaffold_entity("places", place_id, display_name, ["background", "background/day", "background/night", "background/animation", "music/day", "music/night", "music/pre_duel", "music/duel", "music/near_win", "music/near_lose", "music/post_duel/win", "music/post_duel/lose", "animations/pre_duel", "animations/dice", "animations/win", "animations/lose", "animations/draw"])
+        place = PlaceDef(place_id, display_name, clamp(int(capacity), 1, 10), 0, background or "duel_field", bool(day_night), folder)
+        self.places[place_id] = place
+        self.save()
+        return place
+
     def create_team(self, name, members, preferred_place):
         team_id = "team_" + str(int(time.time() * 1000))
         display_name = name or "New Team"
-        selected = [member for member in members if member in self.characters][:3]
-        leader = selected[0] if selected else "player"
+        selected = [member for member in dict.fromkeys(members) if member in self.characters and member != "player"][:3]
+        if not selected: return None
+        leader = selected[0]
         folder = self.scaffold_entity("teams", team_id, display_name)
         team = TeamDef(team_id, display_name, selected, leader, [preferred_place] if preferred_place in self.places else [], "community", {}, False, 1, [], folder)
         self.teams[team_id] = team
         self.save()
         return team
 
-    def create_character(self, name, stars, smartness, family):
+    def update_character(self, character_id, values):
+        character = self.characters.get(character_id)
+        if not character: return None
+        allowed = {"name", "portrait", "stars", "smartness", "relationship", "preferred_families", "deck_id", "gender", "origin", "best_cards"}
+        for key, value in values.items():
+            if key not in allowed: continue
+            if key in ["stars", "smartness"]: value = clamp(int(value), 1, 10)
+            if key == "preferred_families": value = list(dict.fromkeys(value))[:5] or ["warrior"]
+            setattr(character, key, value)
+        self.save()
+        return character
+
+    def update_team(self, team_id, values):
+        team = self.teams.get(team_id)
+        if not team: return None
+        if "members" in values:
+            members = [member for member in dict.fromkeys(values["members"]) if member in self.characters][:3]
+            if members: team.members = members
+            if team.leader not in team.members: team.leader = team.members[0]
+        if "name" in values and values["name"]: team.name = str(values["name"])
+        if "leader" in values and values["leader"] in team.members: team.leader = values["leader"]
+        if "preferred_places" in values: team.preferred_places = [place for place in dict.fromkeys(values["preferred_places"]) if place in self.places]
+        self.save()
+        return team
+
+    def update_place(self, place_id, values):
+        place = self.places.get(place_id)
+        if not place: return None
+        if "name" in values and values["name"]: place.name = str(values["name"])
+        if "capacity" in values: place.capacity = clamp(int(values["capacity"]), 1, 10)
+        if "background" in values and values["background"]: place.background = str(values["background"])
+        if "day_night" in values: place.day_night = bool(values["day_night"])
+        self.save()
+        return place
+
+    def create_character(self, name, stars, smartness, family, portrait="player", gender="other", origin="community", deck_id=""):
         char_id = "character_" + str(int(time.time() * 1000))
-        deck_id = "deck_" + str(int(time.time() * 1000))
-        base = list(self.cards)[:10]
-        self.decks[deck_id] = {"name": (name or "New Character") + " Deck", "cards": base}
         display_name = name or "New Character"
+        if deck_id not in self.decks:
+            deck_id = "deck_" + str(int(time.time() * 1000))
+            self.decks[deck_id] = {"name": display_name + " Deck", "cards": list(self.cards)[:10]}
         folder = self.scaffold_entity("characters", char_id, display_name)
-        char = CharacterDef(char_id, display_name, "player", stars, smartness, "stranger", [family or "warrior"], deck_id, "neutral", [], [], [], [], "other", "human", [], [], 1, folder)
+        char = CharacterDef(char_id, display_name, portrait or "pfp_placeholder", clamp(int(stars), 1, 10), clamp(int(smartness), 1, 10), "stranger", [family or "warrior"], deck_id, "neutral", [], [], [], [], gender or "other", origin or "community", [], [], 1, folder)
         self.characters[char_id] = char
         self.save()
         return char
@@ -1574,6 +1719,8 @@ class Duelist:
 
     def remove(self, card):
         if card in self.hand: self.hand.remove(card)
+        if card in self.graveyard: self.graveyard.remove(card)
+        if card in self.banished: self.banished.remove(card)
         for index, item in enumerate(self.monsters):
             if item is card: self.monsters[index] = None
         for index, item in enumerate(self.spells):
@@ -1702,7 +1849,7 @@ class DuelEngine:
         actor.graveyard.append(card)
         self.pending_target = None
         self.log(f"{card.card.name} targets {target.name if hasattr(target, 'name') else target.card.name}.")
-        self.resolve(card, trigger, target)
+        self.resolve(card, trigger, target, actor)
         self.run_logic(card, trigger, actor, self.other(actor))
         return True, ""
 
@@ -1715,7 +1862,7 @@ class DuelEngine:
         self.pending_trap = None
         self.log(f"{self.player.name} activates {trap.card.name} in the opponent attack window.")
         self.react("trap", self.player.character.id, self.opponent.character.id, "opponent", "cards", trap.card.id)
-        self.resolve(trap, "battle", self.opponent)
+        self.resolve(trap, "battle", self.opponent, self.player)
         return True, ""
 
     def activate_set_spell(self, card):
@@ -1732,7 +1879,7 @@ class DuelEngine:
             self.player.graveyard.append(card)
             self.log(f"{self.player.name} activates set spell {card.card.name}.")
         self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "activate")
+        self.resolve(card, "activate", actor=self.player)
         self.run_logic(card, "activate", self.player, self.opponent)
         return True, ""
 
@@ -1772,7 +1919,7 @@ class DuelEngine:
         self.player.monsters[zone] = card
         self.log(f"{self.player.name} fusion summons {card.card.name}.")
         self.react("fusion_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "summon")
+        self.resolve(card, "summon", actor=self.player)
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
@@ -1789,7 +1936,7 @@ class DuelEngine:
         self.player.monsters[zone] = card
         self.log(f"{self.player.name} ritual summons {card.card.name}.")
         self.react("ritual_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "summon")
+        self.resolve(card, "summon", actor=self.player)
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
@@ -1809,7 +1956,7 @@ class DuelEngine:
         self.player.monsters[zone] = card
         self.log(f"{self.player.name} summons {card.card.name}.")
         self.react("summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "summon")
+        self.resolve(card, "summon", actor=self.player)
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
@@ -1847,50 +1994,69 @@ class DuelEngine:
             self.player.graveyard.append(card)
             self.log(f"{self.player.name} activates {card.card.name}.")
         self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "activate")
+        self.resolve(card, "activate", actor=self.player)
         self.run_logic(card, "activate", self.player, self.opponent)
         return True, ""
 
-    def run_logic(self, card, trigger, actor, target):
-        context = {"card": card}
-        for outcome in self.logic_runtime.run(trigger, context):
-            value = outcome["value"].lower()
-            amount_match = re.search(r"[-+]?\\d+", value)
-            amount = int(amount_match.group()) if amount_match else 0
-            if "boost" in value:
-                card.attack_bonus += amount
-                self.log(f"Logic [{outcome['graph']}] boosts {card.card.name} by {amount} ATK.")
-            elif "damage" in value:
-                target.hp = max(0, target.hp - amount)
-                self.log(f"Logic [{outcome['graph']}] deals {amount} damage.")
-            elif "heal" in value:
-                actor.hp = min(8000, actor.hp + amount)
-                self.log(f"Logic [{outcome['graph']}] restores {amount} health.")
-            elif "draw" in value:
-                drawn = actor.draw(max(1, amount))
-                self.log(f"Logic [{outcome['graph']}] draws {len(drawn)} card(s).")
+    def owner_of(self, card):
+        for duelist in [self.player, self.opponent]:
+            if card in duelist.hand or card in duelist.graveyard or card in duelist.banished or card in duelist.monsters or card in duelist.spells: return duelist
+        return None
+
+    def move_card(self, card, destination, owner=None):
+        owner = owner or self.owner_of(card)
+        if not owner or not card: return False
+        owner.remove(card)
+        card.position = destination
+        if destination == "graveyard":
+            card.face_up = True
+            owner.graveyard.append(card)
+        elif destination == "banished":
+            card.face_up = True
+            owner.banished.append(card)
+        elif destination == "hand":
+            card.face_up = True
+            owner.hand.append(card)
+        else:
+            return False
+        return True
+
+    def apply_effect(self, card, action, amount, actor, target=None, source="Effect"):
+        if action == "damage":
+            recipient = target if target is not None and hasattr(target, "hp") else self.other(actor)
+            recipient.hp = max(0, recipient.hp - amount)
+            self.log(f"{source} deals {amount} damage.")
+        elif action == "heal":
+            recipient = target if target is not None and hasattr(target, "hp") else actor
+            recipient.hp = min(8000, recipient.hp + amount)
+            self.log(f"{source} restores {amount} health.")
+        elif action == "draw":
+            drawn = actor.draw(max(1, amount))
+            self.log(f"{source} lets {actor.name} draw {len(drawn)} card(s).")
+        elif action == "boost_attack":
+            card.attack_bonus += amount
+            self.log(f"{source} gives {card.card.name} {amount} ATK.")
+        elif action == "boost_defense":
+            card.defense_bonus += amount
+            self.log(f"{source} gives {card.card.name} {amount} DEF.")
+        elif action in ["banish", "send_to_graveyard", "return_to_hand"]:
+            selected = target if isinstance(target, CardInstance) else card
+            destination = "banished" if action == "banish" else "graveyard" if action == "send_to_graveyard" else "hand"
+            if self.move_card(selected, destination): self.log(f"{source} moves {selected.card.name} to {destination}.")
         self.check_end()
 
-    def resolve(self, card, trigger, target=None):
+    def run_logic(self, card, trigger, actor, target):
+        context = {"card": card, "actor": actor, "target": target}
+        for outcome in self.logic_runtime.run(trigger, context):
+            self.apply_effect(card, outcome["action"], outcome["amount"], actor, target, f"Logic [{outcome['graph']}]")
+
+    def resolve(self, card, trigger, target=None, actor=None):
+        actor = actor or (self.player if card in self.player.hand or card in self.player.monsters or card in self.player.spells else self.opponent)
+        target = target if target is not None else self.other(actor)
         for effect in card.card.effects:
             if effect.get("trigger") != trigger: continue
-            action = effect.get("action")
-            amount = effect.get("amount", 0)
-            if action == "damage":
-                recipient = target if target is not None else self.opponent
-                if hasattr(recipient, "hp"): recipient.hp = max(0, recipient.hp - amount)
-                self.log(f"{card.card.name} deals {amount} damage.")
-            elif action == "heal":
-                recipient = target if target is not None and hasattr(target, "hp") else self.player
-                recipient.hp = min(8000, recipient.hp + amount)
-                self.log(f"{card.card.name} restores {amount} health.")
-            elif action == "draw":
-                drawn = self.player.draw(amount)
-                self.log(f"{card.card.name} lets you draw {len(drawn)} card(s).")
-            elif action == "boost":
-                card.attack_bonus += amount
-                self.log(f"{card.card.name} gains {amount} ATK.")
-        self.check_end()
+            action = LogicRuntime.normalize_action(f"{effect.get('action', '')} {effect.get('amount', 0)}")
+            if action["valid"]: self.apply_effect(card, action["name"], action["amount"], actor, target, card.card.name)
 
     def attack(self, card, target=None):
         if self.finished or self.active is not self.player or self.phase != "BATTLE": return False, "Attacks are only available during Battle."
@@ -1954,23 +2120,7 @@ class DuelEngine:
         self.log("The duel ends in a draw." if winner is None else f"{winner.name} wins by {reason}.")
 
     def resolve_ai(self, card, trigger):
-        for effect in card.card.effects:
-            if effect.get("trigger") != trigger: continue
-            action = effect.get("action")
-            amount = effect.get("amount", 0)
-            if action == "damage":
-                self.player.hp = max(0, self.player.hp - amount)
-                self.log(f"{card.card.name} deals {amount} damage.")
-            elif action == "heal":
-                self.opponent.hp = min(8000, self.opponent.hp + amount)
-                self.log(f"{card.card.name} restores {amount} health.")
-            elif action == "draw":
-                drawn = self.opponent.draw(amount)
-                self.log(f"{card.card.name} lets {self.opponent.name} draw {len(drawn)} card(s).")
-            elif action == "boost":
-                card.attack_bonus += amount
-                self.log(f"{card.card.name} gains {amount} ATK.")
-        self.check_end()
+        self.resolve(card, trigger, self.player, self.opponent)
 
     def ai_card_score(self, card, mode):
         character = self.opponent.character
@@ -3545,6 +3695,11 @@ class CardMakerScene(Scene):
         values = ["normal", "effect", "spell", "trap", "field", "fusion", "ritual", "legendary"] if field == "kind" else ["warrior", "aqua", "machine", "fiend", "spell"]
         current = getattr(self, field)
         setattr(self, field, values[(values.index(current) + 1) % len(values)])
+        if field == "kind":
+            if self.kind == "fusion": self.summon_method, self.materials, self.ritual_cost = "fusion", ["ember_drone", "sky_archer"], 0
+            elif self.kind == "ritual": self.summon_method, self.materials, self.ritual_cost = "ritual", [], 7
+            else: self.summon_method, self.materials, self.ritual_cost = "normal", [], 0
+            if self.kind not in ["normal", "effect", "legendary"]: self.stars = max(0, self.stars)
         self.refresh_buttons()
 
     def cycle_logic(self):
@@ -3560,6 +3715,10 @@ class CardMakerScene(Scene):
     def create(self):
         graph = "" if self.logic_graph == "none" else self.logic_graph
         field_effect = {"family": self.family, "atk": 300} if self.kind == "field" else {}
+        errors = self.app.store.validate_card_definition(self.kind, self.stars, self.atk, self.defense, self.family, self.description.value, self.targets, self.target_count, self.timing, self.materials, self.ritual_cost, self.summon_method)
+        if errors:
+            self.app.notify("Card rejected: " + "; ".join(errors[:2]))
+            return
         self.app.store.create_card(self.name.value, self.kind, self.stars, self.atk, self.defense, self.family, self.description.value, graph, self.targets, self.target_count, self.timing, field_effect, self.materials, self.ritual_cost, self.summon_method, self.art_path.value)
         self.app.store.load()
         self.app.notify("Card saved. Its editable folder tree now exists in data/cards/")
@@ -3604,9 +3763,13 @@ class LogicManagerScene(Scene):
         self.graph.nodes.append(LogicNode(node_id, kind, label, value, len(self.graph.nodes) + 1, x, y, inputs))
 
     def save_graph(self):
+        errors = LogicRuntime.validate_graph(self.graph)
+        if errors:
+            self.app.notify("Logic graph rejected: " + "; ".join(errors[:2]))
+            return
         self.app.store.logic[self.graph_key] = self.graph
         self.app.store.save()
-        self.app.notify("Logic graph saved as JSON. Its level order and connections are preserved.")
+        self.app.notify("Logic graph saved with validated levels and connections.")
 
     def preview_graph(self):
         card = CardInstance(next(iter(self.app.store.cards.values())), "preview")
@@ -3619,7 +3782,7 @@ class LogicManagerScene(Scene):
         values = {
             "trigger": ["on_summon", "on_activate", "on_battle", "on_turn_end"],
             "condition": ["always", "card.family == warrior", "card.kind == spell", "card.family == fiend"],
-            "action": ["boost_attack +200", "damage 500", "heal 400", "draw 1"]
+            "action": ["boost_attack +200", "boost_defense +200", "damage 500", "heal 400", "draw 1", "banish 1", "send_to_graveyard 1", "return_to_hand 1"]
         }
         options = values[self.selected.kind]
         self.selected.value = options[(options.index(self.selected.value) + 1) % len(options)] if self.selected.value in options else options[0]
@@ -3806,34 +3969,50 @@ class BehaviorWeightsScene(Scene):
 
 
 class CharacterMakerScene(Scene):
+    genders = ["other", "he", "she"]
+
     def enter(self):
         self.name = TextInput((90, 150, 300, 34), "New Character")
-        self.family = TextInput((90, 240, 300, 34), "warrior")
+        self.family = TextInput((90, 215, 300, 34), "warrior")
+        self.portrait = TextInput((430, 150, 280, 34), "pfp_placeholder")
+        self.origin = TextInput((430, 215, 280, 34), "community")
+        self.deck = TextInput((90, 280, 300, 34), "")
+        self.gender = "other"
         self.stars = 5
         self.smartness = 5
-        self.buttons = [Button((90, 330, 110, 38), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((210, 330, 110, 38), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((90, 410, 230, 44), "CREATE CHARACTER", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((430, 280, 160, 34), "GENDER: OTHER", lambda: self.cycle_gender(), COLORS["violet"]), Button((90, 345, 110, 38), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((210, 345, 110, 38), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((90, 410, 230, 44), "CREATE CHARACTER", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def change(self, field, amount): setattr(self, field, clamp(getattr(self, field) + amount, 1, 10))
 
+    def cycle_gender(self):
+        self.gender = self.genders[(self.genders.index(self.gender) + 1) % len(self.genders)]
+        self.buttons[0].label = "GENDER: " + self.gender.upper()
+
     def create(self):
-        self.app.store.create_character(self.name.value, self.stars, self.smartness, self.family.value)
+        self.app.store.create_character(self.name.value, self.stars, self.smartness, self.family.value, self.portrait.value, self.gender, self.origin.value, self.deck.value)
         self.app.store.load()
-        self.app.notify("Character saved with deck and reaction folders.")
+        self.app.notify("Character saved with explicit identity, deck, and reaction folders.")
 
     def handle(self, event):
         self.name.handle(event)
         self.family.handle(event)
+        self.portrait.handle(event)
+        self.origin.handle(event)
+        self.deck.handle(event)
         super().handle(event)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "CHARACTER MAKER", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
-        draw_text(surface, "Build a character shell first; add deep media, reactions, and learned weights in its folder.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "Create a character from explicit authored identity and deck choices; runtime experience stays in state.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (42, 112, 720, 354), "CHARACTER DEFINITION", COLORS["violet"])
         self.name.draw(surface, self.app.assets.font(13), "Character name")
         self.family.draw(surface, self.app.assets.font(13), "Preferred card family")
-        draw_text(surface, f"STAR LEVEL {self.stars}     SMARTNESS {self.smartness}/10", (90, 310), self.app.assets.font(16, True), COLORS["cream"])
-        draw_text(surface, "The AI foundation records duel history, studied cards, preferences, and relationships.", (90, 377), self.app.assets.font(12), COLORS["muted"])
+        self.portrait.draw(surface, self.app.assets.font(13), "Portrait file key")
+        self.origin.draw(surface, self.app.assets.font(13), "Origin")
+        self.deck.draw(surface, self.app.assets.font(13), "Existing deck id, optional")
+        draw_text(surface, f"STAR LEVEL {self.stars}     SMARTNESS {self.smartness}/10", (430, 355), self.app.assets.font(16, True), COLORS["cream"])
+        draw_text(surface, "The AI foundation records duel history, studied cards, preferences, and relationships separately.", (90, 390), self.app.assets.font(11), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -4003,28 +4182,33 @@ class TeamDuelScene(Scene):
 class TeamMakerScene(Scene):
     def enter(self):
         self.name = TextInput((90, 150, 300, 34), "New Team")
-        self.place = TextInput((90, 240, 300, 34), "neon_playground")
-        self.buttons = [Button((90, 340, 230, 44), "CREATE TEAM", lambda: self.create()), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop())]
+        self.place = TextInput((90, 215, 300, 34), "neon_playground")
+        self.member_inputs = [TextInput((430, 150 + index * 65, 280, 34), "") for index in range(3)]
+        self.buttons = [Button((90, 355, 230, 44), "CREATE TEAM", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def handle(self, event):
         self.name.handle(event)
         self.place.handle(event)
+        for field in self.member_inputs: field.handle(event)
         super().handle(event)
 
     def create(self):
-        members = [key for key in self.app.store.characters if key != "player"][:3]
-        self.app.store.create_team(self.name.value, members, self.place.value)
-        self.app.store.load()
-        self.app.notify("Team saved with members, leader, preferred place, and media folder.")
+        members = [field.value.strip() for field in self.member_inputs if field.value.strip()]
+        team = self.app.store.create_team(self.name.value, members, self.place.value)
+        if team:
+            self.app.store.load()
+            self.app.notify("Team saved with the selected members and preferred place.")
+        else: self.app.notify("Choose at least one registered non-player character.")
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "TEAM MAKER", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
-        draw_text(surface, "Create a team from registered characters and place it into the world simulation.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "Create a team from explicit registered character ids; no hidden auto-selection is used.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (42, 112, 720, 320), "TEAM DEFINITION", COLORS["violet"])
         self.name.draw(surface, self.app.assets.font(13), "Team name")
         self.place.draw(surface, self.app.assets.font(13), "Preferred place id")
-        draw_text(surface, "The first available characters become the initial roster; later passes can add drag-and-drop member selection.", (90, 312), self.app.assets.font(12), COLORS["muted"])
+        for index, field in enumerate(self.member_inputs): field.draw(surface, self.app.assets.font(13), f"Member {index + 1} character id")
+        draw_text(surface, "Use ids from the Characters screen. Up to three distinct members are stored; the first is leader.", (90, 312), self.app.assets.font(11), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -4068,30 +4252,42 @@ class PlacesScene(Scene):
 
 
 class PlaceMakerScene(Scene):
+    backgrounds = ["duel_field", "trio_mysterio"]
+
     def enter(self):
-        self.name = TextInput((90, 160, 300, 34), "New Place")
-        self.buttons = [Button((90, 260, 220, 44), "CREATE PLACE", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.name = TextInput((90, 150, 300, 34), "New Place")
+        self.capacity = TextInput((90, 215, 300, 34), "3")
+        self.background = TextInput((430, 150, 280, 34), "duel_field")
+        self.day_night = True
+        self.buttons = [Button((430, 215, 180, 34), "DAY/NIGHT: ON", lambda: self.toggle_day_night(), COLORS["cyan"]), Button((90, 300, 220, 44), "CREATE PLACE", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def handle(self, event):
         self.name.handle(event)
+        self.capacity.handle(event)
+        self.background.handle(event)
         super().handle(event)
 
+    def toggle_day_night(self):
+        self.day_night = not self.day_night
+        self.buttons[0].label = "DAY/NIGHT: " + ("ON" if self.day_night else "OFF")
+
     def create(self):
-        place_id = "place_" + str(int(time.time() * 1000))
-        display_name = self.name.value or "New Place"
-        folder = self.app.store.scaffold_entity("places", place_id, display_name, ["background", "background/day", "background/night", "background/animation", "music/day", "music/night", "music/pre_duel", "music/duel", "music/near_win", "music/near_lose", "music/post_duel/win", "music/post_duel/lose", "animations/pre_duel", "animations/dice", "animations/win", "animations/lose", "animations/draw"])
-        self.app.store.places[place_id] = PlaceDef(place_id, display_name, 3, 0, "duel_field", True, folder)
-        self.app.store.save()
-        self.app.notify("Place saved with background and music folders.")
+        try: capacity = int(self.capacity.value)
+        except ValueError: capacity = 3
+        if self.background.value not in self.backgrounds: self.app.notify("Choose a supported background key: duel_field or trio_mysterio."); return
+        self.app.store.create_place(self.name.value, capacity, self.background.value, self.day_night)
+        self.app.store.load()
+        self.app.notify("Place saved with explicit capacity, background, day/night, and media folders.")
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "PLACE MAKER", (34, 28), self.app.assets.font(28, True), COLORS["green"])
-        draw_text(surface, "Create a location; its media can be replaced directly in data/places/.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "Create a location from explicit capacity and media routing choices.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (42, 112, 720, 300), "PLACE DEFINITION", COLORS["green"])
         self.name.draw(surface, self.app.assets.font(13), "Place name")
-        draw_text(surface, "Default capacity: 3 simultaneous duels", (90, 250), self.app.assets.font(15), COLORS["cream"])
-        draw_text(surface, "Default media: duel field background with optional day/night and event variants.", (90, 288), self.app.assets.font(12), COLORS["muted"])
+        self.capacity.draw(surface, self.app.assets.font(13), "Capacity, 1 to 10")
+        self.background.draw(surface, self.app.assets.font(13), "Background asset key")
+        draw_text(surface, "Media folders are scaffolded for day/night, event animation, and music variants.", (90, 270), self.app.assets.font(11), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -4253,7 +4449,8 @@ class ImportExportScene(Scene):
         draw_text(surface, "IMPORT / EXPORT", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
         draw_text(surface, "The .cbp package is a zip with a manifest and selected dependencies.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (370, 120, 386, 322), "MANIFEST PREVIEW", COLORS["violet"])
-        draw_text(surface, "Schema 1", (400, 175), self.app.assets.font(14, True), COLORS["cream"])
+        latest_manifest = self.app.store.inspect_cbp(self.files[-1]) if self.files else {}
+        draw_text(surface, f"Schema {latest_manifest.get('schema', 3)}  |  Scope: {latest_manifest.get('kind', 'world').upper()}", (400, 175), self.app.assets.font(14, True), COLORS["cream"])
         draw_text(surface, f"Cards: {len(self.app.store.cards)}", (400, 215), self.app.assets.font(13), COLORS["cyan"])
         draw_text(surface, f"Characters: {len(self.app.store.characters)}", (400, 245), self.app.assets.font(13), COLORS["cyan"])
         draw_text(surface, f"Decks: {len(self.app.store.decks)}", (400, 275), self.app.assets.font(13), COLORS["cyan"])

@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "category": "world",
+  "state": {
+    "requests": [
+      {
+        "id": "request_echo",
+        "title": "Rival Echo requests a rematch",
+        "from": "rival_echo",
+        "to": "player",
+        "reason": "rematch",
+        "status": "open"
+      }
+    ],
+    "orders": [
+      {
+        "id": "order_echo",
+        "title": "Open order: any opponent, Neon Playground",
+        "placer": "player",
+        "taker": "rival_echo",
+        "give": "any card",
+        "status": "open"
+      }
+    ],
+    "championships": [],
+    "trades": [],
+    "borrows": [],
+    "achievements": [],
+    "ranks": {
+      "rival_echo": 10,
+      "player": 1
+    },
+    "simulation_time": 0.0,
+    "active_battles": [],
+    "simulation_events": []
+  }
+}

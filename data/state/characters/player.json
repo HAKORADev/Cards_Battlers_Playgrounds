@@ -1,0 +1,369 @@
+{
+  "schema": 1,
+  "id": "player",
+  "category": "characters",
+  "state": {
+    "availability": "free",
+    "learned_opponents": {
+      "rival_echo": 32
+    },
+    "enemies": [],
+    "library_cards": [
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan"
+    ],
+    "mood": "neutral",
+    "borrowed_cards": [],
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "family_weights": {
+        "warrior": 2.0,
+        "aqua": 0.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 2.0,
+        "trap": 0.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      }
+    },
+    "rank": 1,
+    "activity": "idle",
+    "history": [
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787489437.9795418
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787489542.9818354
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787490921.6030457
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787490940.1975152
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787491063.0224493
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "void_titan",
+        "time": 1787492213.9933686
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787493277.3511329
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787493377.1426198
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787493435.1347017
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787494879.5057418
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787500587.3560429
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "void_titan",
+        "time": 1787501841.4339385
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787502228.3043635
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787503501.065086
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "aqua_sentinel",
+        "time": 1787503663.6881692
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "iron_fridge",
+        "time": 1787505071.7043653
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "sky_archer",
+        "time": 1787506312.3492265
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 2,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "void_titan",
+        "time": 1787507722.872767
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787508244.729814
+      },
+      {
+        "opponent": "rival_echo",
+        "result": "loss",
+        "turns": 4,
+        "reason": "health",
+        "cards_seen": [
+          "aqua_sentinel",
+          "aqua_sentinel",
+          "iron_fridge",
+          "sky_archer",
+          "void_titan"
+        ],
+        "traded_card": "cinder_knight",
+        "time": 1787511136.6763825
+      }
+    ],
+    "relationship": "self",
+    "destination": "",
+    "allies": [],
+    "learned_cards": {
+      "aqua_sentinel": 64,
+      "iron_fridge": 32,
+      "sky_archer": 32,
+      "void_titan": 32
+    },
+    "current_place": "",
+    "movement_progress": 0.0,
+    "cooldown_until": 0.0
+  }
+}
