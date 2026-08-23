@@ -2504,21 +2504,54 @@ class DuelEngine:
         self.record_summon(card, actor, method, source_zone, source_card, source_effect_id)
         return True, ""
 
+    def capture_procedure_transaction(self):
+        state = {"sides": {}, "cards": {}, "field_card": self.field_card, "field_card_owner": self.field_card_owner, "summon_permissions": {key: {"base": value.get("base", 1), "used": value.get("used", 0), "grants": [dict(grant) for grant in value.get("grants", [])]} for key, value in self.summon_permissions.items()}}
+        for side in [self.player, self.opponent]:
+            state["sides"][id(side)] = {"side": side, "hp": side.hp, "deck": list(side.deck), "hand": list(side.hand), "monsters": list(side.monsters), "spells": list(side.spells), "graveyard": list(side.graveyard), "banished": list(side.banished), "extra": list(side.extra)}
+            cards = side.deck + side.hand + [item for item in side.monsters + side.spells if item] + side.graveyard + side.banished + side.extra
+            for card in cards: state["cards"][id(card)] = {"card": card, "position": card.position, "last_zone": card.last_zone, "face_up": card.face_up}
+        if self.field_card: state["cards"][id(self.field_card)] = {"card": self.field_card, "position": self.field_card.position, "last_zone": self.field_card.last_zone, "face_up": self.field_card.face_up}
+        return state
+
+    def rollback_procedure_transaction(self, transaction):
+        if not transaction: return
+        for saved in transaction["sides"].values():
+            side = saved["side"]
+            side.hp = saved["hp"]
+            side.deck = list(saved["deck"])
+            side.hand = list(saved["hand"])
+            side.monsters = list(saved["monsters"])
+            side.spells = list(saved["spells"])
+            side.graveyard = list(saved["graveyard"])
+            side.banished = list(saved["banished"])
+            side.extra = list(saved["extra"])
+        for saved in transaction["cards"].values():
+            card = saved["card"]
+            card.position = saved["position"]
+            card.last_zone = saved["last_zone"]
+            card.face_up = saved["face_up"]
+        self.field_card = transaction["field_card"]
+        self.field_card_owner = transaction["field_card_owner"]
+        self.summon_permissions = {key: {"base": value.get("base", 1), "used": value.get("used", 0), "grants": [dict(grant) for grant in value.get("grants", [])]} for key, value in transaction["summon_permissions"].items()}
+
+    def abort_procedure(self, reason):
+        pending = self.pending_procedure
+        if pending: self.rollback_procedure_transaction(pending.get("transaction"))
+        self.pending_procedure = None
+        self.pending_cost = None
+        notification = self.pending_notification("choose_cards")
+        if notification: notification.status, notification.answer = "resolved", "cancel"
+        return False, reason
+
     def prompt_summon_procedure(self):
         pending = self.pending_procedure
         if not pending: return False, "No summon procedure is pending."
         card, actor, procedure = pending["card"], pending["actor"], pending["procedure"]
         candidates = self.procedure_material_candidates(card, actor, procedure)
         required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else procedure.required_count
-        if procedure.kind == "fusion" and len(candidates) < required:
-            if pending.get("costs_paid"): self.pending_procedure = None
-            return False, "There are not enough legal fusion materials."
-        if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars:
-            if pending.get("costs_paid"): self.pending_procedure = None
-            return False, "There are not enough legal ritual material stars."
-        if procedure.kind == "tribute" and len(candidates) < procedure.required_count:
-            if pending.get("costs_paid"): self.pending_procedure = None
-            return False, "There are not enough legal tribute candidates."
+        if procedure.kind == "fusion" and len(candidates) < required: return self.abort_procedure("There are not enough legal fusion materials.")
+        if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars: return self.abort_procedure("There are not enough legal ritual material stars.")
+        if procedure.kind == "tribute" and len(candidates) < procedure.required_count: return self.abort_procedure("There are not enough legal tribute candidates.")
         pending.update({"candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]})
         payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
         self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
@@ -2536,7 +2569,7 @@ class DuelEngine:
             cost_spec = EffectSpec.from_dict({"id": card.card.id + "_procedure_cost", "trigger": "summon", "cost": procedure.costs}, card.card.id + "_procedure_cost")
             valid, result = self.preflight_costs(cost_spec, card, actor)
             if not valid: return False, result.get("reason", "The summon procedure cost cannot be paid.")
-        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False}
+        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False, "transaction": self.capture_procedure_transaction()}
         if procedure.costs:
             paid, result = self.pay_costs(cost_spec, card, actor, 0, "procedure_cost")
             if not paid:
@@ -2545,8 +2578,7 @@ class DuelEngine:
                     notification = self.pending_notification("choose_cards")
                     if notification: notification.payload.update({"kind": "procedure_cost", "procedure": procedure.kind, "card": card.card.id})
                     return True, "pending_cost"
-                self.pending_procedure = None
-                return False, result.get("reason", "The summon procedure cost could not be paid.")
+                return self.abort_procedure(result.get("reason", "The summon procedure cost could not be paid."))
             self.pending_procedure["costs_paid"] = True
         return self.prompt_summon_procedure()
 
@@ -2569,6 +2601,8 @@ class DuelEngine:
 
     def cancel_pending_procedure(self):
         if not self.pending_procedure: return False
+        self.rollback_procedure_transaction(self.pending_procedure.get("transaction"))
+        self.pending_cost = None
         self.pending_procedure = None
         notification = self.pending_notification("choose_cards")
         if notification:
@@ -2591,14 +2625,14 @@ class DuelEngine:
         valid, reason = self.validate_procedure_materials(pending["card"], selected, pending["actor"], pending["procedure"])
         if not valid: return False, reason
         card, actor, procedure = pending["card"], pending["actor"], pending["procedure"]
+        paid, reason = self.pay_procedure_materials(selected, actor, procedure.material_destination)
+        if not paid: return self.abort_procedure(reason)
         if procedure.kind == "tribute":
             permission, reason = self.consume_normal_summon(actor)
-            if not permission: return False, reason
-        paid, reason = self.pay_procedure_materials(selected, actor, procedure.material_destination)
-        if not paid: return False, reason
+            if not permission: return self.abort_procedure(reason)
         source_zone = card.position
         placed, reason = self.place_procedure_summon(card, actor, procedure.source_method or procedure.kind, source_zone, None, procedure.kind + "_procedure")
-        if not placed: return False, reason
+        if not placed: return self.abort_procedure(reason)
         self.pending_procedure = None
         notification = self.pending_notification("choose_cards")
         if notification: notification.status, notification.answer = "resolved", "ok"
