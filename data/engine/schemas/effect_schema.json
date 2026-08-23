@@ -63,7 +63,7 @@
       "trigger_group_size": "number of collected matching effects",
       "trigger_group_order": "effect IDs in deterministic priority/card/effect order",
       "trigger_group_selected_order": "effect IDs selected by the chooser when a group is prompted",
-      "replay_sequence": "monotonic deterministic record sequence; excludes wall-clock ordering",
+      "observation_sequence": "monotonic live-observation record sequence; excludes wall-clock ordering",
       "replacement_records": "ordered mutation records showing replacement IDs, operations, before, after, and amounts"
     },
     "event_response_window": {
@@ -216,15 +216,15 @@
       "public": "face-up field and graveyard/banished records are visible",
       "hidden": "opponent hand/deck/facedown identity is projected as hidden"
     },
-    "replay": {
-      "schema": "cbp.replay.v1",
-      "snapshot": "viewer-scoped public state, deterministic event records, and learned card/effect IDs",
-      "checkpoint": "cbp.checkpoint.v1 with canonical SHA-256 digest for tamper detection",
-      "playback": "cbp.replay-playback.v1 cursor-based deterministic record stream",
+    "live_observation": {
+      "schema": "cbp.live-observation.v1",
+      "snapshot": "viewer-scoped public state, current event records, and learned card/effect IDs for live duel spectators",
+      "checkpoint": "cbp.observation-checkpoint.v1 with canonical SHA-256 digest for inspection-state integrity",
       "state_checkpoint": "cbp.state-checkpoint.v1 serializable zone, duel-state, chain, and supported pending-prompt payload with digest validation",
-      "replay_apply": "cbp.replay-apply.v1 deterministic application of supported resolution records",
       "interactive_pending": ["discard", "target", "summon", "trap", "effect"],
-      "unsupported_pending": ["cost", "procedure", "response", "trigger_order"]
+      "unsupported_pending": ["cost", "procedure", "response", "trigger_order"],
+      "record_and_rewatch": false,
+      "purpose": "current live-duel viewer projections and diagnostics only"
     },
     "knowledge": {
       "card_ids": "observed authored card IDs",

@@ -32,6 +32,13 @@
     },
     "simulation_time": 0.0,
     "active_battles": [],
-    "simulation_events": []
+    "simulation_events": [],
+    "roles": {
+      "player_character": "player",
+      "default_opponent_character": "rival_echo",
+      "default_player_team": "the_duelers",
+      "default_opponent_team": "trio_team",
+      "default_place": "neon_playground"
+    }
   }
 }
