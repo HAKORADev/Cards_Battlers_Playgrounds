@@ -755,6 +755,7 @@ class EffectSpec:
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
     implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
+    once_policies = {"", "once", "once_per_duel", "once_per_turn", "per_turn"}
 
     @classmethod
     def canonical_action(cls, value):
@@ -807,6 +808,7 @@ class EffectSpec:
         phase = self.window.get("phase", "any")
         if phase not in self.phases: errors.append(f"{self.effect_id}: unsupported phase {phase}")
         if not self.actions and not self.modifier: errors.append(f"{self.effect_id}: action or modifier is required")
+        if self.once not in self.once_policies: errors.append(f"{self.effect_id}: unsupported once policy {self.once}")
         for action in self.actions:
             name = action.get("name")
             if name not in self.action_names: errors.append(f"{self.effect_id}: unknown action {name}")
@@ -1998,6 +2000,7 @@ class DuelEngine:
         self.pending_trap = None
         self.pending_cost = None
         self.pending_effect = None
+        self.effect_usage = {}
         self.summon_permissions = {"player": {"base": 1, "used": 0, "grants": []}, "opponent": {"base": 1, "used": 0, "grants": []}}
         self.field_card = None
         self.field_card_owner = None
@@ -2013,6 +2016,18 @@ class DuelEngine:
 
     def side_key(self, side):
         return "player" if side is self.player else "opponent"
+
+    def effect_usage_key(self, card, spec):
+        return (id(card), spec.effect_id)
+
+    def effect_used(self, card, spec):
+        usage = self.effect_usage.get(self.effect_usage_key(card, spec))
+        if not usage: return False
+        if spec.once in ["once_per_turn", "per_turn"] and usage.get("turn") != self.turn: return False
+        return True
+
+    def mark_effect_used(self, card, spec):
+        if spec.once: self.effect_usage[self.effect_usage_key(card, spec)] = {"turn": self.turn, "phase": self.phase}
 
     def reset_summon_permissions(self, side):
         state = self.summon_permissions[self.side_key(side)]
@@ -2685,8 +2700,8 @@ class DuelEngine:
         self.pending_cost = None
         notification = self.pending_notification("choose_cards")
         if notification: notification.status, notification.answer = "resolved", "ok"
-        if pending["kind"] == "discard_action": self.execute_effect_spec(card, spec, actor, self.other(actor), pending.get("action_index", 0) + 1)
-        else: self.execute_effect_spec(card, spec, actor, self.other(actor))
+        completed = self.execute_effect_spec(card, spec, actor, self.other(actor), pending.get("action_index", 0) + 1) if pending["kind"] == "discard_action" else self.execute_effect_spec(card, spec, actor, self.other(actor))
+        if completed: self.mark_effect_used(card, spec)
         return True, ""
 
     def execute_effect_spec(self, card, spec, actor, default_target, start_index=0):
@@ -2757,7 +2772,8 @@ class DuelEngine:
         if answer == "no": return True, ""
         paid, result = self.pay_costs(pending["spec"], pending["card"], pending["actor"])
         if not paid: return False, result.get("reason", "The effect cost could not be paid.")
-        self.execute_effect_spec(pending["card"], pending["spec"], pending["actor"], pending["target"])
+        completed = self.execute_effect_spec(pending["card"], pending["spec"], pending["actor"], pending["target"])
+        if completed: self.mark_effect_used(pending["card"], pending["spec"])
         return True, ""
 
     def emit_event(self, trigger, actor, source=None, target=None, metadata=None):
@@ -2795,6 +2811,9 @@ class DuelEngine:
             if spec.validate():
                 self.log("Unsupported effect " + spec.effect_id + ": " + ", ".join(spec.validate()))
                 continue
+            if self.effect_used(card, spec):
+                self.log("Effect " + spec.effect_id + " has already resolved for its current policy.")
+                continue
             if not self.condition_matches(spec.conditions, card, actor, target): continue
             if spec.notify:
                 kind = spec.notify.get("kind", spec.notify.get("type", "info"))
@@ -2805,7 +2824,7 @@ class DuelEngine:
                     continue
             paid, result = self.pay_costs(spec, card, actor)
             if not paid: continue
-            self.execute_effect_spec(card, spec, actor, target)
+            if self.execute_effect_spec(card, spec, actor, target): self.mark_effect_used(card, spec)
         self.active_rule_context = previous_context
 
     def attack(self, card, target=None):
