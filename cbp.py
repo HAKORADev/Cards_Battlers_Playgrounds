@@ -2804,6 +2804,15 @@ class DuelEngine:
         self.emit_event("movement", owner, source=card, target=card, metadata={"from_zone": card.last_zone, "to_zone": destination, "owner": owner.character.id})
         return True
 
+    def open_event_response_window(self, trigger, actor, source=None, target=None, metadata=None):
+        if self.chain_window or actor is None: return None
+        priority = self.other(actor)
+        candidates = self.response_candidates(priority, trigger)
+        if not candidates: return None
+        context = dict(metadata or {})
+        context.update({"event_window": True, "event_trigger": trigger, "event_actor": self.side_key(actor), "event_source": self.entity_id(source), "event_target": [self.entity_id(item) for item in (target if isinstance(target, list) else [target] if target is not None else [])]})
+        return self.open_chain_window(priority, trigger, source, target, context)
+
     def open_chain_window(self, actor, trigger, source=None, target=None, context=None):
         if self.chain_window: return self.chain_window
         self.chain_sequence += 1
@@ -3369,6 +3378,7 @@ class DuelEngine:
             group["resolved"].append(effect_id)
         self.event_dispatch_stack.pop()
         self.active_rule_context = previous_context
+        if metadata and metadata.get("response_window") and not self.chain_window: self.open_event_response_window(trigger, actor, source, target, metadata)
         return context
 
     def resolve(self, card, trigger, target=None, actor=None, context=None, effect_id=""):

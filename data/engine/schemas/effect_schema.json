@@ -31,9 +31,16 @@
       "source_zone": "source card zone at event creation",
       "target_ids": "resolved target entity IDs",
       "metadata": "event-specific movement, damage, summon, attack, or state fields",
+      "response_window": "optional metadata flag; a window opens only when the opposing priority side has a legal response",
       "trigger_group_id": "stable ID shared by effects collected for this event",
       "trigger_group_size": "number of collected matching effects",
       "trigger_group_order": "effect IDs in deterministic priority/card/effect order"
+    },
+    "event_response_window": {
+      "enabled": "set by event metadata response_window",
+      "trigger": "event being answered",
+      "priority": "opposite side of the event actor",
+      "context": "preserves event trigger, actor, source, targets, and event metadata"
     },
     "trigger_group": {
       "group_id": "stable trigger batch ID",
