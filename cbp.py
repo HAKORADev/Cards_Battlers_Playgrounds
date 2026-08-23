@@ -752,13 +752,14 @@ class EffectSpec:
     media: dict = field(default_factory=dict)
     legacy: bool = False
 
-    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "fusion_summon", "ritual_summon", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "shuffle"}
+    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
 
     @classmethod
     def canonical_action(cls, value):
         text = str(value or "").strip().lower().replace("-", "_")
+        text = {"special summon": "special_summon", "fusion summon": "fusion_summon", "ritual summon": "ritual_summon"}.get(text, text)
         match = re.fullmatch(r"([a-z_]+)(?:\s+([-+]?\d+))?", text)
         if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
         name, amount = match.groups()
@@ -1767,6 +1768,12 @@ class CardInstance:
         self.last_zone = "hand"
         self.face_up = True
         self.battle_position = "attack"
+        self.summon_method = ""
+        self.summon_source_zone = ""
+        self.summon_source_card_id = ""
+        self.summon_source_card_name = ""
+        self.summon_source_effect_id = ""
+        self.summon_history = []
         self.attack_bonus = 0
         self.defense_bonus = 0
         self.attacked = False
@@ -1901,10 +1908,15 @@ class SelectorRuntime:
     def matches(self, candidate, selector):
         if isinstance(candidate, Duelist): return not any(key in selector for key in ["card_kind", "family", "origin", "face_up", "position", "stat"])
         card = candidate.card
-        kinds = selector.get("card_kind", selector.get("kind", []))
+        kinds = selector.get("card_kind", selector.get("card_type", selector.get("kind", [])))
         if kinds and card.kind not in (kinds if isinstance(kinds, list) else [kinds]): return False
-        for key in ["family", "origin"]:
-            if selector.get(key) is not None and str(getattr(card, key, "")).lower() != str(selector[key]).lower(): return False
+        family_value = selector.get("family", selector.get("monster_type", selector.get("type")))
+        for key in ["card_id", "family", "origin", "name"]:
+            actual = getattr(card, "id", "") if key == "card_id" else getattr(card, key, "")
+            expected = family_value if key == "family" else selector.get(key)
+            if expected is not None:
+                values = expected if isinstance(expected, list) else [expected]
+                if str(actual).lower() not in [str(value).lower() for value in values]: return False
         if selector.get("gender") is not None:
             owner = self.engine.player if candidate in self.engine.player.hand + self.engine.player.graveyard + self.engine.player.banished else self.engine.opponent
             if owner.character.gender.lower() != str(selector["gender"]).lower(): return False
@@ -1982,6 +1994,7 @@ class DuelEngine:
         self.preview = False
         self.pending_discard = None
         self.pending_target = None
+        self.pending_summon = None
         self.pending_trap = None
         self.pending_cost = None
         self.pending_effect = None
@@ -2031,6 +2044,7 @@ class DuelEngine:
             return success, message
         if notification.kind == "choose_target":
             selected = selection if isinstance(selection, list) else [selection]
+            if self.pending_summon: return self.resolve_pending_summon(selected)
             if not selected or not self.pending_target: return False, "Choose the required target(s)."
             result = (True, "")
             for item in selected:
@@ -2244,6 +2258,59 @@ class DuelEngine:
     def effective_defense(self, card, side):
         return self.effective_stat(card, side, "defense")
 
+    def record_summon(self, card, actor, method, source_zone, source_card=None, source_effect_id=""):
+        card.summon_method = method
+        card.summon_source_zone = source_zone
+        source_definition = getattr(source_card, "card", source_card) if source_card else None
+        card.summon_source_card_id = getattr(source_definition, "id", "") if source_definition else ""
+        card.summon_source_card_name = getattr(source_definition, "name", "") if source_definition else ""
+        card.summon_source_effect_id = source_effect_id
+        card.summon_history.append({"method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_card_name": card.summon_source_card_name, "source_effect_id": source_effect_id, "actor": actor.character.id, "turn": self.turn, "phase": self.phase})
+        self.emit_event("summon", actor, source=card, target=card, metadata={"method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_card_name": card.summon_source_card_name, "source_effect_id": source_effect_id})
+
+    def special_summon(self, selector, actor=None, method="special", source_card=None, source_effect_id="", count=None, selected=None):
+        actor = actor or self.player
+        if self.finished: return False, "The duel is already finished."
+        zone_count = sum(1 for item in actor.monsters if item is None)
+        candidate_selector = dict(selector or {})
+        candidate_selector["count"] = "all"
+        candidates = list(selected or SelectorRuntime(self, actor, source_card).select(candidate_selector))
+        candidates = [item for item in candidates if isinstance(item, CardInstance) and item.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]]
+        requested = max(1, int(count or selector.get("count", 1) or 1))
+        if not candidates: return False, "No legal monster matches the special-summon selector."
+        if zone_count < min(requested, len(candidates)): return False, "There are not enough empty monster zones."
+        if selected is None and len(candidates) > requested:
+            self.pending_summon = {"selector": dict(selector or {}), "actor": actor, "method": method, "source_card": source_card, "source_effect_id": source_effect_id, "candidates": candidates, "required": requested}
+            self.notify("choose_target", f"Choose {requested} monster(s) to special summon.", ["ok"], {"kind": "special_summon", "required": requested, "candidates": [item.card.id for item in candidates]})
+            return False, "pending"
+        summoned = []
+        for summoned_card in candidates[:requested]:
+            source_owner = self.owner_of(summoned_card)
+            source_zone = summoned_card.position
+            if source_owner: source_owner.remove(summoned_card)
+            empty_zone = next(index for index, item in enumerate(actor.monsters) if item is None)
+            summoned_card.last_zone = source_zone
+            summoned_card.position = "field"
+            summoned_card.face_up = True
+            summoned_card.battle_position = "attack"
+            summoned_card.owner = actor.name
+            actor.monsters[empty_zone] = summoned_card
+            self.record_summon(summoned_card, actor, method, source_zone, source_card, source_effect_id)
+            summoned.append(summoned_card)
+        self.log(f"{actor.name} special summons {len(summoned)} card(s).")
+        self.resolution_history.append({"sequence": self.effect_sequence, "action": "special_summon", "amount": len(summoned), "source": getattr(getattr(source_card, "card", source_card), "name", "Effect"), "source_zone": getattr(source_card, "last_zone", ""), "source_actor": actor.character.id, "trigger": "special_summon", "policy": {"method": method}, "status": "resolved", "result": {"cards": [item.card.id for item in summoned], "method": method, "source_zone": [item.summon_source_zone for item in summoned]}})
+        return True, summoned
+
+    def resolve_pending_summon(self, cards):
+        pending = self.pending_summon
+        if not pending: return False, "No special summon choice is pending."
+        selected = list(cards if isinstance(cards, list) else [cards])
+        if len(selected) != pending["required"] or len(set(selected)) != len(selected) or any(item not in pending["candidates"] for item in selected): return False, "Those cards are not legal special-summon choices."
+        self.pending_summon = None
+        notification = self.pending_notification("choose_target")
+        if notification: self.answer_notification(notification.notification_id, "ok")
+        return self.special_summon(pending["selector"], pending["actor"], pending["method"], pending["source_card"], pending["source_effect_id"], pending["required"], selected)
+
     def fusion_summon(self, card, materials):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
         if card.card.summon_method != "fusion" or card not in self.player.hand: return False, "Select a fusion card in your hand."
@@ -2253,13 +2320,17 @@ class DuelEngine:
         if any(item not in self.player.hand and item not in self.player.monsters for item in materials): return False, "Every fusion material must be in your hand or field."
         zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
+        source_zone = card.position
         for item in materials: self.destroy(self.player, item)
         self.player.hand.remove(card)
+        card.last_zone = source_zone
         card.position = "field"
+        card.face_up = True
+        card.battle_position = "attack"
         self.player.monsters[zone] = card
         self.log(f"{self.player.name} fusion summons {card.card.name}.")
         self.react("fusion_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "summon", actor=self.player)
+        self.record_summon(card, self.player, "fusion", source_zone, None, "fusion_procedure")
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
@@ -2270,13 +2341,17 @@ class DuelEngine:
         if any(item not in self.player.hand and item not in self.player.monsters for item in tributes): return False, "Every ritual tribute must be in your hand or field."
         zone = next((index for index, value in enumerate(self.player.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
+        source_zone = card.position
         for item in tributes: self.destroy(self.player, item)
         self.player.hand.remove(card)
+        card.last_zone = source_zone
         card.position = "field"
+        card.face_up = True
+        card.battle_position = "attack"
         self.player.monsters[zone] = card
         self.log(f"{self.player.name} ritual summons {card.card.name}.")
         self.react("ritual_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "summon", actor=self.player)
+        self.record_summon(card, self.player, "ritual", source_zone, None, "ritual_procedure")
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
@@ -2290,13 +2365,17 @@ class DuelEngine:
         tribute = 0 if card.card.stars <= 4 else 1 if card.card.stars <= 6 else 2
         occupied = [item for item in self.player.monsters if item]
         if len(occupied) < tribute: return False, f"This summon requires {tribute} tribute(s)."
+        source_zone = card.position
         for item in occupied[:tribute]: self.destroy(self.player, item)
         self.player.hand.remove(card)
+        card.last_zone = source_zone
         card.position = "field"
+        card.face_up = True
+        card.battle_position = "attack"
         self.player.monsters[zone] = card
         self.log(f"{self.player.name} summons {card.card.name}.")
         self.react("summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "summon", actor=self.player)
+        self.record_summon(card, self.player, "normal", source_zone)
         self.run_logic(card, "summon", self.player, self.opponent)
         return True, ""
 
@@ -2498,8 +2577,18 @@ class DuelEngine:
             if field_name.startswith("card."): entity, field_name = card, field_name.split(".", 1)[1]
             if field_name.startswith("actor."): entity, field_name = actor, field_name.split(".", 1)[1]
             if field_name.startswith("target."): entity, field_name = target, field_name.split(".", 1)[1]
-            actual = getattr(getattr(entity, "card", entity), field_name, getattr(entity, field_name, None))
-            if not SelectorRuntime.compare(actual, condition.get("operator", "equals"), condition.get("value")): return False
+            if field_name in ["summon_method", "summon_source_zone", "summon_source_card_id", "summon_source_card_name", "summon_source_effect_id"]: actual = getattr(card, field_name, "")
+            else: actual = getattr(getattr(entity, "card", entity), field_name, getattr(entity, field_name, None))
+            operator, expected = condition.get("operator", "equals"), condition.get("value")
+            if isinstance(actual, (int, float)):
+                matches = SelectorRuntime.compare(actual, operator, expected)
+            elif operator in ["equals", "=="]:
+                matches = str(actual).lower() == str(expected).lower()
+            elif operator in ["not_equals", "!="]:
+                matches = str(actual).lower() != str(expected).lower()
+            else:
+                matches = False
+            if not matches: return False
         return True
 
     def legacy_selector(self, card, actor):
@@ -2576,11 +2665,23 @@ class DuelEngine:
             action_name = action.get("name", "")
             if not action.get("valid", action_name in EffectSpec.action_names): continue
             target_value = action.get("target", "")
-            if target_value in target_map: resolved = target_map[target_value]
+            if isinstance(target_value, dict): resolved = SelectorRuntime(self, actor, card).select(target_value)
+            elif target_value in target_map: resolved = target_map[target_value]
             elif target_value in ["actor", "self"]: resolved = actor
             elif target_value in ["opponent", "enemy"]: resolved = default_target
             elif target_value in ["source", "card"] or not target_value: resolved = card if action_name in ["boost_attack", "boost_defense"] else default_target
             else: resolved = selected
+            if action_name == "special_summon":
+                summon_selector = action.get("select") or (target_value if isinstance(target_value, dict) else spec.selector)
+                summon_method = action.get("method", "special")
+                summon_count = action.get("count", len(resolved) if isinstance(resolved, list) else 1)
+                candidate_selector = dict(summon_selector or {})
+                candidate_selector["count"] = "all"
+                summon_source = SelectorRuntime(self, actor, card).select(candidate_selector)
+                if summon_source:
+                    summon_result = self.special_summon({"side": "both", "zone": "any", "card_id": [item.card.id for item in summon_source], "count": summon_count}, actor, summon_method, card, spec.effect_id, summon_count)
+                    if summon_result[1] == "pending": return False
+                continue
             amount = action.get("amount", 0)
             if isinstance(amount, dict): amount = amount.get("value", 0)
             self.apply_effect(card, action_name, int(amount or 0), actor, resolved, card.card.name, spec.trigger)
@@ -2616,17 +2717,18 @@ class DuelEngine:
                 spec = EffectSpec.from_dict(raw_effect, source_card.card.id + "_effect_" + str(index))
                 if spec.trigger == trigger and not spec.validate(): ordered.append((spec.priority, source_card.card.id, source_card, spec))
         self.active_rule_context = context
-        for _, _, source_card, _ in sorted(ordered, key=lambda item: (item[0], item[1])): self.resolve(source_card, trigger, target, actor, context)
+        for _, _, source_card, spec in sorted(ordered, key=lambda item: (item[0], item[1])): self.resolve(source_card, trigger, target, actor, context, spec.effect_id)
         self.active_rule_context = None
         return context
 
-    def resolve(self, card, trigger, target=None, actor=None, context=None):
+    def resolve(self, card, trigger, target=None, actor=None, context=None, effect_id=""):
         actor = actor or (self.player if card in self.player.hand or card in self.player.monsters or card in self.player.spells else self.opponent)
         target = target if target is not None else self.other(actor)
         previous_context = self.active_rule_context
         self.active_rule_context = context or previous_context
         for index, raw_effect in enumerate(card.card.effects):
             spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+            if effect_id and spec.effect_id != effect_id: continue
             if spec.trigger != trigger: continue
             if spec.window.get("phase", "any") not in ["any", self.phase.lower().replace(" 1", "").replace(" 2", "")]: continue
             if spec.window.get("event") not in [None, "", trigger, self.phase.lower(), self.phase.lower().replace(" ", "_")]: continue
@@ -3449,8 +3551,10 @@ class DuelScene(Scene):
                 self.hover_target = None
                 return
             if self.engine.pending_target and self.hover_target:
-                success, msg = self.engine.select_target(self.hover_target)
-                self.message = self.engine.events[-1] if success else msg
+                notification = self.engine.pending_notification("choose_target")
+                result = self.engine.respond_notification(notification.notification_id, "ok", self.hover_target) if notification else (False, "No target notification is pending.")
+                success, msg = result
+                self.message = self.engine.events[-1] if success and self.engine.events else msg
                 self.hover_target = None
                 return
             if self.hover_set:

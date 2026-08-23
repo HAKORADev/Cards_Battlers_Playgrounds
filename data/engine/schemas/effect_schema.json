@@ -95,7 +95,11 @@
     "side": ["self", "opponent", "both", "any"],
     "zone": ["deck", "hand", "monster", "spell_trap", "field", "graveyard", "banished", "extra", "any"],
     "card_kind": "string or array of strings",
+    "card_type": "alias for card_kind",
+    "card_id": "exact authored card ID or array",
+    "name": "exact authored card name or array",
     "family": "monster family/type",
+    "monster_type": "alias for family",
     "origin": "card origin",
     "gender": "character gender predicate",
     "face_up": "boolean",
@@ -112,13 +116,25 @@
     "optional": "boolean"
   },
   "action": {
-    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "shuffle"],
+    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "special_summon", "shuffle"],
     "declared_but_unsupported": ["control", "summon", "fusion_summon", "ritual_summon"],
-    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "fusion_summon", "ritual_summon", "shuffle"],
+    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"],
+    "summon": {
+      "method": "special, normal, fusion, ritual, or authored method key",
+      "select": "selector for cards to summon from deck, hand, graveyard, banished, or another legal zone",
+      "count": "number of cards to summon"
+    },
     "amount": "number, expression, or object",
     "target": "selector id, source, actor, or explicit target",
     "duration": "instant, until_end_of_turn, per_turn, while_face_up, permanent, or phase window",
-    "condition": "optional predicate list",
+    "condition": "optional predicate list; summon_method, summon_source_zone, summon_source_card_id, and summon_source_effect_id are supported provenance fields",
+    "summon_provenance": {
+      "summon_method": "normal, special, fusion, ritual, or authored method key",
+      "summon_source_zone": "deck, hand, graveyard, banished, extra, or another zone key",
+      "summon_source_card_id": "exact effect-card ID that caused a special summon",
+      "summon_source_card_name": "exact effect-card name that caused a special summon",
+      "summon_source_effect_id": "exact effect definition ID that caused a special summon"
+    },
     "media": "optional cue metadata"
   },
   "notification": {
