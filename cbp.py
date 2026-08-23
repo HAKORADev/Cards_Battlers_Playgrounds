@@ -751,6 +751,8 @@ class EffectSpec:
     notify: dict = field(default_factory=dict)
     media: dict = field(default_factory=dict)
     target_policy: dict = field(default_factory=dict)
+    speed: int = 1
+    response: dict = field(default_factory=dict)
     legacy: bool = False
 
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "shuffle"}
@@ -798,11 +800,13 @@ class EffectSpec:
         if raw.get("target_count") and not targets: selector["count"] = raw.get("target_count")
         target_policy = dict(raw.get("target_policy") or raw.get("target_resolution") or {})
         if "revalidate" not in target_policy: target_policy["revalidate"] = not legacy
+        response = dict(raw.get("response") or raw.get("chain") or {})
+        speed = max(1, int(raw.get("speed", response.get("speed", 1)) or 1))
         modifier = dict(raw.get("modifier") or raw.get("field_effect") or {})
         if raw.get("field_effect") and not modifier.get("scope"): modifier["scope"] = "field"
         if raw.get("field_effect") and modifier.get("atk") is not None:
             modifier["stat"], modifier["operation"], modifier["amount"] = "attack", "add", modifier.pop("atk")
-        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, legacy)
+        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, speed, response, legacy)
 
     def validate(self):
         errors = []
@@ -812,17 +816,18 @@ class EffectSpec:
         if phase not in self.phases: errors.append(f"{self.effect_id}: unsupported phase {phase}")
         if not self.actions and not self.modifier: errors.append(f"{self.effect_id}: action or modifier is required")
         if self.once not in self.once_policies: errors.append(f"{self.effect_id}: unsupported once policy {self.once}")
+        if self.speed not in [1, 2, 3]: errors.append(f"{self.effect_id}: unsupported speed {self.speed}")
         for action in self.actions:
             name = action.get("name")
             if name not in self.action_names: errors.append(f"{self.effect_id}: unknown action {name}")
             elif name not in self.implemented_actions: errors.append(f"{self.effect_id}: action {name} is declared but not implemented")
         if self.notify:
             kind = self.notify.get("kind", self.notify.get("type", "info"))
-            if kind not in {"ok", "yes_no", "choose_target", "choose_cards", "info"}: errors.append(f"{self.effect_id}: unsupported notification {kind}")
+            if kind not in {"ok", "yes_no", "choose_target", "choose_cards", "chain_response", "info"}: errors.append(f"{self.effect_id}: unsupported notification {kind}")
         return list(dict.fromkeys(errors))
 
     def to_dict(self):
-        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy}
+        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy, "speed": self.speed, "response": self.response}
 
 
 class LogicRuntime:
@@ -1824,6 +1829,21 @@ class EffectEvent:
 
 
 @dataclass
+class ChainLink:
+    link_id: str
+    index: int
+    source: object
+    actor: object
+    target: object
+    trigger: str
+    effect_id: str
+    speed: int = 1
+    status: str = "pending"
+    negated: bool = False
+    context: dict = field(default_factory=dict)
+
+
+@dataclass
 class Notification:
     notification_id: int
     kind: str
@@ -1986,6 +2006,12 @@ class DuelEngine:
         self.rule_event_sequence = 0
         self.event_history = []
         self.active_rule_context = None
+        self.chain_links = []
+        self.chain_history = []
+        self.chain_sequence = 0
+        self.chain_priority = None
+        self.chain_passes = []
+        self.chain_window = None
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
@@ -2097,6 +2123,11 @@ class DuelEngine:
         if notification.kind == "yes_no":
             success, message = self.answer_pending_effect(answer)
             return success, message
+        if notification.kind == "chain_response":
+            if answer != "pass": return False, "Only passing is available in this response window."
+            notification.status, notification.answer = "resolved", answer
+            self.notification_history.append({"id": notification.notification_id, "kind": notification.kind, "answer": answer, "payload": notification.payload, "time": time.time()})
+            return self.pass_chain_priority(self.chain_priority)
         if notification.kind == "choose_target":
             selected = selection if isinstance(selection, list) else [selection]
             if self.pending_summon: return self.resolve_pending_summon(selected)
@@ -2220,8 +2251,13 @@ class DuelEngine:
         if notification: notification.status, notification.answer = "resolved", "ok"
         target_name = target.name if hasattr(target, "name") else target.card.name
         self.log(f"{card.card.name} targets {target_name}.")
-        self.resolve(card, trigger, resolved_target, actor)
-        self.run_logic(card, trigger, actor, self.other(actor))
+        effect_specs = [EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects)]
+        spec = next((item for item in effect_specs if item.effect_id == pending.get("effect_id")), None) or next((item for item in effect_specs if item.trigger == trigger), None)
+        if self.chain_enabled(spec):
+            self.add_chain_link(card, spec, actor, resolved_target, trigger, {"target_snapshot": [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in (resolved_target if isinstance(resolved_target, list) else [resolved_target])]})
+        else:
+            self.resolve(card, trigger, resolved_target, actor)
+            self.run_logic(card, trigger, actor, self.other(actor))
         return True, ""
 
     def activate_trap(self, trap):
@@ -2491,8 +2527,11 @@ class DuelEngine:
             self.player.graveyard.append(card)
             self.log(f"{self.player.name} activates {card.card.name}.")
         self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.resolve(card, "activate", actor=self.player)
-        self.run_logic(card, "activate", self.player, self.opponent)
+        if self.chain_enabled(activate_spec):
+            self.add_chain_link(card, activate_spec, self.player, self.opponent, "activate", {"target_snapshot": [self.opponent.character.id]})
+        else:
+            self.resolve(card, "activate", actor=self.player)
+            self.run_logic(card, "activate", self.player, self.opponent)
         return True, ""
 
     def owner_of(self, card):
@@ -2530,6 +2569,97 @@ class DuelEngine:
         else:
             return False
         return True
+
+    def open_chain_window(self, actor, trigger, source=None, target=None, context=None):
+        if self.chain_window: return self.chain_window
+        self.chain_sequence += 1
+        self.chain_window = {"chain_id": "chain_" + str(self.chain_sequence), "trigger": trigger, "source": source, "target": target, "opened_by": self.side_key(actor), "priority": actor, "passes": [], "context": dict(context or {})}
+        self.chain_priority = actor
+        self.chain_passes = []
+        self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
+        return self.chain_window
+
+    def entity_id(self, item):
+        if isinstance(item, Duelist): return item.character.id
+        if isinstance(item, CardInstance): return item.card.id
+        return getattr(item, "id", getattr(item, "name", ""))
+
+    def chain_speed_allowed(self, speed, actor):
+        if not self.chain_links: return True
+        top_speed = self.chain_links[-1].speed
+        if int(speed) <= 1: return False
+        if int(speed) == 2 and top_speed > 2: return False
+        if int(speed) == 3: return True
+        return int(speed) >= top_speed
+
+    def chain_enabled(self, spec):
+        return bool(spec and (spec.speed > 1 or spec.response.get("enabled") or spec.response.get("chain")))
+
+    def add_chain_link(self, card, spec, actor, target=None, trigger=None, context=None):
+        if not self.chain_window: self.open_chain_window(actor, trigger or spec.trigger, card, target, context)
+        if self.chain_priority is not actor: return False, "The other side has chain priority."
+        if not self.chain_speed_allowed(spec.speed, actor): return False, "This effect cannot respond at its current spell speed."
+        self.chain_sequence += 1
+        targets = target if isinstance(target, list) else [target] if target is not None else []
+        link_context = dict(context or {})
+        link_context.update({"chain_id": self.chain_window["chain_id"], "link_index": len(self.chain_links) + 1, "target_snapshot": [self.entity_id(item) for item in targets]})
+        link = ChainLink("link_" + str(self.chain_sequence), len(self.chain_links) + 1, card, actor, target, trigger or spec.trigger, spec.effect_id, spec.speed, "pending", False, link_context)
+        self.chain_links.append(link)
+        self.chain_history.append({"event": "link_added", "chain_id": self.chain_window["chain_id"], "link_id": link.link_id, "index": link.index, "source": card.card.id, "actor": self.side_key(actor), "speed": spec.speed, "targets": link_context["target_snapshot"]})
+        self.chain_priority = self.other(actor)
+        self.chain_passes = []
+        self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
+        return True, link
+
+    def pass_chain_priority(self, actor):
+        if not self.chain_window or self.chain_priority is not actor: return False, "That side does not have chain priority."
+        self.chain_passes.append(self.side_key(actor))
+        if len(self.chain_passes) >= 2:
+            return self.resolve_chain()
+        self.chain_priority = self.other(actor)
+        self.notify("chain_response", "Chain response window is open.", ["pass"], {"chain_id": self.chain_window["chain_id"], "priority": self.side_key(self.chain_priority)})
+        return True, ""
+
+    def negate_chain_link(self, link_id):
+        link = next((item for item in self.chain_links if item.link_id == link_id and item.status == "pending"), None)
+        if not link: return False, "That chain link is not pending."
+        link.negated = True
+        link.status = "negated"
+        self.chain_history.append({"event": "link_negated", "chain_id": self.chain_window["chain_id"] if self.chain_window else "", "link_id": link.link_id, "index": link.index})
+        return True, ""
+
+    def chain_link_targets_legal(self, link):
+        spec = next((EffectSpec.from_dict(raw, link.source.card.id + "_effect_" + str(index)) for index, raw in enumerate(link.source.card.effects) if EffectSpec.from_dict(raw, link.source.card.id + "_effect_" + str(index)).effect_id == link.effect_id), None)
+        if not spec or not spec.target_policy.get("revalidate", True) or not spec.selector: return True
+        legal = self.legal_targets(link.source, link.actor, spec.selector)
+        targets = link.target if isinstance(link.target, list) else [link.target] if link.target is not None else []
+        return all(item in legal for item in targets)
+
+    def resolve_chain(self):
+        if not self.chain_window: return False, "No chain is open."
+        chain = self.chain_window
+        links = list(reversed(self.chain_links))
+        for link in links:
+            if link.negated:
+                link.status = "negated"
+                continue
+            if not self.chain_link_targets_legal(link):
+                link.status = "fizzled"
+                self.chain_history.append({"event": "link_fizzled", "chain_id": chain["chain_id"], "link_id": link.link_id, "index": link.index, "status": link.status, "targets": link.context.get("target_snapshot", [])})
+                continue
+            spec_card = link.source
+            self.resolve(spec_card, link.trigger, link.target, link.actor, link.context, link.effect_id)
+            link.status = "resolved"
+            self.chain_history.append({"event": "link_resolved", "chain_id": chain["chain_id"], "link_id": link.link_id, "index": link.index, "status": link.status, "targets": link.context.get("target_snapshot", [])})
+        for notification in self.notifications:
+            if notification.kind == "chain_response" and notification.status == "pending": notification.status, notification.answer = "resolved", "resolved"
+        self.chain_history.append({"event": "chain_resolved", "chain_id": chain["chain_id"], "links": [{"id": item.link_id, "status": item.status, "negated": item.negated} for item in self.chain_links]})
+        result = [(item.link_id, item.status) for item in self.chain_links]
+        self.chain_links = []
+        self.chain_window = None
+        self.chain_priority = None
+        self.chain_passes = []
+        return True, result
 
     def queue_effect(self, card, action, amount, actor, target=None, source="Effect", trigger=""):
         normalized = LogicRuntime.normalize_action(f"{action} {amount}")
@@ -3729,7 +3859,7 @@ class DuelScene(Scene):
             current = next((item for item in self.engine.notifications if item.notification_id == self.question["notification_id"]), None)
             if not current or current.status != "pending": self.question = None
         if self.question or not notification: return
-        kind = "discard" if notification.kind in ["discard", "choose_cards"] else "notifier"
+        kind = "discard" if notification.kind in ["discard", "choose_cards"] else "chain" if notification.kind == "chain_response" else "notifier"
         stage = "confirm" if "no" in notification.options else "await_ok"
         self.question = {"kind": kind, "stage": stage, "notification_id": notification.notification_id, "text": notification.message, "options": notification.options}
 
@@ -3750,6 +3880,12 @@ class DuelScene(Scene):
                 notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id")), None)
                 if notification and "ok" in notification.options: self.engine.respond_notification(notification.notification_id, "ok")
                 self.question = None
+        elif kind == "chain" and stage == "await_ok":
+            if self.layout.question_action_rect("ok").collidepoint(pos):
+                notification = next((item for item in self.engine.notifications if item.notification_id == self.question.get("notification_id")), None)
+                result = self.engine.respond_notification(notification.notification_id, "pass") if notification else (False, "No chain response is pending.")
+                self.message = result[1]
+                if result[0]: self.question = None
         elif kind == "surrender" and stage == "confirm":
             if self.layout.question_action_rect("yes").collidepoint(pos):
                 self.surrender()
@@ -3828,7 +3964,13 @@ class DuelScene(Scene):
         if self.engine.pending_discard is self.engine.player and self.question is None:
             self.question = {"kind": "discard", "stage": "await_ok"}
         self.sync_notification()
-        if self.engine.active is self.engine.opponent and not self.engine.finished:
+        if self.engine.chain_window:
+            if self.engine.chain_priority is self.engine.opponent and not self.engine.finished:
+                self.ai_timer += dt
+                if self.ai_timer > 0.6:
+                    self.ai_timer = 0
+                    self.engine.pass_chain_priority(self.engine.opponent)
+        elif self.engine.active is self.engine.opponent and not self.engine.finished:
             self.ai_timer += dt
             if self.ai_timer > 0.6:
                 self.ai_timer = 0
@@ -3977,13 +4119,13 @@ class DuelScene(Scene):
                 else:
                     rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
                     draw_text(surface, label, rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
-        elif kind in ["discard", "notifier"] and stage == "await_ok":
+        elif kind in ["discard", "notifier", "chain"] and stage == "await_ok":
             rect = self.layout.question_action_rect("ok")
             image = self.app.assets.role_image("prompt_ok", rect.size)
             if image: surface.blit(image, rect.topleft)
             else:
                 rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
-                draw_text(surface, "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+                draw_text(surface, "PASS" if kind == "chain" else "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
 
     def draw_card_list_popup(self, surface):
         if not self.card_list_popup: return

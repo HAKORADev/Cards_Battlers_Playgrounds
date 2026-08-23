@@ -153,10 +153,19 @@
       "summon_source_card_name": "exact effect-card name that caused a special summon",
       "summon_source_effect_id": "exact effect definition ID that caused a special summon"
     },
-    "media": "optional cue metadata"
+    "media": "optional cue metadata",
+    "speed": "spell speed 1, 2, or 3",
+    "response": "optional chain response metadata",
+    "chain": {
+      "speed": [1, 2, 3],
+      "enabled": "boolean or response.chain flag",
+      "priority": "side currently allowed to add a response link",
+      "passes": "alternating priority passes before resolving the stack",
+      "negated": "link state set by a valid negation effect"
+    }
   },
   "notification": {
-    "kind": ["ok", "yes_no", "choose_target", "choose_cards", "info"],
+    "kind": ["ok", "yes_no", "choose_target", "choose_cards", "chain_response", "info"],
     "text": "template string",
     "options": "optional explicit option list",
     "optional": "boolean",
