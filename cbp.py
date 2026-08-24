@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import math
 import random
@@ -6,6 +7,8 @@ import time
 import zipfile
 import re
 import shutil
+import subprocess
+import wave
 import hashlib
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -398,6 +401,11 @@ class AssetBank:
         self.menu_layers = {}
         self.cursor_cache = {}
         self.reaction_sounds = {}
+        self.media_images = {}
+        self.media_sounds = {}
+        self.media_video_frames = {}
+        self.media_scopes = {}
+        self.current_music_path = ""
         self.card_templates = {}
         self.card_badges = {}
         self.splash_names = []
@@ -530,7 +538,8 @@ class AssetBank:
         candidates = []
         manifest = self.manifest_path(name)
         if manifest: candidates.append(manifest)
-        candidates.extend(base / f"{name}.wav" for base in self.asset_roots())
+        for base in self.asset_roots():
+            candidates.extend(base / f"{name}{extension}" for extension in MediaRegistry.audio_extensions)
         return candidates
 
     def load_sounds(self):
@@ -559,33 +568,133 @@ class AssetBank:
     def loop_music(self, path, enabled, volume):
         if not enabled:
             pygame.mixer.music.stop()
+            self.current_music_path = ""
             return False
         if not path or not path.exists(): return False
+        if pygame.mixer.music.get_busy() and self.current_music_path == str(path):
+            pygame.mixer.music.set_volume(volume)
+            return True
         try:
             pygame.mixer.music.load(str(path))
             pygame.mixer.music.set_volume(volume)
             pygame.mixer.music.play(-1)
+            self.current_music_path = str(path)
             return True
         except pygame.error:
             return False
     def play_music(self, enabled, volume):
-        path = ASSETS / "menu_music.wav"
-        if pygame.mixer.music.get_busy() and enabled: return
+        candidates = self.sound_candidates("menu_music")
+        path = next((item for item in candidates if item.exists()), None)
         self.loop_music(path, enabled, volume)
-    def place_music_path(self, place_id, night=False):
+    def place_music_paths(self, place_id, state="duel", night=False):
         folder_candidates = sorted((DATA / "places").glob(f"*_{place_id}"))
         period = "night" if night else "day"
+        state_key = slug(state).replace("_", "-")
+        aliases = {"duel": ["duel", "in-duel", "normal"], "in-duel": ["in-duel", "duel", "normal"], "pre-duel": ["pre-duel", "pre_duel"], "post-duel-win": ["post-duel-win", "post_duel/win", "win"], "post-duel-lose": ["post-duel-lose", "post_duel/lose", "lose"]}
+        state_names = aliases.get(state_key, [state_key])
+        roots = []
         for folder in folder_candidates:
-            tracks = sorted((folder / "music" / period).glob("*.wav"))
-            if tracks: return tracks[0]
-        universal = ASSETS / "duel_music.wav"
-        return universal if universal.exists() else None
-    def play_duel_music(self, place_id, enabled, volume=0.35, night=False):
-        return self.loop_music(self.place_music_path(place_id, night), enabled, volume)
-    def play_reaction_audio(self, path, enabled=True, volume=0.8):
+            for state_name in state_names:
+                roots.extend([folder / "music" / period / state_name, folder / "music" / state_name / period, folder / "music" / state_name])
+            roots.append(folder / "music" / period)
+            roots.append(folder / "music")
+        for root in roots:
+            tracks = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions and self._numeric_media_index(path) is not None)
+            if not tracks: tracks = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
+            if tracks: return tracks[:10]
+        universal_roots = [DATA / "audio" / "duel" / period / state_key, DATA / "audio" / "duel" / state_key, ASSETS]
+        for root in universal_roots:
+            tracks = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
+            if tracks: return tracks[:10]
+        return []
+
+    def _numeric_media_index(self, path):
+        match = re.fullmatch(r"(10|[1-9])", Path(path).stem)
+        return int(match.group(1)) if match else None
+
+    def place_music_path(self, place_id, night=False, state="duel", variant=None):
+        paths = self.place_music_paths(place_id, state, night)
+        if not paths: return None
+        if variant is not None:
+            return paths[max(0, int(variant) - 1) % len(paths)]
+        return random.choice(paths)
+
+    def play_duel_music(self, place_id, enabled, volume=0.35, night=False, state="duel", variant=None):
+        return self.loop_music(self.place_music_path(place_id, night, state, variant), enabled, volume)
+
+    def place_media_roots(self, place_id):
+        direct = DATA / "places" / str(place_id)
+        if direct.exists(): return [direct]
+        return sorted((DATA / "places").glob(f"*_{place_id}"))
+
+    def place_visual_path(self, place_id, kind="background", night=False):
+        period = "night" if night else "day"
+        roots = []
+        for folder in self.place_media_roots(place_id):
+            roots.extend([folder / kind / period, folder / kind])
+        for root in roots:
+            files = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in (MediaRegistry.image_extensions | MediaRegistry.video_extensions))
+            if files: return files[0]
+        return None
+
+    def place_visual(self, place_id, kind="background", night=False, clock=0.0, size=None, scope="scene"):
+        path = self.place_visual_path(place_id, kind, night)
+        if not path: return None
+        if path.suffix.lower() in MediaRegistry.video_extensions: return self.media_video_frame(path, clock, size, scope)
+        return self.media_image(path, size, scope)
+
+    def media_image(self, path, size=None, scope="scene"):
+        if not path or not Path(path).exists(): return None
+        key = str(path)
+        image = self.media_images.get(key)
+        if image is None:
+            try: image = pygame.image.load(key).convert_alpha()
+            except pygame.error: return None
+            if len(self.media_images) >= 256: self.media_images.pop(next(iter(self.media_images)))
+            self.media_images[key] = image
+        if scope: self.media_scopes.setdefault(scope, set()).add(key)
+        return scaled_image(image, size) if size and image.get_size() != tuple(size) else image
+
+    def media_video_frame(self, path, clock=0.0, size=None, scope="scene"):
+        if not path or not Path(path).exists(): return None
+        key = (str(path), int(max(0.0, float(clock)) * FPS))
+        image = self.media_video_frames.get(key)
+        if image is None:
+            try:
+                result = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", str(max(0.0, float(clock))), "-i", str(path), "-frames:v", "1", "-f", "image2pipe", "-vcodec", "png", "pipe:1"], capture_output=True, timeout=3)
+                if result.returncode != 0 or not result.stdout: return None
+                image = pygame.image.load(io.BytesIO(result.stdout)).convert_alpha()
+            except (OSError, pygame.error, subprocess.SubprocessError): return None
+            if len(self.media_video_frames) >= 128: self.media_video_frames.pop(next(iter(self.media_video_frames)))
+            self.media_video_frames[key] = image
+        if scope: self.media_scopes.setdefault(scope, set()).add(str(path))
+        return scaled_image(image, size) if size and image.get_size() != tuple(size) else image
+
+    def media_sound(self, path, scope="scene"):
+        if not path or not Path(path).exists(): return None
+        key = str(path)
+        sound = self.media_sounds.get(key)
+        if sound is None:
+            try: sound = pygame.mixer.Sound(key)
+            except pygame.error: return None
+            if len(self.media_sounds) >= 128: self.media_sounds.pop(next(iter(self.media_sounds)))
+            self.media_sounds[key] = sound
+        if scope: self.media_scopes.setdefault(scope, set()).add(key)
+        return sound
+
+    def release_media_scope(self, scope):
+        keys = self.media_scopes.pop(scope, set())
+        for key in keys:
+            self.media_images.pop(key, None)
+            self.media_sounds.pop(key, None)
+            self.reaction_sounds.pop(key, None)
+            for frame_key in [item for item in self.media_video_frames if item[0] == key]: self.media_video_frames.pop(frame_key, None)
+            FILE_IMAGE_CACHE.pop(key, None)
+
+    def play_reaction_audio(self, path, enabled=True, volume=0.8, scope="scene"):
         if not enabled or not path or not Path(path).exists(): return False
         try:
-            sound = self.reaction_sounds.get(str(path))
+            sound = self.media_sound(path, scope) or self.reaction_sounds.get(str(path))
             if sound is None:
                 sound = pygame.mixer.Sound(str(path))
                 if len(self.reaction_sounds) >= 128: self.reaction_sounds.pop(next(iter(self.reaction_sounds)))
@@ -721,40 +830,53 @@ class MediaTimeline:
         return {"cues": [cue.__dict__ for cue in self.cues]}
 
 
+@dataclass
+class MediaVariant:
+    variant: int
+    frames: list = field(default_factory=list)
+    audio: str = ""
+    video: str = ""
+    duration: float = 0.0
+    animation_duration: float = 0.0
+    source: str = ""
+
+
 class MediaRegistry:
     image_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-    audio_extensions = {".wav", ".ogg", ".mp3", ".flac"}
-    video_extensions = {".mp4", ".webm", ".mov"}
+    audio_extensions = {".wav", ".ogg", ".mp3", ".flac", ".m4a"}
+    video_extensions = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".gif"}
+    variant_pattern = re.compile(r"(10|[1-9])$")
 
     def __init__(self, root):
         self.root = Path(root)
+        self.data_root = self.root / "data" if (self.root / "data").exists() else self.root
         self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
+        self.variant_cache = {}
+        self.duration_cache = {}
         self.scan()
 
     def scan(self):
         self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
-        roots = [self.root / "data"] if (self.root / "data").exists() else [self.root]
-        if not roots: roots = [self.root]
-        for base in roots:
-            for path in base.rglob("*"):
-                if not path.is_file(): continue
-                suffix = path.suffix.lower()
-                if suffix in self.image_extensions: self.catalog["images"].append(str(path))
-                elif suffix in self.audio_extensions: self.catalog["audio"].append(str(path))
-                elif suffix in self.video_extensions: self.catalog["video"].append(str(path))
-                elif path.name.endswith("timeline.json"): self.catalog["timelines"].append(str(path))
+        for path in self.data_root.rglob("*"):
+            if not path.is_file(): continue
+            suffix = path.suffix.lower()
+            if suffix in self.image_extensions: self.catalog["images"].append(str(path))
+            elif suffix in self.audio_extensions: self.catalog["audio"].append(str(path))
+            elif suffix in self.video_extensions: self.catalog["video"].append(str(path))
+            elif path.name.endswith("timeline.json"): self.catalog["timelines"].append(str(path))
         for values in self.catalog.values(): values[:] = sorted(set(values))
+        self.variant_cache.clear()
         return self.catalog
 
     def entity_path(self, entity_type, entity_id):
-        base = self.root / "data" / entity_type
+        base = self.data_root / entity_type
         direct = base / entity_id
         if direct.exists(): return direct
         for folder in base.glob("*"):
             manifest = folder / "manifest.json"
             if manifest.exists():
                 try:
-                    if json.loads(manifest.read_text()).get("id") == entity_id: return folder
+                    if json.loads(manifest.read_text(encoding="utf-8")).get("id") == entity_id: return folder
                 except (OSError, ValueError): pass
         return direct
 
@@ -762,14 +884,183 @@ class MediaRegistry:
         return [path for path in self.catalog.get(category, []) if entity_id in Path(path).parts or entity_id in Path(path).stem]
 
     def card_art(self, card, variant=1):
-        root = self.root / "data" / (card.media_folder or card.art_folder)
+        root = self.data_root / (card.media_folder or card.art_folder)
         candidates = [root / "art" / "variants" / f"{int(variant)}.png", root / "art" / "variants" / f"{int(variant)}.jpg", root / "images" / f"{int(variant)}.png", root / "images" / f"{int(variant)}.jpg"]
         for candidate in candidates:
             if candidate.exists(): return str(candidate)
         return ""
 
+    def _numeric_files(self, folder, extensions):
+        found = {}
+        folder = Path(folder)
+        if not folder.exists(): return found
+        for path in folder.iterdir():
+            if not path.is_file() or path.suffix.lower() not in extensions: continue
+            match = self.variant_pattern.fullmatch(path.stem)
+            if match: found[int(match.group(1))] = str(path)
+        return found
+
+    def _variant_ids(self, animation_root, audio_root):
+        ids = set()
+        for root in [Path(animation_root), Path(audio_root)]:
+            if not root.exists(): continue
+            for path in root.iterdir():
+                if path.is_dir() and self.variant_pattern.fullmatch(path.name): ids.add(int(path.name))
+                elif path.is_file() and self.variant_pattern.fullmatch(path.stem): ids.add(int(path.stem))
+        return sorted(ids)
+
+    def media_duration(self, path):
+        if not path: return 0.0
+        path = str(path)
+        if path in self.duration_cache: return self.duration_cache[path]
+        duration = 0.0
+        try:
+            if pygame.mixer.get_init(): duration = float(pygame.mixer.Sound(path).get_length())
+        except (pygame.error, OSError): duration = 0.0
+        if duration <= 0 and Path(path).suffix.lower() == ".wav":
+            try:
+                with wave.open(path, "rb") as stream: duration = stream.getnframes() / max(1, stream.getframerate())
+            except (EOFError, OSError, wave.Error): duration = 0.0
+        if duration <= 0 and Path(path).suffix.lower() in self.video_extensions:
+            try:
+                result = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", path], capture_output=True, text=True, timeout=2)
+                duration = float(result.stdout.strip() or 0.0)
+            except (OSError, ValueError, subprocess.SubprocessError): duration = 0.0
+        self.duration_cache[path] = max(0.0, duration)
+        return self.duration_cache[path]
+
+    def variants(self, animation_root, audio_root=None):
+        animation_root = Path(animation_root)
+        audio_root = Path(audio_root or animation_root)
+        key = (str(animation_root), str(audio_root))
+        if key in self.variant_cache: return self.variant_cache[key]
+        variants = []
+        flat_frames = self._numeric_files(animation_root, self.image_extensions)
+        flat_audio = self._numeric_files(audio_root, self.audio_extensions)
+        if audio_root != animation_root: flat_audio.update(self._numeric_files(animation_root, self.audio_extensions))
+        flat_sequence = bool(flat_frames and flat_audio)
+        for variant_id in self._variant_ids(animation_root, audio_root):
+            animation_folder = animation_root / str(variant_id) if (animation_root / str(variant_id)).is_dir() else animation_root
+            frames = [path for _, path in sorted(self._numeric_files(animation_folder, self.image_extensions).items())]
+            if animation_folder == animation_root:
+                direct = [path for index, path in flat_frames.items() if index == variant_id]
+                frames = list(flat_frames.values()) if flat_sequence else direct or frames
+            video_files = [path for path in [animation_root / f"{variant_id}{suffix}" for suffix in self.video_extensions] if path.exists()]
+            if not video_files and animation_folder != animation_root:
+                video_files = [str(path) for path in animation_folder.iterdir() if path.is_file() and path.suffix.lower() in self.video_extensions and not self.variant_pattern.fullmatch(path.stem)]
+            if video_files: frames = []
+            audio = flat_audio.get(variant_id, "")
+            if not audio and animation_folder != animation_root:
+                nested_audio = [str(path) for path in animation_folder.iterdir() if path.is_file() and path.suffix.lower() in self.audio_extensions]
+                audio = nested_audio[0] if nested_audio else ""
+            if not frames and not video_files and not audio: continue
+            duration = self.media_duration(audio) if audio else self.media_duration(video_files[0]) if video_files else 0.0
+            variants.append(MediaVariant(variant_id, frames, audio, str(video_files[0]) if video_files else "", duration, len(frames) / FPS if frames else duration, str(animation_root)))
+        self.variant_cache[key] = variants[:10]
+        return self.variant_cache[key]
+
+    def _pairs(self, animation_root, audio_root):
+        pairs = []
+        for pair in [(animation_root, audio_root)]:
+            animation_root, audio_root = Path(pair[0]), Path(pair[1])
+            if animation_root.exists() or audio_root.exists(): pairs.append((animation_root, audio_root))
+        return pairs
+
+    def candidate_pairs(self, event, relation, entity_type, entity_id, place_id, actor_id=""):
+        pairs = []
+        alias_event = str(event).replace("_", "-")
+        if alias_event != str(event): pairs.extend(self.candidate_pairs(alias_event, relation, entity_type, entity_id, place_id, actor_id))
+        def add(animation_root, audio_root=None):
+            for pair in self._pairs(animation_root, audio_root or animation_root):
+                if pair not in pairs: pairs.append(pair)
+        if entity_type == "characters" and entity_id:
+            root = self.entity_path("characters", entity_id)
+            relation_names = dict.fromkeys([relation, "opponent" if relation == "stranger" else "stranger", "neutral"])
+            for relation_name in relation_names:
+                add(root / "duel" / "reactions" / relation_name / event, root / "duel" / "reactions" / relation_name / event / "audio")
+                add(root / "animations" / event / relation_name, root / "audio" / event / relation_name)
+                add(root / "animations" / "battle" / event / relation_name, root / "audio" / "battle" / event / relation_name)
+            add(root / "animations" / event, root / "audio" / event)
+            add(root / "animations" / "battle" / event, root / "audio" / "battle" / event)
+            add(root / "animations" / "left" / event, root / "audio" / "left" / event)
+            add(root / "animations" / "right" / event, root / "audio" / "right" / event)
+        if entity_type == "cards" and actor_id:
+            character_root = self.entity_path("characters", actor_id)
+            card_root = self.entity_path("cards", entity_id) if entity_id else self.data_root / "cards"
+            card_folder = card_root.name
+            relation_names = dict.fromkeys([relation, "opponent" if relation == "stranger" else "stranger", "neutral"])
+            for relation_name in relation_names:
+                add(character_root / "duel" / "reactions" / relation_name / event, character_root / "duel" / "reactions" / relation_name / event / "audio")
+                add(character_root / "cards" / card_folder / relation_name / event / "animations", character_root / "cards" / card_folder / relation_name / event / "audio")
+            add(character_root / "cards" / card_folder / event / "animations", character_root / "cards" / card_folder / event / "audio")
+            add(character_root / "animations" / event, character_root / "audio" / event)
+        if entity_type == "cards" and entity_id:
+            root = self.entity_path("cards", entity_id)
+            add(root / "interactions" / event / "animations", root / "interactions" / event / "audio")
+            add(root / "animations" / event, root / "audio" / event)
+        if entity_type == "places" and entity_id:
+            root = self.entity_path("places", entity_id)
+            add(root / "presentation" / event / "animations", root / "presentation" / event / "audio")
+            add(root / "animations" / event, root / "audio" / event)
+        if place_id:
+            root = self.entity_path("places", place_id)
+            add(root / "presentation" / event / "animations", root / "presentation" / event / "audio")
+            add(root / "animations" / event, root / "audio" / event)
+        add(self.data_root / "animations" / event, self.data_root / "audio" / event)
+        return pairs
+
+    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang", variant=None):
+        entity_id = entity_id or actor_id
+        for animation_root, audio_root in self.candidate_pairs(event, relation, entity_type, entity_id, place_id, actor_id if entity_type == "cards" else ""):
+            options = self.variants(animation_root, audio_root)
+            if not options: continue
+            selected = next((item for item in options if item.variant == int(variant)), None) if variant is not None else None
+            if selected is None:
+                paired = [item for item in options if item.audio and (item.frames or item.video)]
+                selected = random.choice(paired or options)
+            direct_images = self._numeric_files(Path(selected.source), self.image_extensions)
+            preview = direct_images.get(selected.variant, selected.frames[0] if selected.frames else "")
+            return ReactionSelection(event, actor_id, target_id, relation, selected.source, selected.variant, preview, selected.audio, mode, False, selected.frames, selected.video, selected.duration, selected.animation_duration, FPS, mode)
+        return ReactionSelection(event, actor_id, target_id, relation, "placeholder", 0, "", "", mode, True)
+
+    def timed_media(self, root, now=None):
+        root = Path(root)
+        current = now or time.localtime()
+        month, day, hour = int(current.tm_mon), int(current.tm_mday), int(current.tm_hour)
+        candidates = []
+        for path in root.rglob("*") if root.exists() else []:
+            if not path.is_file() or path.suffix.lower() not in (self.image_extensions | self.audio_extensions | self.video_extensions): continue
+            relative = str(path.relative_to(root)).replace("\\", "/").lower()
+            score = 0
+            date_tokens = [f"{month}/{day}", f"{month:02d}/{day:02d}", f"{month}-{day}", f"{month:02d}-{day:02d}"]
+            if any(token in relative for token in date_tokens): score = max(score, 100)
+            for token in re.findall(r"(?:^|/)(\d{1,2})-(\d{1,2})(?:\.|/|$)", relative):
+                start, finish = map(int, token)
+                active = start <= hour <= finish if start <= finish else hour >= start or hour <= finish
+                if active: score = max(score, 80)
+            if any(token in relative for token in [f"/{hour}/", f"/{hour:02d}/", f"/{hour}-", f"/{hour:02d}-"]): score = max(score, 60)
+            if any(token in relative for token in ["default", "any", "idle"]): score = max(score, 1)
+            candidates.append((score, relative, path))
+        matching = [item for item in candidates if item[0] > 0]
+        return [item[2] for item in sorted(matching or candidates, key=lambda item: (-item[0], item[1]))]
+
     def summary(self):
         return {key: len(value) for key, value in self.catalog.items()}
+
+
+class ReactionResolver:
+    image_extensions = MediaRegistry.image_extensions
+    audio_extensions = MediaRegistry.audio_extensions
+
+    def __init__(self, registry):
+        self.registry = registry
+
+    def numbered(self, folder, extensions):
+        return self.registry._numeric_files(folder, extensions)
+
+    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang", variant=None):
+        mode = mode if mode in ["loop", "hang", "strict-sync"] else "hang"
+        return self.registry.resolve(event, actor_id, target_id, relation, entity_type, entity_id, place_id, mode, variant)
 
 
 @dataclass
@@ -784,51 +1075,27 @@ class ReactionSelection:
     audio: str = ""
     mode: str = "hang"
     placeholder: bool = False
+    frames: list = field(default_factory=list)
+    video: str = ""
+    duration: float = 0.0
+    animation_duration: float = 0.0
+    frame_rate: float = FPS
+    sync: str = "hang"
+
+    @classmethod
+    def from_dict(cls, raw):
+        fields = {"event", "actor_id", "target_id", "relation", "source", "variant", "image", "audio", "mode", "placeholder", "frames", "video", "duration", "animation_duration", "frame_rate", "sync"}
+        data = {key: raw[key] for key in fields if key in raw}
+        data.setdefault("event", raw.get("cue", "media"))
+        data.setdefault("actor_id", "")
+        data.setdefault("target_id", "")
+        data.setdefault("relation", "opponent")
+        data.setdefault("source", "effect")
+        data.setdefault("variant", 0)
+        return cls(**data)
 
     def to_dict(self):
         return self.__dict__.copy()
-
-
-class ReactionResolver:
-    image_extensions = {".png", ".jpg", ".jpeg", ".webp"}
-    audio_extensions = {".wav", ".ogg", ".mp3", ".flac"}
-
-    def __init__(self, registry):
-        self.registry = registry
-
-    def numbered(self, folder, extensions):
-        found = {}
-        if not folder.exists(): return found
-        for path in folder.iterdir():
-            if not path.is_file() or path.suffix.lower() not in extensions: continue
-            match = re.fullmatch(r"(10|[1-9])", path.stem)
-            if match: found[int(match.group(1))] = str(path)
-        return found
-
-    def roots(self, event, relation, entity_type, entity_id, place_id):
-        roots = []
-        if entity_type == "characters" and entity_id:
-            entity_root = self.registry.entity_path("characters", entity_id)
-            roots.append(entity_root / "duel" / "reactions" / relation / event)
-            roots.append(entity_root / "duel" / "reactions" / "neutral" / event)
-        if entity_type == "cards" and entity_id: roots.append(self.registry.entity_path("cards", entity_id) / "interactions" / event)
-        if entity_type == "places" and entity_id: roots.append(self.registry.entity_path("places", entity_id) / "presentation" / event)
-        if place_id: roots.append(self.registry.entity_path("places", place_id) / "presentation" / event)
-        roots.append(DATA / "animations" / event)
-        roots.append(DATA / "audio" / event)
-        return roots
-
-    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang"):
-        entity_id = entity_id or actor_id
-        for root in self.roots(event, relation, entity_type, entity_id, place_id):
-            images = self.numbered(root, self.image_extensions)
-            audios = self.numbered(root, self.audio_extensions)
-            variants = sorted(set(images) | set(audios))
-            if not variants: continue
-            paired = sorted(set(images) & set(audios))
-            variant = paired[0] if paired else variants[0]
-            return ReactionSelection(event, actor_id, target_id, relation, str(root), variant, images.get(variant, ""), audios.get(variant, ""), mode, False)
-        return ReactionSelection(event, actor_id, target_id, relation, "placeholder", 0, "", "", mode, True)
 
 
 class ReactionPlayer:
@@ -842,22 +1109,30 @@ class ReactionPlayer:
     def start(self, selection, duration=2.0):
         self.selection = selection
         self.clock = 0.0
-        self.duration = max(0.01, float(duration))
-        self.frame_count = 1
-        if selection.image:
-            folder = Path(selection.image).parent
-            self.frame_count = max(1, len([path for path in folder.iterdir() if path.is_file() and path.suffix.lower() in MediaRegistry.image_extensions and re.fullmatch(r"(10|[1-9])", path.stem)]))
+        self.frame_count = max(1, len(selection.frames) or (1 if selection.image or selection.video else 0))
+        audio_duration = max(0.0, float(selection.duration or 0.0))
+        animation_duration = max(0.0, float(selection.animation_duration or 0.0))
+        if selection.frames and animation_duration <= 0: animation_duration = len(selection.frames) / max(1.0, float(selection.frame_rate or FPS))
+        self.duration = max(0.05, audio_duration, animation_duration) if audio_duration or animation_duration else max(0.05, float(duration or 2.0))
         self.finished = False
 
     def update(self, dt):
         if not self.selection or self.finished: return
-        self.clock += dt
-        if self.selection.mode in ["once", "strict-sync"] and self.clock >= self.duration: self.finished = True
+        self.clock += max(0.0, float(dt))
+        if self.clock >= self.duration: self.finished = True
+
+    def frame_index(self):
+        if not self.selection or self.frame_count <= 1: return 0
+        if self.selection.sync == "strict-sync": return min(self.frame_count - 1, int(self.clock / max(0.01, self.duration) * self.frame_count))
+        frame_clock = self.clock * max(1.0, float(self.selection.frame_rate or FPS))
+        if self.selection.mode == "loop": return int(frame_clock) % self.frame_count
+        return min(self.frame_count - 1, int(frame_clock))
 
     def state(self):
         if not self.selection: return {"active": False}
-        frame_index = int(self.clock / self.duration * self.frame_count) % self.frame_count
-        return {"active": not self.finished, "event": self.selection.event, "variant": self.selection.variant, "image": self.selection.image, "audio": self.selection.audio, "mode": self.selection.mode, "placeholder": self.selection.placeholder, "clock": round(self.clock, 3), "frame_count": self.frame_count, "frame_index": frame_index, "sync_ratio": round(self.frame_count / self.duration, 3)}
+        index = self.frame_index()
+        frame_path = self.selection.frames[index] if self.selection.frames and index < len(self.selection.frames) else self.selection.image
+        return {"active": not self.finished, "event": self.selection.event, "variant": self.selection.variant, "image": frame_path, "frames": list(self.selection.frames), "video": self.selection.video, "mode": self.selection.mode, "sync": self.selection.sync, "placeholder": self.selection.placeholder, "clock": round(self.clock, 3), "duration": round(self.duration, 3), "frame_count": self.frame_count, "frame_index": index, "audio": self.selection.audio, "sync_ratio": round(self.frame_count / max(0.01, self.duration), 3)}
 
 
 @dataclass
@@ -1820,18 +2095,29 @@ class ContentStore:
     def entity_tree(self, category):
         trees = {
             "cards": ["logic", "art", "art/variants", "art/metadata", "animations/idle", "animations/summon", "animations/special_summon", "animations/set", "animations/flip", "animations/attack", "animations/damage", "animations/destroy", "audio/idle", "audio/summon", "audio/special_summon", "audio/set", "audio/flip", "audio/attack", "audio/damage", "audio/destroy", "interactions/summon/animations", "interactions/summon/audio", "interactions/set/animations", "interactions/set/audio", "interactions/flip/animations", "interactions/flip/audio", "interactions/activate/animations", "interactions/activate/audio", "characters"],
-            "characters": ["logic", "weights", "pfp/variants", "animations/idle", "animations/about", "animations/pre-duel", "animations/win", "animations/lose", "animations/draw", "animations/shocked", "animations/happy", "animations/sad", "audio/idle", "audio/about", "audio/pre-duel", "audio/win", "audio/lose", "audio/draw", "audio/shocked", "audio/happy", "audio/sad", "duel/reactions/stranger", "duel/reactions/ally", "duel/reactions/enemy", "duel/reactions/opponent", "duel/interactions", "cards"],
+            "characters": ["logic", "weights", "pfp/variants", "animations/idle", "animations/about", "animations/pre-duel", "animations/win", "animations/lose", "animations/draw", "animations/shocked", "animations/happy", "animations/sad", "animations/left/watching-in", "animations/left/watching-out", "animations/right/watching-in", "animations/right/watching-out", "audio/idle", "audio/about", "audio/pre-duel", "audio/win", "audio/lose", "audio/draw", "audio/shocked", "audio/happy", "audio/sad", "duel/reactions/stranger", "duel/reactions/ally", "duel/reactions/enemy", "duel/reactions/opponent", "duel/interactions", "cards"],
             "teams": ["logic", "effects", "members/1", "members/2", "members/3", "animations/idle", "animations/pre-duel", "animations/win", "animations/lose", "animations/draw", "audio/idle", "audio/pre-duel", "audio/win", "audio/lose", "audio/draw", "members/1/animations", "members/2/animations", "members/3/animations"],
             "places": ["logic", "background/day", "background/night", "animations/pre-duel", "animations/spin-dice", "animations/in-duel", "animations/win", "animations/lose", "animations/draw", "audio/pre-duel", "audio/spin-dice", "audio/in-duel", "audio/near-win", "audio/near-lose", "audio/win", "audio/lose", "audio/draw", "music"],
             "decks": ["logic", "cards", "experience"]
         }
+        events = ["idle", "about", "pre-duel", "pre_duel", "spin-dice", "spin_dice", "draw", "standby", "turn-start", "turn_start", "turn-end", "turn_end", "summon", "special-summon", "special_summon", "set", "flip", "attack", "damage", "destroy", "return", "direct-damage", "direct_damage", "win", "lose", "draw-result", "draw_result", "instant-win", "instant_win", "instant-lose", "instant_lose", "near-win", "near_win", "near-lose", "near_lose"]
+        for relation_name in ["stranger", "ally", "enemy", "opponent"]:
+            trees["characters"].extend(f"duel/reactions/{relation_name}/{event}" for event in events)
+        trees["characters"].extend(f"duel/interactions/{event}" for event in events)
+        trees["cards"].extend(f"interactions/{event}/animations" for event in events)
+        trees["cards"].extend(f"interactions/{event}/audio" for event in events)
+        trees["places"].extend(f"music/{period}/{state}" for period in ["day", "night"] for state in ["pre-duel", "duel", "near-win", "near-lose", "post-duel-win", "post-duel-lose", "draw"])
         return trees.get(category, ["logic", "animations", "audio"])
 
     def scaffold_entity(self, category, entity_id, display_name, folders=None, created=None, folder_name=""):
         folder_name = folder_name or f"{slug(display_name)}_{int((created or time.time()) * 1000)}_{slug(entity_id)}"
         root = DATA / category / folder_name
         paths = sorted(set(self.entity_tree(category) + list(folders or [])))
-        for folder in paths: (root / folder).mkdir(parents=True, exist_ok=True)
+        for folder in paths:
+            folder_path = root / folder
+            folder_path.mkdir(parents=True, exist_ok=True)
+            if (folder.startswith("animations/") and folder.count("/") == 1) or folder.endswith("/animations"):
+                for variant in range(1, 11): (folder_path / str(variant)).mkdir(exist_ok=True)
         manifest = {"schema": 3, "id": entity_id, "name": display_name, "category": category, "created": created or time.time(), "folders": paths, "asset_contract": "gdd_nested_v1"}
         if category == "cards": manifest["frame_contract"] = "engine_owned"; manifest["art_contract"] = "user_owned_optional"
         write_json(root / "manifest.json", manifest)
@@ -1850,7 +2136,11 @@ class ContentStore:
                     changed = True
                 else:
                     paths = self.entity_tree(category)
-                    for item in paths: (root / item).mkdir(parents=True, exist_ok=True)
+                    for item in paths:
+                        item_path = root / item
+                        item_path.mkdir(parents=True, exist_ok=True)
+                        if (item.startswith("animations/") and item.count("/") == 1) or item.endswith("/animations"):
+                            for variant in range(1, 11): (item_path / str(variant)).mkdir(exist_ok=True)
                     manifest = read_json(root / "manifest.json", {})
                     manifest.update({"schema": 3, "id": entity.id, "name": entity.name, "category": category, "folders": sorted(set(manifest.get("folders", []) + paths)), "asset_contract": "gdd_nested_v1"})
                     if category == "cards": manifest.update({"frame_contract": "engine_owned", "art_contract": "user_owned_optional"})
@@ -5110,6 +5400,7 @@ class PreDuelScene(Scene):
 
     def enter(self):
         self.buttons = [Button((90, 496, 180, 44), "ACCEPT FIRST", lambda: self.accept_first(), COLORS["cyan"]), Button((290, 496, 180, 44), "DENY / ROLL", lambda: self.deny_first(), COLORS["gold"]), Button((490, 496, 120, 44), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period() == "night", "pre-duel")
 
     def accept_first(self):
         self.choice = self.requested_first_side
@@ -5120,6 +5411,7 @@ class PreDuelScene(Scene):
 
     def deny_first(self):
         self.decision = "denied"
+        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period() == "night", "spin-dice")
         self.dice_rolling = True
         self.dice_clock = 0.0
         self.dice_value = None
@@ -5248,6 +5540,8 @@ class DuelScene(Scene):
         self.place_id = place_id
         self.place_reserved = reserved
         self.reaction_player = ReactionPlayer()
+        self.media_scope = "duel_scene_" + str(id(self))
+        self.music_state = ""
         self.reaction_seen = 0
         self.stage = "watching" if self.spectator else "battle"
         self.message = "Live house POV: watching the duel." if self.spectator else "Select a card, then choose an action."
@@ -5274,11 +5568,30 @@ class DuelScene(Scene):
 
     def enter(self):
         super().enter()
-        night = time.localtime().tm_hour < 6 or time.localtime().tm_hour >= 18
-        self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, night)
+        self.app.assets.media_scopes.setdefault(self.media_scope, set())
+        self.sync_duel_music()
         if self.spectator:
             self.reaction_seen = len(self.engine.reaction_events)
             self.buttons = [Button((650, 530, 110, 38), "EXIT WATCH", lambda: self.app.pop(), COLORS["muted"])]
+
+    def leave(self):
+        pygame.mixer.stop()
+        self.app.assets.release_media_scope(self.media_scope)
+        self.reaction_player.selection = None
+        self.reaction_player.finished = True
+
+    def sync_duel_music(self):
+        if self.engine.finished:
+            state = "post-duel-draw" if self.engine.winner is None else "post-duel-win" if self.engine.winner is self.engine.player else "post-duel-lose"
+        elif self.engine.opponent.hp <= 2000:
+            state = "near-win"
+        elif self.engine.player.hp <= 2000:
+            state = "near-lose"
+        else:
+            state = "duel"
+        if state == self.music_state: return
+        self.music_state = state
+        self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period() == "night", state)
 
     def handle(self, event):
         if self.spectator:
@@ -5608,10 +5921,10 @@ class DuelScene(Scene):
         self.engine.finish(self.engine.opponent, "surrender")
 
     def start_reaction(self, record):
-        selection = ReactionSelection(**record["selection"])
+        selection = ReactionSelection.from_dict(record.get("selection", {}))
         self.reaction_player.start(selection)
-        enabled = bool(self.app.store.save_data.get("vocals", True) and self.app.store.save_data.get("sfx", True))
-        if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8)
+        enabled = bool(self.app.store.save_data.get("vocals", True))
+        if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8, self.media_scope)
 
     def update(self, dt):
         super().update(dt)
@@ -5624,6 +5937,7 @@ class DuelScene(Scene):
                 self.start_reaction(record)
                 self.reaction_seen = len(self.engine.reaction_events)
             self.reaction_player.update(dt)
+            self.sync_duel_music()
             return
         if self.engine.pending_discard is self.engine.player and self.question is None:
             self.question = {"kind": "discard", "stage": "await_ok"}
@@ -5644,6 +5958,7 @@ class DuelScene(Scene):
             self.start_reaction(record)
             self.reaction_seen = len(self.engine.reaction_events)
         self.reaction_player.update(dt)
+        self.sync_duel_music()
         if self.engine.finished and self.stage == "battle":
             if self.place_reserved:
                 self.app.store.release_place(self.place_id)
@@ -5669,7 +5984,8 @@ class DuelScene(Scene):
         if self.engine.finished: self.draw_result(surface)
 
     def draw_duel_backdrop(self, surface):
-        ground = self.app.assets.role_image("place_ground", (W, H)) or self.app.assets.role_image("duel_environment", (W, H))
+        night = self.app.store.clock.period() == "night"
+        ground = self.app.assets.place_visual(self.place_id, "ground", night, self.time, (W, H), self.media_scope) or self.app.assets.role_image("place_ground", (W, H)) or self.app.assets.role_image("duel_environment", (W, H))
         if ground: ui_blit(surface, ground, (0, 0))
         else:
             place = self.app.store.places.get(self.place_id)
@@ -5677,7 +5993,7 @@ class DuelScene(Scene):
             if image: ui_blit(surface, image, (0, 0))
         table = self.app.assets.role_image("table_frame", (646, 564)) or self.app.assets.image("table_frame_cycle12", (646, 564))
         frame = self.app.assets.role_image("duel_frame", (552, 480)) or self.app.assets.image("duel_frame_cycle12", (552, 480))
-        field_surface = self.app.assets.role_image("field_surface", self.layout.field.size) or self.app.assets.image("field_surface_cycle12", self.layout.field.size)
+        field_surface = self.app.assets.place_visual(self.place_id, "field", night, self.time, self.layout.field.size, self.media_scope) or self.app.assets.role_image("field_surface", self.layout.field.size) or self.app.assets.image("field_surface_cycle12", self.layout.field.size)
         ui_blit(surface, table, self.layout.table.topleft)
         ui_blit(surface, frame, self.layout.duel_frame.topleft)
         ui_blit(surface, field_surface, self.layout.field.topleft)
@@ -5691,13 +6007,8 @@ class DuelScene(Scene):
         draw_text(surface, f"REACTION  {label}", (400, 91), self.app.assets.font(9, True), COLORS["ink"], "midtop")
         draw_text(surface, source, (400, 106), self.app.assets.font(8), COLORS["muted"], "midtop")
         image_path = state.get("image")
-        if image_path and Path(image_path).exists():
-            try:
-                image = pygame.image.load(image_path).convert_alpha()
-                image = pygame.transform.smoothscale(image, (52, 32))
-                ui_blit(surface, image, (292, 82))
-            except pygame.error:
-                pass
+        image = self.app.assets.media_image(image_path, (52, 32), self.media_scope) if image_path else self.app.assets.media_video_frame(state.get("video", ""), state.get("clock", 0.0), (52, 32), self.media_scope)
+        if image: ui_blit(surface, image, (292, 82))
 
     def draw_duel_header(self, surface):
         for side, participant in [("opponent", self.engine.opponent), ("player", self.engine.player)]:
@@ -7354,15 +7665,18 @@ class Application:
     def clock_text(self): return time.strftime("%H:%M")
 
     def push(self, scene):
+        if self.scenes: self.scenes[-1].leave()
         self.scenes.append(scene)
         scene.enter()
 
     def pop(self):
         if len(self.scenes) > 1:
-            self.scenes.pop()
+            old = self.scenes.pop()
+            old.leave()
             self.scenes[-1].enter()
 
     def replace(self, scene):
+        for old in self.scenes: old.leave()
         self.scenes = [scene]
         scene.enter()
 
