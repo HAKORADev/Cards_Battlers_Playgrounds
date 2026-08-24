@@ -142,7 +142,8 @@ def scaled_text(font, text, color, size):
     key = (id(font), str(text), tuple(color), tuple(size))
     image = TEXT_SCALE_CACHE.get(key)
     if image is None:
-        image = scaled_image(font.render(str(text), True, color), size)
+        source = font.render(str(text), True, color)
+        image = pygame.transform.scale(source, size) if source.get_size() != size else source
         if len(TEXT_SCALE_CACHE) >= 2048: TEXT_SCALE_CACHE.clear()
         TEXT_SCALE_CACHE[key] = image
     return image
@@ -780,6 +781,7 @@ class CharacterDef:
     knowledge_state: dict = field(default_factory=dict)
     learning_state: dict = field(default_factory=dict)
     experience: dict = field(default_factory=dict)
+    logic_graph: str = ""
 
 
 @dataclass
@@ -802,6 +804,7 @@ class PlaceDef:
     event_response_policies: dict = field(default_factory=dict)
     event_window_policies: dict = field(default_factory=dict)
     trigger_order_policies: dict = field(default_factory=dict)
+    logic_graph: str = ""
 
 
 @dataclass
@@ -826,6 +829,7 @@ class TeamDef:
     knowledge_state: dict = field(default_factory=dict)
     learning_state: dict = field(default_factory=dict)
     experience: dict = field(default_factory=dict)
+    logic_graph: str = ""
 
 
 @dataclass
@@ -1758,10 +1762,19 @@ class ContentStore:
 
     def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="stranger", deck_id="", reward_policy="random_card", expires_in=10800):
         preferred_place = preferred_place or self.role_config()["default_place"]
-        request_id = "request_" + str(int(time.time() * 1000))
+        relationship_intent = str(relationship_intent or "stranger").lower()
+        if from_id not in self.characters or to_id not in self.characters or from_id == to_id or preferred_place not in self.places: return None
+        if relationship_intent not in ["stranger", "ally", "enemy"]: relationship_intent = "stranger"
+        if format_name not in ["1v1", "1vTEAM", "TEAMv1", "TEAMvTEAM"]: return None
+        sequence = int(self.world.get("request_sequence", 0)) + 1
+        self.world["request_sequence"] = sequence
+        request_id = "request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
-        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id, "reward_policy": reward_policy, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "sim_time": now}]}
+        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id if deck_id in self.decks else "", "reward_policy": reward_policy, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "sim_time": now}]}
         self.world.setdefault("requests", []).append(request)
+        sender = self.characters[from_id]
+        sender.history.append({"event": "request_sent", "request_id": request_id, "to": to_id, "intent": relationship_intent, "reason": reason, "time": time.time()})
+        sender.history = sender.history[-100:]
         self.save()
         return request_id
 
@@ -1770,16 +1783,36 @@ class ContentStore:
 
     def respond_request(self, request_id, actor_id, decision):
         request = self.request_by_id(request_id)
-        allowed = {"accept": "queued", "deny": "denied", "ignore": "ignored", "cancel": "canceled"}
-        if not request or request.get("status") != "open" or actor_id not in [request.get("from"), request.get("to")] or decision not in allowed: return False
-        status = allowed[decision]
+        decision = str(decision or "").lower()
+        if not request or request.get("status") != "open" or actor_id not in [request.get("from"), request.get("to")]: return False
+        sender_id, recipient_id = request.get("from"), request.get("to")
+        if decision == "cancel":
+            if actor_id != sender_id: return False
+            status = "canceled"
+        elif decision in ["accept", "deny", "ignore"]:
+            if actor_id != recipient_id: return False
+            status = {"accept": "queued", "deny": "denied", "ignore": "ignored"}[decision]
+        else: return False
+        now = float(self.world.get("simulation_time", 0.0))
         request["status"] = status
-        request.setdefault("events", []).append({"status": status, "actor": actor_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
+        request.setdefault("events", []).append({"status": status, "actor": actor_id, "sim_time": now})
+        actor = self.characters.get(actor_id)
+        other = self.characters.get(recipient_id if actor_id == sender_id else sender_id)
+        if actor:
+            actor.history.append({"event": "request_response", "request_id": request_id, "decision": decision, "other": other.id if other else "", "time": time.time()})
+            actor.history = actor.history[-100:]
+        if other:
+            other.history.append({"event": "request_received", "request_id": request_id, "decision": decision, "other": actor_id, "time": time.time()})
+            other.history = other.history[-100:]
         if status == "queued":
-            request["queued_sim_time"] = float(self.world.get("simulation_time", 0.0))
+            request["queued_sim_time"] = now
             request["accepted_by"] = actor_id
             request["house_player"] = actor_id
             request["guest_player"] = request.get("to") if actor_id == request.get("from") else request.get("from")
+            intent = request.get("relationship_intent", "stranger")
+            if intent in ["ally", "enemy"]:
+                self.set_relationship(sender_id, recipient_id, intent, "request accepted")
+                self.set_relationship(recipient_id, sender_id, intent, "request accepted")
         self.save()
         return True
 
@@ -2284,14 +2317,17 @@ class ContentStore:
         self.save()
         return place
 
-    def create_team(self, name, members, preferred_place="", portrait="team_placeholder", description="", leader=""):
+    def create_team(self, name, members, preferred_place="", portrait="team_placeholder", description="", leader="", preferred_places=None, preferred_families=None, preferred_card_kinds=None, preferred_cards=None, logic_graph=""):
         team_id = "team_" + str(int(time.time() * 1000))
         display_name = str(name or "New Team").strip() or "New Team"
         selected = [member for member in dict.fromkeys(members if isinstance(members, list) else []) if member in self.characters][:3]
         if not selected: return None
         leader = leader if leader in selected else selected[0]
         folder = self.scaffold_entity("teams", team_id, display_name)
-        team = TeamDef(team_id, display_name, selected, leader, [preferred_place] if preferred_place in self.places else [], "community", {}, False, 1, [], folder, portrait or "team_placeholder", description or "")
+        places = list(preferred_places or [])
+        if preferred_place: places.insert(0, preferred_place)
+        team = TeamDef(team_id, display_name, selected, leader, [item for item in dict.fromkeys(places) if item in self.places][:20], "community", {}, False, 1, [], folder, portrait or "team_placeholder", description or "", self.normalize_profile_list(preferred_families, limit=20), self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10), self.normalize_profile_list(preferred_cards, set(self.cards), 20))
+        team.logic_graph = str(logic_graph or "")
         self.teams[team_id] = team
         self.normalize_team_profile(team)
         self.save()
@@ -2300,7 +2336,7 @@ class ContentStore:
     def update_character(self, character_id, values):
         character = self.characters.get(character_id)
         if not character: return None
-        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood"}
+        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood", "logic_graph"}
         for key, value in values.items():
             if key not in allowed: continue
             if key in ["stars", "smartness"]: value = clamp(int(value), 1, 10)
@@ -2326,6 +2362,8 @@ class ContentStore:
         if "preferred_families" in values: team.preferred_families = values["preferred_families"]
         if "preferred_card_kinds" in values: team.preferred_card_kinds = values["preferred_card_kinds"]
         if "preferred_cards" in values: team.preferred_cards = values["preferred_cards"]
+        if "behavior_weights" in values and isinstance(values["behavior_weights"], dict): team.behavior_weights = dict(values["behavior_weights"])
+        if "logic_graph" in values: team.logic_graph = str(values["logic_graph"] or "")
         self.normalize_team_profile(team)
         self.save()
         return team
@@ -2337,9 +2375,11 @@ class ContentStore:
         if "capacity" in values: place.capacity = clamp(int(values["capacity"]), 1, 10)
         if "background" in values and values["background"]: place.background = str(values["background"])
         if "day_night" in values: place.day_night = bool(values["day_night"])
+        if "effects" in values and isinstance(values["effects"], list): place.effects = list(values["effects"])
         if "event_response_policies" in values and isinstance(values["event_response_policies"], dict): place.event_response_policies = dict(values["event_response_policies"])
         if "event_window_policies" in values and isinstance(values["event_window_policies"], dict): place.event_window_policies = dict(values["event_window_policies"])
         if "trigger_order_policies" in values and isinstance(values["trigger_order_policies"], dict): place.trigger_order_policies = dict(values["trigger_order_policies"])
+        if "logic_graph" in values: place.logic_graph = str(values["logic_graph"] or "")
         self.save()
         return place
 
@@ -2359,6 +2399,76 @@ class ContentStore:
         self.save()
         return card
 
+    def deck_editor_state(self, deck_id):
+        deck = self.decks.get(deck_id)
+        if not deck: return None
+        cards = list(deck.get("cards", []))
+        errors = DeckRules.validate(cards, self.cards)
+        main, extra = DeckRules.partition(cards, self.cards)
+        counts = {}
+        for card_id in cards: counts[card_id] = counts.get(card_id, 0) + 1
+        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", "deck_placeholder"), "owner_id": deck.get("owner_id", ""), "cards": cards, "main_cards": main, "extra_cards": extra, "counts": counts, "errors": errors, "legal": not errors and DeckRules.minimum <= len(main) <= DeckRules.maximum}
+
+    def create_deck(self, name, owner_id="", cards=None, description="", portrait="deck_placeholder", preferred_families=None, preferred_card_kinds=None, best_cards=None):
+        if len(self.decks) >= 10: return None
+        deck_id = "deck_" + str(int(time.time() * 1000))
+        display_name = str(name or "New Deck").strip() or "New Deck"
+        preferred_families = self.normalize_profile_list(preferred_families, limit=20)
+        preferred_card_kinds = self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10)
+        values = list(cards or [])
+        if len(DeckRules.partition(values, self.cards)[0]) < DeckRules.minimum: values = self.starter_deck_cards(preferred_families, preferred_card_kinds, best_cards)
+        folder = self.scaffold_entity("decks", deck_id, display_name)
+        self.decks[deck_id] = {"name": display_name, "description": str(description or ""), "portrait": portrait or "deck_placeholder", "owner_id": owner_id if owner_id in self.characters else "", "cards": DeckRules.normalized(values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
+        self.save()
+        return deck_id
+
+    def update_deck(self, deck_id, values):
+        deck = self.decks.get(deck_id)
+        if not deck: return None
+        if "name" in values and str(values["name"]).strip(): deck["name"] = str(values["name"]).strip()
+        if "description" in values: deck["description"] = str(values["description"] or "")
+        if "portrait" in values: deck["portrait"] = str(values["portrait"] or "deck_placeholder")
+        if "owner_id" in values and values["owner_id"] in self.characters: deck["owner_id"] = values["owner_id"]
+        if "cards" in values:
+            candidate = list(values["cards"] if isinstance(values["cards"], list) else [])
+            errors = DeckRules.validate(candidate, self.cards)
+            if errors: return None
+            deck["cards"] = candidate
+        if "best_cards" in values: deck["best_cards"] = self.normalize_profile_list(values["best_cards"], set(self.cards), 20)
+        if "preferred_families" in values: deck["preferred_families"] = self.normalize_profile_list(values["preferred_families"], limit=20)
+        if "preferred_card_kinds" in values: deck["preferred_card_kinds"] = self.normalize_profile_list(values["preferred_card_kinds"], {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10)
+        self.save()
+        return deck
+
+    def duplicate_deck(self, deck_id, name=""):
+        source = self.decks.get(deck_id)
+        if not source or len(self.decks) >= 10: return None
+        return self.create_deck(name or str(source.get("name", deck_id)) + " Copy", source.get("owner_id", ""), list(source.get("cards", [])), source.get("description", ""), source.get("portrait", "deck_placeholder"), source.get("preferred_families", []), source.get("preferred_card_kinds", []), source.get("best_cards", []))
+
+    def delete_deck(self, deck_id, force=False):
+        if deck_id not in self.decks: return False
+        if not force and any(character.deck_id == deck_id for character in self.characters.values()): return False
+        self.decks.pop(deck_id, None)
+        self.save()
+        return True
+
+    def add_library_card(self, character_id, card_id, copies=1):
+        character = self.characters.get(character_id)
+        if not character or card_id not in self.cards: return False
+        for _ in range(max(1, min(9, int(copies)))): character.library_cards.append(card_id)
+        self.save()
+        return True
+
+    def remove_library_card(self, character_id, card_id, copies=1):
+        character = self.characters.get(character_id)
+        if not character: return False
+        removed = 0
+        for _ in range(max(1, int(copies))):
+            if card_id not in character.library_cards: break
+            character.library_cards.remove(card_id); removed += 1
+        if removed: self.save()
+        return removed == max(1, int(copies))
+
     def starter_deck_cards(self, preferred_families=None, preferred_card_kinds=None, preferred_cards=None):
         preferred_families = {str(item).lower() for item in (preferred_families or [])}
         preferred_card_kinds = {str(item).lower() for item in (preferred_card_kinds or [])}
@@ -2376,7 +2486,7 @@ class ContentStore:
         normalized = DeckRules.normalized(result, self.cards)
         return normalized if len(normalized) >= DeckRules.minimum else normalized + [item for item in pool if item not in normalized][:max(0, DeckRules.minimum - len(normalized))]
 
-    def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None):
+    def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph=""):
         char_id = "character_" + str(int(time.time() * 1000))
         display_name = str(name or "New Character").strip() or "New Character"
         families = [str(family or "warrior").lower()]
@@ -2386,6 +2496,7 @@ class ContentStore:
             self.decks[deck_id] = {"name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": char_id, "cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
         folder = self.scaffold_entity("characters", char_id, display_name)
         char = CharacterDef(id=char_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(self.decks[deck_id].get("cards", [])), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
+        char.logic_graph = str(logic_graph or "")
         self.characters[char_id] = char
         self.normalize_character_profile(char)
         self.ensure_behavior_weights()
@@ -2503,13 +2614,31 @@ class ContentStore:
             manifest["available_files"] = sorted(archive.namelist())
             return manifest
 
-    def import_cbp(self, path, include=None, include_experience=None):
+    def package_preview(self, path):
+        manifest = self.inspect_cbp(path)
+        includes = manifest.get("includes", {})
+        conflicts = {}
+        registries = {"cards": self.cards, "characters": self.characters, "places": self.places, "teams": self.teams, "decks": self.decks, "logic": self.logic}
+        for category, ids in includes.items():
+            registry = registries.get(category, {})
+            conflicts[category] = sorted(item for item in ids if item in registry)
+        return {"manifest": manifest, "conflicts": conflicts, "counts": {category: len(ids) for category, ids in includes.items()}}
+
+    def import_cbp(self, path, include=None, include_experience=None, conflict="replace"):
+        conflict = conflict if conflict in ["replace", "skip", "reject"] else "replace"
         with zipfile.ZipFile(path) as archive:
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
             available = set(archive.namelist())
-            requested = set(include or manifest.get("required_categories", []))
+            requested = set(manifest.get("required_categories", [])) if include is None else set(include)
+            requested &= {"cards", "characters", "decks", "places", "teams", "logic"}
             if include_experience is None: include_experience = bool(manifest.get("experience_included", False))
             imported = []
+            preview = self.package_preview(path)
+            relevant_conflicts = {category: values for category, values in preview["conflicts"].items() if category in requested and values}
+            if conflict == "reject" and relevant_conflicts: return {"imported": [], "source": str(path), "nested_media": True, "manifest": manifest, "experience_included": bool(include_experience), "rejected": True, "conflicts": relevant_conflicts}
+            def can_write(category, entity_id):
+                registry = self.logic if category == "logic" else self.decks if category == "decks" else getattr(self, category, {})
+                return conflict != "skip" or entity_id not in registry
             def records(category):
                 name = category + ".json"
                 if name not in available: return []
@@ -2518,7 +2647,7 @@ class ContentStore:
             allowed = manifest.get("includes", {})
             if "cards" in requested:
                 for entry in records("cards"):
-                    if entry.get("id") in set(allowed.get("cards", [])): self.cards[entry["id"]] = CardDef(**entry)
+                    if entry.get("id") in set(allowed.get("cards", [])) and can_write("cards", entry.get("id")): self.cards[entry["id"]] = CardDef(**entry)
                 imported.append("cards")
             if "characters" in requested:
                 for entry in records("characters"):
@@ -2526,24 +2655,24 @@ class ContentStore:
                         entry.setdefault("relationship", "stranger")
                         entry.setdefault("preferred_families", ["warrior"])
                         entry.setdefault("deck_id", "")
-                        self.characters[entry["id"]] = CharacterDef(**entry)
+                        if can_write("characters", entry.get("id")): self.characters[entry["id"]] = CharacterDef(**entry)
                 imported.append("characters")
             if "decks" in requested and "decks.json" in available:
                 incoming = json.loads(archive.read("decks.json").decode("utf-8"))
                 for deck_id in allowed.get("decks", []):
-                    if deck_id in incoming: self.decks[deck_id] = dict(incoming[deck_id])
+                    if deck_id in incoming and can_write("decks", deck_id): self.decks[deck_id] = dict(incoming[deck_id])
                 imported.append("decks")
             if "places" in requested:
                 for entry in records("places"):
-                    if entry.get("id") in set(allowed.get("places", [])): self.places[entry["id"]] = self.place_from_entry(entry)
+                    if entry.get("id") in set(allowed.get("places", [])) and can_write("places", entry.get("id")): self.places[entry["id"]] = self.place_from_entry(entry)
                 imported.append("places")
             if "teams" in requested:
                 for entry in records("teams"):
-                    if entry.get("id") in set(allowed.get("teams", [])): self.teams[entry["id"]] = TeamDef(**entry)
+                    if entry.get("id") in set(allowed.get("teams", [])) and can_write("teams", entry.get("id")): self.teams[entry["id"]] = TeamDef(**entry)
                 imported.append("teams")
             if "logic" in requested:
                 for name in available:
-                    if name.startswith("logic/") and name.endswith(".json") and Path(name).stem in set(allowed.get("logic", [])): self.logic[Path(name).stem] = LogicGraph.from_dict(json.loads(archive.read(name)))
+                    if name.startswith("logic/") and name.endswith(".json") and Path(name).stem in set(allowed.get("logic", [])) and can_write("logic", Path(name).stem): self.logic[Path(name).stem] = LogicGraph.from_dict(json.loads(archive.read(name)))
                 imported.append("logic")
             if include_experience:
                 for name in available:
@@ -2551,19 +2680,27 @@ class ContentStore:
                     parts = Path(name).parts
                     if len(parts) != 3 or parts[1] not in ["characters", "teams"]: continue
                     category, entity_id = parts[1], Path(parts[2]).stem
-                    if entity_id not in set(allowed.get(category, [])): continue
+                    if category not in requested or entity_id not in set(allowed.get(category, [])): continue
                     payload = json.loads(archive.read(name).decode("utf-8"))
                     target = self.characters.get(entity_id) if category == "characters" else self.teams.get(entity_id)
                     state = payload.get("state", payload) if isinstance(payload, dict) else {}
                     if target and isinstance(state, dict):
                         for key, value in state.items():
                             if hasattr(target, key): setattr(target, key, value)
+            media_roots = [Path(item.get("path", "")) for item in manifest.get("entity_media", []) if item.get("category") in requested]
+            skip_media_roots = []
+            if conflict == "skip":
+                conflicting_ids = {category: set(values) for category, values in preview["conflicts"].items()}
+                for item in manifest.get("entity_media", []):
+                    if item.get("category") not in requested or item.get("id") not in conflicting_ids.get(item.get("category"), set()): continue
+                    skip_media_roots.append(Path(item.get("path", "")))
             for name in available:
                 if not name.startswith("data/") or name.endswith("/"): continue
                 relative = Path(name[5:])
                 if any(part in ["", ".", ".."] for part in relative.parts): continue
                 category = relative.parts[0] if relative.parts else ""
                 if category not in ["cards", "characters", "teams", "places", "decks"] or category not in requested: continue
+                if any(relative.parts[:len(root.parts)] == root.parts for root in skip_media_roots if root.parts): continue
                 target = DATA / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(archive.read(name))
@@ -2571,7 +2708,7 @@ class ContentStore:
         self.ensure_entity_scaffolds()
         self.media.scan()
         self.save()
-        return {"imported": sorted(imported), "source": str(path), "nested_media": True, "manifest": manifest, "experience_included": bool(include_experience)}
+        return {"imported": sorted(imported), "source": str(path), "nested_media": True, "manifest": manifest, "experience_included": bool(include_experience), "conflict": conflict, "conflicts": preview["conflicts"], "requested": sorted(requested)}
 
 
 def query_entities(values, query="", sort_mode="name"):
@@ -5177,6 +5314,8 @@ class DuelEngine:
 
     def autonomous_step(self, actor):
         if self.finished: return "finished"
+        self.observe_visible_information(self.player)
+        self.observe_visible_information(self.opponent)
         if self.chain_window:
             if self.chain_priority is actor: return self.ai_chain_step_for(actor)
             return "waiting"
@@ -6828,12 +6967,13 @@ class DeckScene(Scene):
 
     def create_preset(self):
         if len(self.app.store.decks) >= 10: self.app.notify("The ten preset-deck limit has been reached."); return
-        deck_id = "deck_" + str(int(time.time() * 1000))
         name = "Preset Deck " + str(len(self.app.store.decks) + 1)
-        cards = DeckRules.normalized(list(self.app.store.cards), self.app.store.cards)
-        self.app.store.decks[deck_id] = {"name": name, "cards": cards, "media_folder": self.app.store.scaffold_entity("decks", deck_id, name)}
-        self.app.store.save()
-        self.app.notify("Preset deck created with a legal card pool.")
+        owner_id = self.app.store.role_config().get("player_character", "")
+        deck_id = self.app.store.create_deck(name, owner_id, preferred_families=["warrior"])
+        if not deck_id:
+            self.app.notify("Preset deck could not be created under the ten-deck limit.")
+            return
+        self.app.notify("Preset deck created with a legal 40-card main deck and editable metadata.")
         self.enter()
 
     def draw(self, surface):
@@ -6860,37 +7000,62 @@ class DeckEditorScene(Scene):
         self.deck_id = deck_id
         self.card_buttons = []
         self.name = None
+        self.description = None
+        self.portrait = None
+        self.query = None
+        self.page = 0
 
     def enter(self):
         deck = self.app.store.decks.get(self.deck_id, {})
-        self.name = TextInput((40, 76, 300, 32), deck.get("name", self.deck_id))
+        self.name = TextInput((40, 76, 250, 32), deck.get("name", self.deck_id))
+        self.description = TextInput((40, 114, 330, 28), deck.get("description", ""))
+        self.portrait = TextInput((400, 76, 170, 32), deck.get("portrait", "deck_placeholder"))
+        self.query = TextInput((580, 76, 180, 32), "")
         self.card_buttons = []
-        self.buttons = [Button((360, 76, 130, 32), "SAVE NAME", lambda: self.save_name(), COLORS["cyan"]), Button((500, 530, 120, 38), "NORMALIZE", lambda: self.normalize(), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.page = 0
+        self.buttons = [Button((40, 530, 138, 38), "SAVE META", lambda: self.save_metadata(), COLORS["cyan"]), Button((186, 530, 120, 38), "DUPLICATE", lambda: self.duplicate(), COLORS["gold"]), Button((314, 530, 126, 38), "EXPORT .CBP", lambda: self.export(), COLORS["violet"]), Button((448, 530, 62, 38), "PREV", lambda: self.change_page(-1), COLORS["muted"]), Button((516, 530, 62, 38), "PAGE >", lambda: self.change_page(1), COLORS["muted"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
-    def save_name(self):
-        if self.name.value.strip(): self.app.store.decks[self.deck_id]["name"] = self.name.value.strip(); self.app.store.save(); self.app.notify("Deck name saved.")
+    def save_metadata(self):
+        result = self.app.store.update_deck(self.deck_id, {"name": self.name.value, "description": self.description.value, "portrait": self.portrait.value})
+        self.app.notify("Deck metadata saved." if result else "Deck metadata could not be saved.")
+        self.enter()
 
-    def normalize(self):
-        deck = self.app.store.decks[self.deck_id]
-        deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.app.store.cards)
-        self.app.store.save()
-        self.app.notify("Deck normalized with authored cards and copy limits; no runtime padding was added.")
+    def duplicate(self):
+        new_id = self.app.store.duplicate_deck(self.deck_id)
+        self.app.notify("Deck duplicated as a separate editable preset." if new_id else "Deck duplication rejected by the ten-deck limit or legality rules.")
+        if new_id: self.app.push(DeckEditorScene(self.app, new_id))
+
+    def export(self):
+        path = self.app.store.export_cbp("deck", self.deck_id, False, True)
+        self.app.notify("Exported dependency-scoped deck package: " + path.name)
+
+    def change_page(self, amount):
+        self.page = max(0, self.page + amount)
         self.enter()
 
     def add_card(self, card_id):
         deck = self.app.store.decks[self.deck_id]
         candidate = list(deck.get("cards", [])) + [card_id]
         errors = DeckRules.validate(candidate, self.app.store.cards)
-        main_count = len(DeckRules.partition(candidate, self.app.store.cards)[0])
-        if main_count > DeckRules.maximum or any("exceeds" in error for error in errors): self.app.notify("That card cannot be added under the deck copy or size rules."); return
-        deck["cards"] = candidate; self.app.store.save(); self.enter()
+        if any("exceeds" in error or "maximum" in error for error in errors):
+            self.app.notify("That card would exceed the deck copy or size limit.")
+            return
+        deck["cards"] = candidate
+        self.app.store.save()
+        self.enter()
 
     def remove_card(self, card_id):
         deck = self.app.store.decks[self.deck_id]
-        if card_id in deck.get("cards", []): deck["cards"].remove(card_id); self.app.store.save(); self.enter()
+        if card_id in deck.get("cards", []):
+            deck["cards"].remove(card_id)
+            self.app.store.save()
+            self.enter()
 
     def handle(self, event):
         self.name.handle(event)
+        self.description.handle(event)
+        self.portrait.handle(event)
+        self.query.handle(event)
         super().handle(event)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for rect, action, card_id in self.card_buttons:
@@ -6899,31 +7064,44 @@ class DeckEditorScene(Scene):
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         deck = self.app.store.decks[self.deck_id]
+        state = self.app.store.deck_editor_state(self.deck_id)
         draw_text(surface, "DECK EDITOR", (34, 28), self.app.assets.font(28, True), COLORS["gold"])
-        self.name.draw(surface, self.app.assets.font(12), "Deck name")
-        draw_text(surface, f"{len(deck.get('cards', []))}/80 cards | {DeckRules.summary(deck.get('cards', []), self.app.store.cards)}", (370, 92), self.app.assets.font(12), COLORS["muted"])
-        self.draw_panel(surface, (32, 128, 360, 370), "CURRENT CARDS", COLORS["gold"])
-        self.draw_panel(surface, (410, 128, 358, 370), "ADD CARD", COLORS["cyan"])
+        draw_text(surface, "Edit a named deck through explicit card transactions; Fusion cards remain in the Extra Deck.", (36, 55), self.app.assets.font(12), COLORS["muted"])
+        self.name.draw(surface, self.app.assets.font(10), "Deck name")
+        self.description.draw(surface, self.app.assets.font(10), "Deck description")
+        self.portrait.draw(surface, self.app.assets.font(10), "Portrait key")
+        self.query.draw(surface, self.app.assets.font(10), "Search cards")
+        main_count = len(state["main_cards"]) if state else 0
+        extra_count = len(state["extra_cards"]) if state else 0
+        status = "LEGAL" if state and state["legal"] else "INCOMPLETE / INVALID"
+        draw_text(surface, f"MAIN {main_count}/80  |  EXTRA {extra_count}  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
+        self.draw_panel(surface, (32, 155, 360, 330), "CURRENT CARDS", COLORS["gold"])
+        self.draw_panel(surface, (410, 155, 358, 330), "CARD CATALOG", COLORS["cyan"])
         self.card_buttons = []
-        counts = {}
-        for card_id in deck.get("cards", []): counts[card_id] = counts.get(card_id, 0) + 1
-        for index, (card_id, count) in enumerate(counts.items()):
-            if index >= 11: break
+        counts = state["counts"] if state else {}
+        current_ids = sorted(counts, key=lambda item: self.app.store.cards.get(item).name.lower() if self.app.store.cards.get(item) else item)[:11]
+        for index, card_id in enumerate(current_ids):
             card = self.app.store.cards.get(card_id)
             if not card: continue
-            y = 178 + index * 26
-            draw_text(surface, f"{card.name[:18]} x{count}", (52, y), self.app.assets.font(10), COLORS["cream"])
-            rect = pygame.Rect(320, y - 5, 48, 22)
+            y = 194 + index * 25
+            draw_text(surface, f"{card.name[:18]} x{counts[card_id]}", (50, y), self.app.assets.font(10), COLORS["cream"])
+            rect = pygame.Rect(324, y - 5, 45, 22)
             rounded(surface, rect, (22, 38, 77), COLORS["red"], 5, 1)
             draw_text(surface, "-1", rect.center, self.app.assets.font(10, True), COLORS["cream"], "center")
             self.card_buttons.append((rect, self.remove_card, card.id))
-        for index, card in enumerate(list(self.app.store.cards.values())[:12]):
-            x = 430 + (index % 2) * 166
-            y = 178 + (index // 2) * 50
-            rect = pygame.Rect(x, y, 152, 36)
+        query = self.query.value.strip().lower()
+        cards = [card for card in self.app.store.cards.values() if not query or query in card.name.lower() or query in card.id.lower()]
+        cards.sort(key=lambda item: item.name.lower())
+        visible = cards[self.page * 12:self.page * 12 + 12]
+        for index, card in enumerate(visible):
+            x = 425 + (index % 2) * 166
+            y = 190 + (index // 2) * 47
+            rect = pygame.Rect(x, y, 154, 34)
             rounded(surface, rect, tuple(card.art_color), COLORS["line"], 5, 1)
             draw_text(surface, "+ " + card.name[:16], rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
             self.card_buttons.append((rect, self.add_card, card.id))
+        if state and state["errors"]:
+            draw_text(surface, state["errors"][0][:62], (400, 468), self.app.assets.font(9), COLORS["red"], "center")
         self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 
@@ -6940,6 +7118,7 @@ class CardMakerScene(Scene):
         self.description = TextInput((80, 270, 640, 34), card.description if card else "A community-created card.")
         self.kind = card.kind if card else "effect"
         self.family = card.family if card else "warrior"
+        self.subtypes = TextInput((80, 315, 640, 34), ", ".join(getattr(card, "subtypes", [])) if card else "")
         self.stars = int(card.stars) if card else 4
         self.atk = int(card.atk) if card else 1500
         self.defense = int(card.defense) if card else 1200
@@ -7007,18 +7186,22 @@ class CardMakerScene(Scene):
     def save_card(self):
         graph = self.logic_graph
         self.materials = [value.strip() for value in self.materials_text.value.split(",") if value.strip()]
-        values = {"name": self.name.value, "kind": self.kind, "stars": self.stars if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": self.ritual_cost, "summon_method": self.summon_method, "effects": self.effects}
+        values = {"name": self.name.value, "kind": self.kind, "stars": self.stars if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "subtypes": [item.strip().lower() for item in self.subtypes.value.split(",") if item.strip()][:2], "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": self.ritual_cost, "summon_method": self.summon_method, "effects": self.effects}
         errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"], values["effects"])
         if errors: self.app.notify("Card rejected: " + "; ".join(errors[:2])); return
         if self.card_id:
             if not self.app.store.update_card(self.card_id, values): self.app.notify("Card update failed."); return
-        else:             self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"])
+        else:
+            created = self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"])
+            if created:
+                created.subtypes = values["subtypes"]
+                self.app.store.save()
 
         self.app.store.load()
         self.app.notify("Card saved with its authored data and editable folder structure.")
 
     def handle(self, event):
-        self.name.handle(event); self.art_path.handle(event); self.description.handle(event); self.materials_text.handle(event); super().handle(event)
+        self.name.handle(event); self.art_path.handle(event); self.description.handle(event); self.subtypes.handle(event); self.materials_text.handle(event); super().handle(event)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
@@ -7028,7 +7211,8 @@ class CardMakerScene(Scene):
         self.name.draw(surface, self.app.assets.font(12), "Card name")
         self.art_path.draw(surface, self.app.assets.font(12), "User art path, optional")
         self.description.draw(surface, self.app.assets.font(12), "Description")
-        draw_text(surface, f"STARS {self.stars} | ATK {self.atk} | DEF {self.defense} | RITUAL COST {self.ritual_cost}", (80, 325), self.app.assets.font(13, True), COLORS["cream"])
+        self.subtypes.draw(surface, self.app.assets.font(12), "Monster subtypes, up to two, comma-separated")
+        draw_text(surface, f"STARS {self.stars} | ATK {self.atk} | DEF {self.defense} | RITUAL COST {self.ritual_cost}", (80, 365), self.app.assets.font(13, True), COLORS["cream"])
         self.materials_text.draw(surface, self.app.assets.font(12), "Fusion material IDs, comma-separated")
         draw_text(surface, "Effects and logic are authored through the card definition and assigned logic graphs.", (80, 445), self.app.assets.font(10), COLORS["gold"])
         self.draw_buttons(surface, 10)
@@ -7310,12 +7494,18 @@ class CharactersScene(Scene):
 class EntityDetailScene(Scene):
     def __init__(self, app, entity_type, entity_id):
         super().__init__(app)
-        self.entity_type = entity_type
+        self.entity_type = {"card": "cards", "deck": "decks", "character": "characters", "team": "teams", "place": "places"}.get(entity_type, entity_type)
         self.entity_id = entity_id
 
     def enter(self):
         self.buttons = []
-        if self.entity_type == "characters": self.buttons.append(Button((470, 530, 160, 38), "EDIT WEIGHTS", lambda: self.app.push(BehaviorWeightsScene(self.app, self.entity_id)), COLORS["gold"]))
+        if self.entity_type == "characters":
+            self.buttons.append(Button((250, 530, 155, 38), "EDIT CHARACTER", lambda: self.app.push(CharacterMakerScene(self.app, self.entity_id)), COLORS["violet"]))
+            self.buttons.append(Button((420, 530, 160, 38), "EDIT WEIGHTS", lambda: self.app.push(BehaviorWeightsScene(self.app, self.entity_id)), COLORS["gold"]))
+        elif self.entity_type == "teams":
+            self.buttons.append(Button((350, 530, 200, 38), "EDIT TEAM", lambda: self.app.push(TeamMakerScene(self.app, self.entity_id)), COLORS["gold"]))
+        elif self.entity_type == "places":
+            self.buttons.append(Button((350, 530, 200, 38), "EDIT PLACE", lambda: self.app.push(PlaceMakerScene(self.app, self.entity_id)), COLORS["green"]))
         self.buttons.append(Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"]))
 
     def draw(self, surface):
@@ -7404,16 +7594,42 @@ class BehaviorWeightsScene(Scene):
 class CharacterMakerScene(Scene):
     genders = ["other", "he", "she"]
 
+    def __init__(self, app, character_id=None):
+        super().__init__(app)
+        self.character_id = character_id
+
+    def parse_list(self, value):
+        return [item.strip().lower() for item in str(value).split(",") if item.strip()]
+
+    def parse_map(self, value):
+        result = {}
+        for part in str(value).split(","):
+            if "=" not in part: continue
+            key, raw = part.split("=", 1)
+            try: result[key.strip().lower()] = float(raw.strip())
+            except (TypeError, ValueError): pass
+        return result
+
     def enter(self):
-        self.name = TextInput((90, 150, 300, 34), "New Character")
-        self.family = TextInput((90, 215, 300, 34), "warrior")
-        self.portrait = TextInput((430, 150, 280, 34), "pfp_placeholder")
-        self.origin = TextInput((430, 215, 280, 34), "community")
-        self.deck = TextInput((90, 280, 300, 34), "")
-        self.gender = "other"
-        self.stars = 5
-        self.smartness = 5
-        self.buttons = [Button((430, 280, 160, 34), "GENDER: OTHER", lambda: self.cycle_gender(), COLORS["violet"]), Button((90, 345, 110, 38), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((210, 345, 110, 38), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((90, 410, 230, 44), "CREATE CHARACTER", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        character = self.app.store.characters.get(self.character_id) if self.character_id else None
+        self.name = TextInput((70, 122, 300, 30), character.name if character else "New Character")
+        self.portrait = TextInput((400, 122, 300, 30), character.portrait if character else "pfp_placeholder")
+        self.description = TextInput((70, 160, 630, 30), character.description if character else "")
+        self.family = TextInput((70, 198, 300, 30), ", ".join(character.preferred_families) if character else "warrior")
+        self.deck = TextInput((400, 198, 300, 30), character.deck_id if character else "")
+        self.card_kinds = TextInput((70, 236, 300, 30), ", ".join(getattr(character, "preferred_card_kinds", [])) if character else "")
+        self.subtypes = TextInput((400, 236, 300, 30), ", ".join(getattr(character, "preferred_subtypes", [])) if character else "")
+        self.preferred_cards = TextInput((70, 274, 300, 30), ", ".join(getattr(character, "preferred_cards", [])) if character else "")
+        self.preferred_places = TextInput((400, 274, 300, 30), ", ".join(getattr(character, "preferred_places", [])) if character else "")
+        profile = getattr(character, "technique_profile", {}) if character else {}
+        self.techniques = TextInput((70, 312, 630, 30), ", ".join(f"{key}={value:g}" for key, value in profile.items()) if profile else "aggression=5, control=5, combo=5, defense=5, adaptation=5")
+        self.origin = TextInput((70, 350, 300, 30), character.origin if character else "community")
+        self.logic = TextInput((400, 350, 300, 30), getattr(character, "logic_graph", "") if character else "")
+        self.gender = character.gender if character else "other"
+        self.stars = int(character.stars) if character else 5
+        self.smartness = int(character.smartness) if character else 5
+        label = "SAVE CHARACTER" if character else "CREATE CHARACTER"
+        self.buttons = [Button((70, 390, 150, 32), "GENDER: " + self.gender.upper(), lambda: self.cycle_gender(), COLORS["violet"]), Button((236, 390, 140, 32), "EDIT WEIGHTS", lambda: self.open_weights(), COLORS["gold"]), Button((392, 390, 90, 32), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((492, 390, 110, 32), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((70, 430, 210, 36), label, lambda: self.save_character(), COLORS["green"]), Button((300, 430, 180, 36), "EXPORT CHARACTER", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def change(self, field, amount): setattr(self, field, clamp(getattr(self, field) + amount, 1, 10))
 
@@ -7421,31 +7637,40 @@ class CharacterMakerScene(Scene):
         self.gender = self.genders[(self.genders.index(self.gender) + 1) % len(self.genders)]
         self.buttons[0].label = "GENDER: " + self.gender.upper()
 
-    def create(self):
-        self.app.store.create_character(self.name.value, self.stars, self.smartness, self.family.value, self.portrait.value, self.gender, self.origin.value, self.deck.value)
+    def open_weights(self):
+        if self.character_id: self.app.push(BehaviorWeightsScene(self.app, self.character_id))
+        else: self.app.notify("Save the character first to edit persistent behavior weights.")
+
+    def export(self):
+        if not self.character_id:
+            self.app.notify("Save the character before exporting its dependency package.")
+            return
+        path = self.app.store.export_cbp("character", self.character_id, True, True)
+        self.app.notify("Exported character package with dependencies and experience: " + path.name)
+
+    def save_character(self):
+        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "preferred_families": self.parse_list(self.family.value), "deck_id": self.deck.value.strip(), "preferred_card_kinds": self.parse_list(self.card_kinds.value), "preferred_subtypes": self.parse_list(self.subtypes.value)[:2], "preferred_cards": self.parse_list(self.preferred_cards.value), "preferred_places": self.parse_list(self.preferred_places.value), "technique_profile": self.parse_map(self.techniques.value), "gender": self.gender, "origin": self.origin.value, "logic_graph": self.logic.value.strip(), "stars": self.stars, "smartness": self.smartness}
+        if self.character_id:
+            result = self.app.store.update_character(self.character_id, values)
+        else:
+            result = self.app.store.create_character(values["name"], values["stars"], values["smartness"], values["preferred_families"][0] if values["preferred_families"] else "warrior", values["portrait"], values["gender"], values["origin"], values["deck_id"], values["description"], values["preferred_card_kinds"], values["preferred_subtypes"], values["preferred_cards"], values["preferred_places"], values["technique_profile"], values["logic_graph"])
+            if result: self.character_id = result.id
         self.app.store.load()
-        self.app.notify("Character saved with explicit identity, deck, and reaction folders.")
+        self.app.notify("Character definition saved with preferences, cognition inputs, deck linkage, and media structure." if result else "Character definition could not be saved.")
+        self.enter()
 
     def handle(self, event):
-        self.name.handle(event)
-        self.family.handle(event)
-        self.portrait.handle(event)
-        self.origin.handle(event)
-        self.deck.handle(event)
+        for field in [self.name, self.portrait, self.description, self.family, self.deck, self.card_kinds, self.subtypes, self.preferred_cards, self.preferred_places, self.techniques, self.origin, self.logic]: field.handle(event)
         super().handle(event)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
-        draw_text(surface, "CHARACTER MAKER", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
-        draw_text(surface, "Create a character from explicit authored identity and deck choices; runtime experience stays in state.", (36, 65), self.app.assets.font(13), COLORS["muted"])
-        self.draw_panel(surface, (42, 112, 720, 354), "CHARACTER DEFINITION", COLORS["violet"])
-        self.name.draw(surface, self.app.assets.font(13), "Character name")
-        self.family.draw(surface, self.app.assets.font(13), "Preferred card family")
-        self.portrait.draw(surface, self.app.assets.font(13), "Portrait file key")
-        self.origin.draw(surface, self.app.assets.font(13), "Origin")
-        self.deck.draw(surface, self.app.assets.font(13), "Existing deck id, optional")
-        draw_text(surface, f"STAR LEVEL {self.stars}     SMARTNESS {self.smartness}/10", (430, 355), self.app.assets.font(16, True), COLORS["cream"])
-        draw_text(surface, "The AI foundation records duel history, studied cards, preferences, and relationships separately.", (90, 390), self.app.assets.font(11), COLORS["muted"])
+        draw_text(surface, "CHARACTER MAKER / EDITOR", (34, 28), self.app.assets.font(27, True), COLORS["violet"])
+        draw_text(surface, "Identity, deck preferences, relationships-ready fields, cognition inputs, technique weights, and media roots remain separately authored.", (36, 62), self.app.assets.font(11), COLORS["muted"])
+        self.draw_panel(surface, (42, 100, 720, 370), "CHARACTER DEFINITION", COLORS["violet"])
+        for field, label in [(self.name, "Name"), (self.portrait, "Portrait key"), (self.description, "Description"), (self.family, "Preferred families"), (self.deck, "Deck id"), (self.card_kinds, "Preferred card kinds"), (self.subtypes, "Preferred monster subtypes, max 2"), (self.preferred_cards, "Preferred / best cards"), (self.preferred_places, "Preferred places"), (self.techniques, "Technique weights key=value"), (self.origin, "Origin"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
+        draw_text(surface, f"STARS {self.stars}/10   SMARTNESS {self.smartness}/10   GENDER {self.gender.upper()}", (400, 415), self.app.assets.font(12, True), COLORS["cream"], "center")
+        draw_text(surface, "Runtime learning, relationship history, knowledge, and duel experience stay outside authored fields.", (400, 470), self.app.assets.font(10), COLORS["gold"], "center")
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -7614,35 +7839,59 @@ class TeamDuelScene(Scene):
 
 
 class TeamMakerScene(Scene):
+    def __init__(self, app, team_id=None):
+        super().__init__(app)
+        self.team_id = team_id
+
+    def parse_list(self, value):
+        return [item.strip().lower() for item in str(value).split(",") if item.strip()]
+
     def enter(self):
-        self.name = TextInput((90, 150, 300, 34), "New Team")
-        self.place = TextInput((90, 215, 300, 34), self.app.store.role_config()["default_place"])
-        self.member_inputs = [TextInput((430, 150 + index * 65, 280, 34), "") for index in range(3)]
-        self.buttons = [Button((90, 355, 230, 44), "CREATE TEAM", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        team = self.app.store.teams.get(self.team_id) if self.team_id else None
+        self.name = TextInput((70, 122, 300, 30), team.name if team else "New Team")
+        self.portrait = TextInput((400, 122, 300, 30), team.portrait if team else "team_placeholder")
+        self.description = TextInput((70, 160, 630, 30), team.description if team else "")
+        self.place = TextInput((70, 198, 300, 30), ", ".join(team.preferred_places) if team else self.app.store.role_config().get("default_place", ""))
+        self.leader = TextInput((400, 198, 300, 30), team.leader if team else "")
+        self.members = [TextInput((70, 236 + index * 32, 300, 28), team.members[index] if team and index < len(team.members) else "") for index in range(3)]
+        self.families = TextInput((400, 236, 300, 28), ", ".join(getattr(team, "preferred_families", [])) if team else "")
+        self.kinds = TextInput((400, 268, 300, 28), ", ".join(getattr(team, "preferred_card_kinds", [])) if team else "")
+        self.cards = TextInput((400, 300, 300, 28), ", ".join(getattr(team, "preferred_cards", [])) if team else "")
+        self.logic = TextInput((70, 332, 630, 28), getattr(team, "logic_graph", "") if team else "")
+        label = "SAVE TEAM" if team else "CREATE TEAM"
+        self.buttons = [Button((70, 390, 210, 38), label, lambda: self.save_team(), COLORS["green"]), Button((294, 390, 224, 38), "EXPORT TEAM", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def export(self):
+        if not self.team_id:
+            self.app.notify("Save the team before exporting it.")
+            return
+        path = self.app.store.export_cbp("team", self.team_id, True, True)
+        self.app.notify("Exported team package with member dependencies: " + path.name)
+
+    def save_team(self):
+        members = [field.value.strip() for field in self.members if field.value.strip()]
+        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "members": members, "leader": self.leader.value.strip(), "preferred_places": self.parse_list(self.place.value), "preferred_families": self.parse_list(self.families.value), "preferred_card_kinds": self.parse_list(self.kinds.value), "preferred_cards": self.parse_list(self.cards.value), "logic_graph": self.logic.value.strip()}
+        if self.team_id:
+            result = self.app.store.update_team(self.team_id, values)
+        else:
+            result = self.app.store.create_team(values["name"], values["members"], values["preferred_places"][0] if values["preferred_places"] else "", values["portrait"], values["description"], values["leader"], values["preferred_places"], values["preferred_families"], values["preferred_card_kinds"], values["preferred_cards"], values["logic_graph"])
+            if result: self.team_id = result.id
+        self.app.store.load()
+        self.app.notify("Team definition saved with ordered members, leader, preferences, and media structure." if result else "Team requires at least one registered member and valid fields.")
+        self.enter()
 
     def handle(self, event):
-        self.name.handle(event)
-        self.place.handle(event)
-        for field in self.member_inputs: field.handle(event)
+        for field in [self.name, self.portrait, self.description, self.place, self.leader, self.families, self.kinds, self.cards, self.logic] + self.members: field.handle(event)
         super().handle(event)
-
-    def create(self):
-        members = [field.value.strip() for field in self.member_inputs if field.value.strip()]
-        team = self.app.store.create_team(self.name.value, members, self.place.value)
-        if team:
-            self.app.store.load()
-            self.app.notify("Team saved with the selected members and preferred place.")
-        else: self.app.notify("Choose at least one registered non-player character.")
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
-        draw_text(surface, "TEAM MAKER", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
-        draw_text(surface, "Create a team from explicit registered character ids; no hidden auto-selection is used.", (36, 65), self.app.assets.font(13), COLORS["muted"])
-        self.draw_panel(surface, (42, 112, 720, 320), "TEAM DEFINITION", COLORS["violet"])
-        self.name.draw(surface, self.app.assets.font(13), "Team name")
-        self.place.draw(surface, self.app.assets.font(13), "Preferred place id")
-        for index, field in enumerate(self.member_inputs): field.draw(surface, self.app.assets.font(13), f"Member {index + 1} character id")
-        draw_text(surface, "Use ids from the Characters screen. Up to three distinct members are stored; the first is leader.", (90, 312), self.app.assets.font(11), COLORS["muted"])
+        draw_text(surface, "TEAM MAKER / EDITOR", (34, 28), self.app.assets.font(27, True), COLORS["violet"])
+        draw_text(surface, "Teams are three ordered characters with explicit leadership, identity, preferences, effects, and member media dependencies.", (36, 62), self.app.assets.font(11), COLORS["muted"])
+        self.draw_panel(surface, (42, 100, 720, 390), "TEAM DEFINITION", COLORS["violet"])
+        for field, label in [(self.name, "Team name"), (self.portrait, "Team portrait key"), (self.description, "Description"), (self.place, "Preferred places"), (self.leader, "Leader character id"), (self.families, "Preferred families"), (self.kinds, "Preferred card kinds"), (self.cards, "Preferred cards"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
+        for index, field in enumerate(self.members): field.draw(surface, self.app.assets.font(10), f"Ordered member {index + 1} id")
+        draw_text(surface, "Member order is preserved for team duel rotation and team media staging. Use ids from the Characters list.", (400, 455), self.app.assets.font(10), COLORS["gold"], "center")
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -7686,41 +7935,69 @@ class PlacesScene(Scene):
 
 
 class PlaceMakerScene(Scene):
+    def __init__(self, app, place_id=None):
+        super().__init__(app)
+        self.place_id = place_id
+
+    def parse_list(self, value):
+        return [item.strip().lower() for item in str(value).split(",") if item.strip()]
+
+    def parse_json(self, value):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError):
+            return {}
 
     def enter(self):
-        self.name = TextInput((90, 150, 300, 34), "New Place")
-        self.capacity = TextInput((90, 215, 300, 34), "3")
-        self.background = TextInput((430, 150, 280, 34), "")
-        self.day_night = True
-        self.buttons = [Button((430, 215, 180, 34), "DAY/NIGHT: ON", lambda: self.toggle_day_night(), COLORS["cyan"]), Button((90, 300, 220, 44), "CREATE PLACE", lambda: self.create(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
-
-    def handle(self, event):
-        self.name.handle(event)
-        self.capacity.handle(event)
-        self.background.handle(event)
-        super().handle(event)
+        place = self.app.store.places.get(self.place_id) if self.place_id else None
+        self.name = TextInput((70, 122, 300, 30), place.name if place else "New Place")
+        self.capacity = TextInput((400, 122, 300, 30), str(place.capacity if place else 3))
+        self.background = TextInput((70, 160, 630, 30), place.background if place else "")
+        self.effects = TextInput((70, 198, 630, 30), ", ".join(place.effects if place else []))
+        self.windows = TextInput((70, 236, 630, 30), json.dumps(place.event_window_policies if place else {}, separators=(",", ":")))
+        self.logic = TextInput((70, 274, 630, 30), getattr(place, "logic_graph", "") if place else "")
+        self.day_night = place.day_night if place else True
+        label = "SAVE PLACE" if place else "CREATE PLACE"
+        self.buttons = [Button((70, 330, 150, 36), "DAY/NIGHT: " + ("ON" if self.day_night else "OFF"), lambda: self.toggle_day_night(), COLORS["cyan"]), Button((236, 330, 210, 36), label, lambda: self.save_place(), COLORS["green"]), Button((462, 330, 210, 36), "EXPORT PLACE", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def toggle_day_night(self):
         self.day_night = not self.day_night
         self.buttons[0].label = "DAY/NIGHT: " + ("ON" if self.day_night else "OFF")
 
-    def create(self):
+    def export(self):
+        if not self.place_id:
+            self.app.notify("Save the place before exporting it.")
+            return
+        path = self.app.store.export_cbp("place", self.place_id, False, True)
+        self.app.notify("Exported place package with media and logic dependencies: " + path.name)
+
+    def save_place(self):
         try: capacity = int(self.capacity.value)
-        except ValueError: capacity = 3
-        if not self.background.value.strip(): self.app.notify("Choose an authored background asset key."); return
-        self.app.store.create_place(self.name.value, capacity, self.background.value.strip(), self.day_night)
+        except (TypeError, ValueError): capacity = 3
+        values = {"name": self.name.value, "capacity": capacity, "background": self.background.value, "day_night": self.day_night, "effects": self.parse_list(self.effects.value), "event_window_policies": self.parse_json(self.windows.value), "logic_graph": self.logic.value.strip()}
+        if self.place_id:
+            result = self.app.store.update_place(self.place_id, values)
+        else:
+            result = self.app.store.create_place(values["name"], values["capacity"], values["background"], values["day_night"])
+            if result:
+                self.place_id = result.id
+                result = self.app.store.update_place(self.place_id, values)
         self.app.store.load()
-        self.app.notify("Place saved with explicit capacity, background, day/night, and media folders.")
+        self.app.notify("Place definition saved with capacity, effects, event windows, day/night, and media structure." if result else "Place definition could not be saved.")
+        self.enter()
+
+    def handle(self, event):
+        for field in [self.name, self.capacity, self.background, self.effects, self.windows, self.logic]: field.handle(event)
+        super().handle(event)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
-        draw_text(surface, "PLACE MAKER", (34, 28), self.app.assets.font(28, True), COLORS["green"])
-        draw_text(surface, "Create a location from explicit capacity and media routing choices.", (36, 65), self.app.assets.font(13), COLORS["muted"])
-        self.draw_panel(surface, (42, 112, 720, 300), "PLACE DEFINITION", COLORS["green"])
-        self.name.draw(surface, self.app.assets.font(13), "Place name")
-        self.capacity.draw(surface, self.app.assets.font(13), "Capacity, 1 to 10")
-        self.background.draw(surface, self.app.assets.font(13), "Background asset key")
-        draw_text(surface, "Media folders are scaffolded for day/night, event animation, and music variants.", (90, 270), self.app.assets.font(11), COLORS["muted"])
+        draw_text(surface, "PLACE MAKER / EDITOR", (34, 28), self.app.assets.font(27, True), COLORS["green"])
+        draw_text(surface, "Places bind field media, day/night presentation, capacity, event windows, effects, and live occupancy.", (36, 62), self.app.assets.font(11), COLORS["muted"])
+        self.draw_panel(surface, (42, 100, 720, 340), "PLACE DEFINITION", COLORS["green"])
+        for field, label in [(self.name, "Place name"), (self.capacity, "Capacity, 1 to 10"), (self.background, "Field/background asset key"), (self.effects, "Place effect ids, comma-separated"), (self.windows, "Event-window policy JSON"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
+        draw_text(surface, "The engine scaffolds day/night visuals, music, pre-duel, duel, post-duel, and landscape folders for this place.", (400, 470), self.app.assets.font(10), COLORS["gold"], "center")
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -7859,40 +8136,65 @@ class TradingScene(Scene):
 
 
 class ImportExportScene(Scene):
+    policies = ["replace", "skip", "reject"]
+
     def enter(self):
-        self.buttons = [Button((54, 150, 250, 44), "EXPORT WORLD .CBP", lambda: self.export_world(), COLORS["cyan"]), Button((54, 210, 250, 44), "SCAN EXPORT FOLDER", lambda: self.scan(), COLORS["violet"]), Button((54, 270, 250, 44), "IMPORT LATEST ALL", lambda: self.import_latest()), Button((54, 330, 250, 44), "IMPORT CONTENT ONLY", lambda: self.import_latest(["cards", "characters", "decks", "places", "teams", "logic"]), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
-        self.files = list((DATA / "exports").glob("*.cbp"))
+        self.files = sorted((DATA / "exports").glob("*.cbp"))
+        self.selected_path = self.files[-1] if self.files else None
+        self.preview = self.app.store.package_preview(self.selected_path) if self.selected_path else None
+        self.policy = "replace"
+        self.buttons = [Button((54, 145, 250, 40), "EXPORT WORLD .CBP", lambda: self.export_world(), COLORS["cyan"]), Button((54, 195, 250, 40), "SCAN / PREVIEW LATEST", lambda: self.scan(), COLORS["violet"]), Button((54, 245, 250, 40), "IMPORT SELECTED ALL", lambda: self.import_latest(), COLORS["green"]), Button((54, 295, 250, 40), "IMPORT CONTENT ONLY", lambda: self.import_latest(["cards", "characters", "decks", "places", "teams", "logic"]), COLORS["gold"]), Button((54, 345, 250, 40), "CONFLICT: REPLACE", lambda: self.cycle_policy(), COLORS["orange"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def scan(self):
+        self.files = sorted((DATA / "exports").glob("*.cbp"))
+        self.selected_path = self.files[-1] if self.files else None
+        self.preview = self.app.store.package_preview(self.selected_path) if self.selected_path else None
+        self.app.notify("Package preview loaded." if self.preview else "No .cbp package is available in data/exports/.")
+        self.enter()
+
+    def cycle_policy(self):
+        self.policy = self.policies[(self.policies.index(self.policy) + 1) % len(self.policies)]
+        self.buttons[4].label = "CONFLICT: " + self.policy.upper()
 
     def import_latest(self, include=None):
-        self.scan()
-        if not self.files:
-            self.app.notify("No .cbp package is available in data/exports/.")
+        if not self.selected_path or not self.preview:
+            self.scan()
             return
-        manifest = self.app.store.inspect_cbp(self.files[-1])
-        result = self.app.store.import_cbp(self.files[-1], include)
-        self.app.notify(f"Imported {manifest.get('kind', 'content')} package: {', '.join(result['imported'])}.")
+        result = self.app.store.import_cbp(self.selected_path, include, False, self.policy)
+        if result.get("rejected"):
+            self.app.notify("Import rejected because existing ids conflict with the selected package.")
+            return
+        self.app.notify("Imported selected package categories: " + ", ".join(result.get("imported", [])) + " using " + self.policy + ".")
+        self.enter()
 
     def export_world(self):
         path = self.app.store.export_cbp("world", "cbp_world")
-        self.files = list((DATA / "exports").glob("*.cbp"))
-        self.app.notify(f"Exported {path.name} with manifest and data registries.")
-
-    def scan(self): self.files = list((DATA / "exports").glob("*.cbp"))
+        self.enter()
+        self.app.notify(f"Exported {path.name} with manifest, registries, dependencies, and optional world state.")
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "IMPORT / EXPORT", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
-        draw_text(surface, "The .cbp package is a zip with a manifest and selected dependencies.", (36, 65), self.app.assets.font(13), COLORS["muted"])
-        self.draw_panel(surface, (370, 120, 386, 322), "MANIFEST PREVIEW", COLORS["violet"])
-        latest_manifest = self.app.store.inspect_cbp(self.files[-1]) if self.files else {}
-        draw_text(surface, f"Schema {latest_manifest.get('schema', 3)}  |  Scope: {latest_manifest.get('kind', 'world').upper()}", (400, 175), self.app.assets.font(14, True), COLORS["cream"])
-        draw_text(surface, f"Cards: {len(self.app.store.cards)}", (400, 215), self.app.assets.font(13), COLORS["cyan"])
-        draw_text(surface, f"Characters: {len(self.app.store.characters)}", (400, 245), self.app.assets.font(13), COLORS["cyan"])
-        draw_text(surface, f"Decks: {len(self.app.store.decks)}", (400, 275), self.app.assets.font(13), COLORS["cyan"])
-        draw_text(surface, f"Places: {len(self.app.store.places)}", (400, 305), self.app.assets.font(13), COLORS["cyan"])
-        draw_text(surface, "Exports", (400, 345), self.app.assets.font(14, True), COLORS["gold"])
-        for index, path in enumerate(self.files[-3:]): draw_text(surface, path.name, (400, 372 + index * 20), self.app.assets.font(11), COLORS["muted"])
-        self.draw_buttons(surface, 12)
+        draw_text(surface, "Preview a dependency-scoped .cbp package before selecting categories and conflict behavior.", (36, 65), self.app.assets.font(12), COLORS["muted"])
+        self.draw_panel(surface, (36, 112, 280, 322), "PACKAGE FILES", COLORS["violet"])
+        for index, path in enumerate(self.files[-5:]):
+            color = COLORS["gold"] if path == self.selected_path else COLORS["muted"]
+            draw_text(surface, path.name[:34], (54, 155 + index * 32), self.app.assets.font(10, True if path == self.selected_path else False), color)
+        self.draw_panel(surface, (344, 112, 420, 322), "MANIFEST PREVIEW", COLORS["cyan"])
+        if self.preview:
+            manifest = self.preview["manifest"]
+            draw_text(surface, f"Schema {manifest.get('schema', 0)}  |  {manifest.get('kind', 'unknown').upper()}", (372, 150), self.app.assets.font(14, True), COLORS["cream"])
+            draw_text(surface, "Dependencies: " + ("included" if manifest.get("dependencies_included") else "excluded"), (372, 177), self.app.assets.font(11), COLORS["muted"])
+            draw_text(surface, "Experience: " + ("included" if manifest.get("experience_included") else "excluded"), (372, 199), self.app.assets.font(11), COLORS["muted"])
+            y = 235
+            for category, count in self.preview["counts"].items():
+                conflicts = len(self.preview["conflicts"].get(category, []))
+                draw_text(surface, f"{category}: {count}  | conflicts: {conflicts}", (372, y), self.app.assets.font(11), COLORS["cyan"] if not conflicts else COLORS["orange"])
+                y += 25
+            draw_text(surface, "Import remains explicit; world state is never merged implicitly.", (554, 400), self.app.assets.font(9), COLORS["gold"], "center")
+        else:
+            draw_text(surface, "Scan a .cbp package to preview its manifest.", (554, 270), self.app.assets.font(15), COLORS["muted"], "center")
+        self.draw_buttons(surface, 11)
         self.app.draw_notice(surface)
 
 
