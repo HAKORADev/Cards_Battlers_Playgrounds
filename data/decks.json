@@ -42,7 +42,14 @@
       "iron_fridge",
       "ember_drone",
       "night_lure"
-    ]
+    ],
+    "description": "",
+    "portrait": "deck_placeholder",
+    "owner_id": "",
+    "best_cards": [],
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "experience": {}
   },
   "trio_deck": {
     "name": "The Unwritten Deck",
@@ -87,6 +94,13 @@
       "sunlit_field",
       "sky_archer",
       "ritual_warden"
-    ]
+    ],
+    "description": "",
+    "portrait": "deck_placeholder",
+    "owner_id": "",
+    "best_cards": [],
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "experience": {}
   }
 }

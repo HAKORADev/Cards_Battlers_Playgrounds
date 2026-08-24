@@ -3,10 +3,24 @@
   "id": "trio_mysterio",
   "category": "characters",
   "state": {
-    "mood": "mysterious",
-    "activity": "idle",
-    "history": [],
+    "mood_state": {
+      "current": "mysterious",
+      "intensity": 0.0
+    },
     "cooldown_until": 0.0,
+    "learned_cards": {},
+    "rank": 1,
+    "activity": "idle",
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {}
+    },
+    "movement_progress": 0.0,
+    "enemies": [],
+    "destination": "",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -49,13 +63,27 @@
         "defense_bias": 1.0,
         "attack_bias": 1.0,
         "trap_threshold": 0.0
-      }
+      },
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {}
     },
-    "enemies": [],
-    "current_place": "",
+    "allies": [],
+    "borrowed_cards": [],
+    "availability": "free",
+    "relationship": "stranger",
     "learned_opponents": {},
-    "learned_cards": {},
-    "destination": "",
     "library_cards": [
       "trio_relic",
       "void_titan",
@@ -64,11 +92,19 @@
       "solar_burst",
       "repair_matrix"
     ],
-    "borrowed_cards": [],
-    "allies": [],
-    "movement_progress": 0.0,
-    "availability": "free",
-    "rank": 1,
-    "relationship": "stranger"
+    "current_place": "",
+    "history": [],
+    "learning_state": {
+      "observations": 0,
+      "updates": 0,
+      "last_update": 0.0
+    },
+    "relationship_history": [],
+    "mood": "mysterious",
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    }
   }
 }

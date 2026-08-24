@@ -64,8 +64,8 @@ COLORS = {
 
 DUEL_PHASES = ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"]
 DUEL_PHASE_ABBREVIATIONS = {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}
-CHARACTER_RUNTIME_FIELDS = {"mood", "allies", "enemies", "history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "behavior_weights", "learned_cards", "learned_opponents"}
-TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked"}
+CHARACTER_RUNTIME_FIELDS = {"mood", "mood_state", "allies", "enemies", "history", "relationship_history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "behavior_weights", "learned_cards", "learned_opponents", "knowledge_state", "learning_state", "experience"}
+TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked", "behavior_weights", "knowledge_state", "learning_state", "experience"}
 
 
 def ensure_dirs():
@@ -733,6 +733,7 @@ class CardDef:
     art_variant: int = 1
     frame_schema: str = "classic_card_v1"
     summon_procedure: dict = field(default_factory=dict)
+    subtypes: list = field(default_factory=list)
 
 
 @dataclass
@@ -765,6 +766,20 @@ class CharacterDef:
     behavior_weights: dict = field(default_factory=dict)
     learned_cards: dict = field(default_factory=dict)
     learned_opponents: dict = field(default_factory=dict)
+    description: str = ""
+    preferred_card_kinds: list = field(default_factory=list)
+    preferred_subtypes: list = field(default_factory=list)
+    preferred_cards: list = field(default_factory=list)
+    preferred_places: list = field(default_factory=list)
+    technique_profile: dict = field(default_factory=dict)
+    cognition: dict = field(default_factory=dict)
+    learning_policy: dict = field(default_factory=dict)
+    state_rules: dict = field(default_factory=dict)
+    relationship_history: list = field(default_factory=list)
+    mood_state: dict = field(default_factory=dict)
+    knowledge_state: dict = field(default_factory=dict)
+    learning_state: dict = field(default_factory=dict)
+    experience: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -802,6 +817,15 @@ class TeamDef:
     rank: int = 1
     history: list = field(default_factory=list)
     media_folder: str = ""
+    portrait: str = "team_placeholder"
+    description: str = ""
+    preferred_families: list = field(default_factory=list)
+    preferred_card_kinds: list = field(default_factory=list)
+    preferred_cards: list = field(default_factory=list)
+    behavior_weights: dict = field(default_factory=dict)
+    knowledge_state: dict = field(default_factory=dict)
+    learning_state: dict = field(default_factory=dict)
+    experience: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1511,13 +1535,26 @@ class ContentStore:
         self.migrate_runtime_state(character_data, "characters", CHARACTER_RUNTIME_FIELDS)
         self.migrate_runtime_state(team_data, "teams", TEAM_RUNTIME_FIELDS)
         self.cards = {entry["id"]: CardDef(**entry) for entry in cards_data}
+        for card in self.cards.values(): card.subtypes = self.normalize_profile_list(getattr(card, "subtypes", []), limit=2)
         self.characters = {entry["id"]: CharacterDef(**self.overlay_runtime_state(entry, "characters", CHARACTER_RUNTIME_FIELDS)) for entry in character_data}
         self.decks = read_json(DATA / "decks.json", {})
         for character in self.characters.values():
             if not character.library_cards: character.library_cards = list(self.decks.get(character.deck_id, {}).get("cards", []))[:6]
-        for deck in self.decks.values(): deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.cards)
+        for deck_id, deck in self.decks.items():
+            deck = dict(deck or {})
+            deck.setdefault("name", str(deck_id))
+            deck.setdefault("description", "")
+            deck.setdefault("portrait", "deck_placeholder")
+            deck.setdefault("owner_id", "")
+            deck.setdefault("best_cards", [])
+            deck.setdefault("preferred_families", [])
+            deck.setdefault("preferred_card_kinds", [])
+            deck.setdefault("experience", {})
+            deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.cards)
+            self.decks[deck_id] = deck
         self.places = {entry["id"]: self.place_from_entry(entry) for entry in read_json(DATA / "places.json", [])}
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
+        self.ensure_behavior_weights()
         legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}})
         self.world = self.migrate_world_state(legacy_world)
         for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
@@ -1529,31 +1566,112 @@ class ContentStore:
         self.logic = {}
         for path in (DATA / "logic").glob("*.json"):
             self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
-        self.ensure_behavior_weights()
         self.ensure_entity_scaffolds()
         self.media.scan()
         self.world_sessions = {}
         self.dirty_domains.clear()
         self.world_checkpoint_elapsed = 0.0
 
+    def normalize_profile_list(self, values, allowed=None, limit=20):
+        values = values if isinstance(values, list) else [values] if values else []
+        result = []
+        for value in values:
+            key = str(value).strip().lower()
+            if not key or (allowed is not None and key not in allowed): continue
+            if key not in result: result.append(key)
+        return result[:limit]
+
+    def normalize_number_map(self, values, defaults, minimum=0.0, maximum=10.0):
+        result = dict(defaults)
+        if isinstance(values, dict):
+            for key, value in values.items():
+                try: result[str(key)] = max(minimum, min(maximum, float(value)))
+                except (TypeError, ValueError): pass
+        return result
+
+    def normalize_character_profile(self, character):
+        character.preferred_families = self.normalize_profile_list(character.preferred_families, limit=20) or ["warrior"]
+        character.preferred_card_kinds = self.normalize_profile_list(getattr(character, "preferred_card_kinds", []), {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10)
+        character.preferred_subtypes = self.normalize_profile_list(getattr(character, "preferred_subtypes", []), limit=2)
+        character.preferred_cards = [str(item) for item in self.normalize_profile_list(getattr(character, "preferred_cards", []) or getattr(character, "best_cards", []), set(self.cards), 20)]
+        character.best_cards = [str(item) for item in self.normalize_profile_list(getattr(character, "best_cards", []), set(self.cards), 20)]
+        character.preferred_places = [str(item) for item in self.normalize_profile_list(getattr(character, "preferred_places", []), set(self.places), 20)]
+        character.technique_profile = self.normalize_number_map(getattr(character, "technique_profile", {}), {"aggression": 5.0, "defense": 5.0, "control": 5.0, "combo": 5.0, "resource": 5.0, "bluff": 5.0, "risk": 5.0, "adaptation": 5.0})
+        character.cognition = self.normalize_number_map(getattr(character, "cognition", {}), {"smartness": float(character.smartness), "memory": 5.0, "inference": 5.0, "planning": 5.0, "uncertainty": 5.0})
+        character.cognition["smartness"] = float(character.smartness)
+        character.learning_policy = self.normalize_number_map(getattr(character, "learning_policy", {}), {"observation_rate": 5.0, "retention": 5.0, "adaptation_rate": 5.0, "decay": 1.0, "history_limit": 10.0}, 0.0, 100.0)
+        character.state_rules = dict(getattr(character, "state_rules", {}) or {})
+        character.state_rules.setdefault("deck_ranges", {"stranger": [1, 10], "ally": [1, 10], "enemy": [1, 10]})
+        character.state_rules.setdefault("preferred_state", "stranger")
+        character.relationship_history = list(getattr(character, "relationship_history", []) or [])[-100:]
+        character.mood_state = dict(getattr(character, "mood_state", {}) or {})
+        character.mood_state.setdefault("current", character.mood or "neutral")
+        character.mood_state.setdefault("intensity", 0.0)
+        character.knowledge_state = dict(getattr(character, "knowledge_state", {}) or {})
+        character.knowledge_state.setdefault("cards", {})
+        character.knowledge_state.setdefault("opponents", {})
+        character.knowledge_state.setdefault("effects", {})
+        character.learning_state = dict(getattr(character, "learning_state", {}) or {})
+        character.learning_state.setdefault("observations", 0)
+        character.learning_state.setdefault("updates", 0)
+        character.learning_state.setdefault("last_update", 0.0)
+        character.experience = dict(getattr(character, "experience", {}) or {})
+        character.experience.setdefault("duels", 0)
+        character.experience.setdefault("wins", 0)
+        character.experience.setdefault("losses", 0)
+        character.experience.setdefault("draws", 0)
+        character.experience.setdefault("techniques", {})
+
+    def normalize_team_profile(self, team):
+        team.members = [str(item) for item in self.normalize_profile_list(team.members, set(self.characters), 3)]
+        if team.leader not in team.members and team.members: team.leader = team.members[0]
+        team.preferred_places = [str(item) for item in self.normalize_profile_list(team.preferred_places, set(self.places), 20)]
+        team.preferred_families = self.normalize_profile_list(getattr(team, "preferred_families", []), limit=20)
+        team.preferred_card_kinds = self.normalize_profile_list(getattr(team, "preferred_card_kinds", []), {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10)
+        team.preferred_cards = [str(item) for item in self.normalize_profile_list(getattr(team, "preferred_cards", []), set(self.cards), 20)]
+        team.behavior_weights = self.normalize_number_map(getattr(team, "behavior_weights", {}), {"coordination": 5.0, "risk": 5.0, "resource": 5.0, "switching": 5.0, "adaptation": 5.0})
+        team.knowledge_state = dict(getattr(team, "knowledge_state", {}) or {})
+        team.learning_state = dict(getattr(team, "learning_state", {}) or {})
+        team.experience = dict(getattr(team, "experience", {}) or {})
+        for key, value in {"duels": 0, "wins": 0, "losses": 0, "draws": 0}.items(): team.experience.setdefault(key, value)
+
     def ensure_behavior_weights(self):
-        defaults = {"risk_tolerance": 3.0, "learning_value": 5.0, "rematch_desire": 4.0, "reward_value": 5.0, "place_preference": 5.0, "ally_bias": 4.0, "enemy_bias": 6.0, "adaptation": 1.0}
+        defaults = {"risk_tolerance": 3.0, "learning_value": 5.0, "rematch_desire": 4.0, "reward_value": 5.0, "place_preference": 5.0, "ally_bias": 4.0, "enemy_bias": 6.0, "adaptation": 1.0, "memory": 5.0, "inference": 5.0, "planning": 5.0}
         for character in self.characters.values():
+            self.normalize_character_profile(character)
             for key, value in defaults.items(): character.behavior_weights.setdefault(key, value)
             family_weights = character.behavior_weights.setdefault("family_weights", {})
-            for family in [card.family for card in self.cards.values()]: family_weights.setdefault(family, 2.0 if family in character.preferred_families else 0.0)
+            for family in [card.family.lower() for card in self.cards.values()]: family_weights.setdefault(family, 2.0 if family in character.preferred_families else 0.0)
+            character.behavior_weights.setdefault("card_kind_weights", {kind: 2.0 if kind in character.preferred_card_kinds else 0.0 for kind in ["normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"]})
+            character.behavior_weights.setdefault("subtype_weights", {item: 2.0 for item in character.preferred_subtypes})
             character.behavior_weights.setdefault("state_weights", {"stranger": 1.0, "ally": 0.5, "enemy": 2.0, "opponent": 1.0})
             character.behavior_weights.setdefault("phase_weights", {"MAIN 1": 1.0, "MAIN 2": 1.0, "BATTLE": 1.0})
             character.behavior_weights.setdefault("duel", {"summon_bias": 1.0, "set_bias": 1.0, "activation_bias": 1.0, "removal_bias": 1.0, "defense_bias": 1.0, "attack_bias": 1.0, "trap_threshold": 0.0})
-            character.learned_cards = {str(key): int(value) for key, value in character.learned_cards.items()}
-            character.learned_opponents = {str(key): int(value) for key, value in character.learned_opponents.items()}
+            character.learned_cards = {str(key): max(0, int(value)) for key, value in character.learned_cards.items() if str(key) in self.cards}
+            character.learned_opponents = {str(key): max(0, int(value)) for key, value in character.learned_opponents.items() if str(key) in self.characters}
+        for team in self.teams.values(): self.normalize_team_profile(team)
 
     def relationship_for(self, character_id, other_id):
         character = self.characters.get(character_id)
         if not character or character_id == other_id: return "stranger"
         if other_id in character.enemies: return "enemy"
         if other_id in character.allies: return "ally"
-        return "stranger"
+        recent = [item for item in character.relationship_history if item.get("other") == other_id]
+        return str(recent[-1].get("relation", "stranger")) if recent else "stranger"
+
+    def set_relationship(self, character_id, other_id, relation, reason=""):
+        character = self.characters.get(character_id)
+        other = self.characters.get(other_id)
+        relation = str(relation or "stranger").lower()
+        if not character or not other or character_id == other_id or relation not in ["stranger", "ally", "enemy"]: return False
+        character.allies = [item for item in character.allies if item != other_id]
+        character.enemies = [item for item in character.enemies if item != other_id]
+        if relation == "ally": character.allies.append(other_id)
+        if relation == "enemy": character.enemies.append(other_id)
+        character.relationship = relation
+        character.relationship_history.append({"other": other_id, "relation": relation, "reason": reason, "time": time.time()})
+        character.relationship_history = character.relationship_history[-100:]
+        return True
 
     def _relationship_score(self, character, other):
         relation = self.relationship_for(character.id, other.id)
@@ -1963,29 +2081,35 @@ class ContentStore:
         winner = self.characters.get(winner_id) if winner_id else None
         loser = self.characters.get(loser_id) if loser_id else None
         transferred = ""
+        participants = [item for item in [winner, loser] if item]
+        for character in participants:
+            character.experience["duels"] = int(character.experience.get("duels", 0)) + 1
+            result = "draw" if not winner else "win" if character is winner else "loss"
+            character.experience[result + "s"] = int(character.experience.get(result + "s", 0)) + 1
+            character.history.append({"opponent": loser.id if character is winner and loser else winner.id if character is loser and winner else "", "result": result, "turns": turns, "reason": reason, "time": time.time()})
+            character.history = character.history[-20:]
+            character.learning_state["updates"] = int(character.learning_state.get("updates", 0)) + 1
+            character.learning_state["last_update"] = time.time()
         if winner and loser:
             if loser.library_cards:
                 transferred = loser.library_cards.pop(0)
                 winner.library_cards.append(transferred)
-            loser.smartness = clamp(loser.smartness + 1, 1, 10)
-            winner.history.append({"opponent": loser.id, "result": "win", "turns": turns, "reason": reason, "cards_seen": list(self.decks.get(loser.deck_id, {}).get("cards", []))[:5], "traded_card": transferred, "time": time.time()})
-            loser.history.append({"opponent": winner.id, "result": "loss", "turns": turns, "reason": reason, "cards_seen": list(self.decks.get(winner.deck_id, {}).get("cards", []))[:5], "traded_card": transferred, "time": time.time()})
-            winner.history = winner.history[-20:]
-            loser.history = loser.history[-20:]
-            winner.learned_opponents[loser.id] = winner.learned_opponents.get(loser.id, 0) + 1
-            loser.learned_opponents[winner.id] = loser.learned_opponents.get(winner.id, 0) + 1
-            for card_id in list(self.decks.get(loser.deck_id, {}).get("cards", []))[:5]: winner.learned_cards[card_id] = winner.learned_cards.get(card_id, 0) + 1
-            for card_id in list(self.decks.get(winner.deck_id, {}).get("cards", []))[:5]: loser.learned_cards[card_id] = loser.learned_cards.get(card_id, 0) + 1
             difficulty = self.save_data.get("difficulty", "normal")
             learning_delta = {"normal": 1, "hard": 2, "extreme": 3}.get(difficulty, 1)
-            winner.behavior_weights["adaptation"] = min(10.0, float(winner.behavior_weights.get("adaptation", 1.0)) + learning_delta * 0.25)
-            loser.behavior_weights["adaptation"] = min(10.0, float(loser.behavior_weights.get("adaptation", 1.0)) + learning_delta * 0.5)
+            for character, other in [(winner, loser), (loser, winner)]:
+                character.learned_opponents[other.id] = character.learned_opponents.get(other.id, 0) + learning_delta
+                opponent_memory = character.knowledge_state.setdefault("opponents", {}).setdefault(other.id, {"cards": {}, "effects": {}, "sightings": 0})
+                observed_cards = list(opponent_memory.get("cards", {}).keys())
+                for card_id in observed_cards: character.learned_cards[card_id] = character.learned_cards.get(card_id, 0) + learning_delta
+                character.experience.setdefault("techniques", {})[other.id] = {"observed_cards": observed_cards[:20], "last_result": "win" if character is winner else "loss", "turns": turns, "updated": time.time()}
+                character.behavior_weights["adaptation"] = min(10.0, float(character.behavior_weights.get("adaptation", 1.0)) + learning_delta * (0.25 if character is winner else 0.5))
+            loser.smartness = clamp(loser.smartness + 1, 1, 10)
             self.advance_borrows(winner.id)
             self.advance_borrows(loser.id)
             self.calculate_rank(winner.id)
             self.calculate_rank(loser.id)
             if loser.stars >= winner.stars + 2: self.add_achievement(winner.id, "Historic upset", f"Defeated {loser.name} despite the star gap.")
-            self.save()
+        self.save()
         return transferred
 
     def validate_effects(self, effects):
@@ -2160,27 +2284,32 @@ class ContentStore:
         self.save()
         return place
 
-    def create_team(self, name, members, preferred_place):
+    def create_team(self, name, members, preferred_place="", portrait="team_placeholder", description="", leader=""):
         team_id = "team_" + str(int(time.time() * 1000))
-        display_name = name or "New Team"
-        selected = [member for member in dict.fromkeys(members) if member in self.characters and member != self.role_config()["player_character"]][:3]
+        display_name = str(name or "New Team").strip() or "New Team"
+        selected = [member for member in dict.fromkeys(members if isinstance(members, list) else []) if member in self.characters][:3]
         if not selected: return None
-        leader = selected[0]
+        leader = leader if leader in selected else selected[0]
         folder = self.scaffold_entity("teams", team_id, display_name)
-        team = TeamDef(team_id, display_name, selected, leader, [preferred_place] if preferred_place in self.places else [], "community", {}, False, 1, [], folder)
+        team = TeamDef(team_id, display_name, selected, leader, [preferred_place] if preferred_place in self.places else [], "community", {}, False, 1, [], folder, portrait or "team_placeholder", description or "")
         self.teams[team_id] = team
+        self.normalize_team_profile(team)
         self.save()
         return team
 
     def update_character(self, character_id, values):
         character = self.characters.get(character_id)
         if not character: return None
-        allowed = {"name", "portrait", "stars", "smartness", "relationship", "preferred_families", "deck_id", "gender", "origin", "best_cards"}
+        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood"}
         for key, value in values.items():
             if key not in allowed: continue
             if key in ["stars", "smartness"]: value = clamp(int(value), 1, 10)
-            if key == "preferred_families": value = list(dict.fromkeys(value))[:5] or ["warrior"]
+            if key in ["preferred_families", "preferred_card_kinds", "preferred_subtypes"]: value = value if isinstance(value, list) else [value]
+            if key in ["preferred_cards", "best_cards"]: value = [str(item) for item in (value if isinstance(value, list) else [value]) if str(item) in self.cards][:20]
+            if key == "preferred_places": value = [str(item) for item in (value if isinstance(value, list) else [value]) if str(item) in self.places][:20]
             setattr(character, key, value)
+        self.normalize_character_profile(character)
+        self.ensure_behavior_weights()
         self.save()
         return character
 
@@ -2188,12 +2317,16 @@ class ContentStore:
         team = self.teams.get(team_id)
         if not team: return None
         if "members" in values:
-            members = [member for member in dict.fromkeys(values["members"]) if member in self.characters][:3]
+            members = [member for member in dict.fromkeys(values["members"] if isinstance(values["members"], list) else []) if member in self.characters][:3]
             if members: team.members = members
-            if team.leader not in team.members: team.leader = team.members[0]
-        if "name" in values and values["name"]: team.name = str(values["name"])
+        for key in ["name", "portrait", "description"]:
+            if key in values and values[key] is not None and str(values[key]).strip(): setattr(team, key, str(values[key]).strip())
         if "leader" in values and values["leader"] in team.members: team.leader = values["leader"]
-        if "preferred_places" in values: team.preferred_places = [place for place in dict.fromkeys(values["preferred_places"]) if place in self.places]
+        if "preferred_places" in values: team.preferred_places = [place for place in dict.fromkeys(values["preferred_places"] if isinstance(values["preferred_places"], list) else []) if place in self.places]
+        if "preferred_families" in values: team.preferred_families = values["preferred_families"]
+        if "preferred_card_kinds" in values: team.preferred_card_kinds = values["preferred_card_kinds"]
+        if "preferred_cards" in values: team.preferred_cards = values["preferred_cards"]
+        self.normalize_team_profile(team)
         self.save()
         return team
 
@@ -2213,27 +2346,49 @@ class ContentStore:
     def update_card(self, card_id, values):
         card = self.cards.get(card_id)
         if not card: return None
-        allowed = {"name", "kind", "stars", "atk", "defense", "family", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method", "effects"}
+        allowed = {"name", "kind", "stars", "atk", "defense", "family", "subtypes", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method", "effects"}
         merged = {key: getattr(card, key) for key in allowed}
         merged.update({key: value for key, value in values.items() if key in allowed})
         errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], merged["effects"])
         if errors: return None
         for key, value in merged.items(): setattr(card, key, value)
+        card.subtypes = self.normalize_profile_list(getattr(card, "subtypes", []), limit=2)
         card.frame = "yellow" if card.kind == "normal" else "orange" if card.kind == "effect" else "sky" if card.kind in ["spell", "field"] else "pink" if card.kind == "trap" else "violet" if card.kind == "fusion" else "blue" if card.kind == "ritual" else "red"
         card.legendary = card.kind == "legendary"
         card.limit = 1 if card.legendary else 3
         self.save()
         return card
 
-    def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id=""):
+    def starter_deck_cards(self, preferred_families=None, preferred_card_kinds=None, preferred_cards=None):
+        preferred_families = {str(item).lower() for item in (preferred_families or [])}
+        preferred_card_kinds = {str(item).lower() for item in (preferred_card_kinds or [])}
+        preferred_cards = [str(item) for item in (preferred_cards or []) if str(item) in self.cards]
+        ranked = list(self.cards.values())
+        def score(card):
+            return (1000 if card.id in preferred_cards else 0) + (100 if str(card.family).lower() in preferred_families else 0) + (50 if str(card.kind).lower() in preferred_card_kinds else 0) + int(card.atk or 0) + int(card.defense or 0)
+        ranked.sort(key=lambda card: (-score(card), card.id))
+        pool = [card.id for card in ranked if card.kind != "fusion"]
+        result = []
+        index = 0
+        while pool and len(DeckRules.normalized(result, self.cards)) < DeckRules.minimum and index < len(pool) * 4:
+            result.append(pool[index % len(pool)])
+            index += 1
+        normalized = DeckRules.normalized(result, self.cards)
+        return normalized if len(normalized) >= DeckRules.minimum else normalized + [item for item in pool if item not in normalized][:max(0, DeckRules.minimum - len(normalized))]
+
+    def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None):
         char_id = "character_" + str(int(time.time() * 1000))
-        display_name = name or "New Character"
+        display_name = str(name or "New Character").strip() or "New Character"
+        families = [str(family or "warrior").lower()]
         if deck_id not in self.decks:
             deck_id = "deck_" + str(int(time.time() * 1000))
-            self.decks[deck_id] = {"name": display_name + " Deck", "cards": list(self.cards)[:10], "media_folder": self.scaffold_entity("decks", deck_id, display_name + " Deck")}
+            deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck")
+            self.decks[deck_id] = {"name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": char_id, "cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
         folder = self.scaffold_entity("characters", char_id, display_name)
-        char = CharacterDef(char_id, display_name, portrait or "pfp_placeholder", clamp(int(stars), 1, 10), clamp(int(smartness), 1, 10), "stranger", [family or "warrior"], deck_id, "neutral", [], [], [], [], gender or "other", origin or "community", [], [], 1, folder)
+        char = CharacterDef(id=char_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(self.decks[deck_id].get("cards", [])), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
         self.characters[char_id] = char
+        self.normalize_character_profile(char)
+        self.ensure_behavior_weights()
         self.save()
         return char
 
@@ -2242,80 +2397,181 @@ class ContentStore:
         user_id = "user_" + str(timestamp)
         display_name = str(name or "New User").strip() or "New User"
         deck_id = user_id + "_deck"
-        card_ids = list(self.cards)[:10]
+        card_ids = self.starter_deck_cards(["warrior"])
         deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck", folder_name=deck_id + "_deck")
-        self.decks[deck_id] = {"name": display_name + " Deck", "cards": card_ids, "media_folder": deck_folder}
+        self.decks[deck_id] = {"name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": user_id, "cards": card_ids, "best_cards": [], "preferred_families": ["warrior"], "preferred_card_kinds": [], "media_folder": deck_folder}
         character_folder = self.scaffold_entity("characters", user_id, display_name, folder_name=user_id)
-        character = CharacterDef(user_id, display_name, portrait or "pfp_placeholder", 5, 5, "stranger", ["warrior"], deck_id, "neutral", [], [], [], list(card_ids), gender or "other", "user", [], [], 1, character_folder)
+        character = CharacterDef(id=user_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=5, smartness=5, relationship="stranger", preferred_families=["warrior"], deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(card_ids), gender=gender or "other", origin="user", best_cards=[], borrowed_cards=[], rank=1, media_folder=character_folder)
         self.characters[user_id] = character
         self.save_data.update({"active_user_id": user_id, "active_user_folder": character_folder, "setup_complete": True})
         self.world.setdefault("roles", {})["player_character"] = user_id
         self.save()
         return character
 
-    def export_cbp(self, kind, entity_id):
-        filename = DATA / "exports" / f"{entity_id}.cbp"
-        includes = {"cards": list(self.cards), "characters": list(self.characters), "decks": list(self.decks), "places": list(self.places), "teams": list(self.teams), "world": True, "logic": list(self.logic), "entity_media": []}
-        for category, registry in [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]:
-            for entity in registry.values():
-                root = DATA / getattr(entity, "media_folder", "")
-                if root.exists():
-                    includes["entity_media"].append({"category": category, "id": entity.id, "path": str(root.relative_to(DATA))})
-        manifest = {"schema": 3, "kind": kind, "entity_id": entity_id, "created": time.time(), "asset_contract": "gdd_nested_v1", "font_contract": "Noto Serif Display headings + DejaVu Sans UI", "includes": includes}
+    def package_scope(self, kind, entity_id, include_dependencies=True):
+        kind = str(kind or "world").lower().rstrip("s")
+        categories = {"cards": set(), "characters": set(), "decks": set(), "places": set(), "teams": set(), "logic": set()}
+        world = kind == "world"
+        if kind == "all":
+            for category, registry in [("cards", self.cards), ("characters", self.characters), ("decks", self.decks), ("places", self.places), ("teams", self.teams), ("logic", self.logic)]: categories[category] = set(registry)
+            world = True
+        elif kind == "card" and entity_id in self.cards: categories["cards"].add(entity_id)
+        elif kind == "character" and entity_id in self.characters:
+            categories["characters"].add(entity_id)
+            character = self.characters[entity_id]
+            if include_dependencies and character.deck_id in self.decks: categories["decks"].add(character.deck_id)
+            if include_dependencies and character.preferred_places: categories["places"].update(item for item in character.preferred_places if item in self.places)
+        elif kind == "deck" and entity_id in self.decks: categories["decks"].add(entity_id)
+        elif kind == "team" and entity_id in self.teams:
+            categories["teams"].add(entity_id)
+            team = self.teams[entity_id]
+            if include_dependencies:
+                categories["characters"].update(item for item in team.members if item in self.characters)
+                categories["places"].update(item for item in team.preferred_places if item in self.places)
+        elif kind == "place" and entity_id in self.places: categories["places"].add(entity_id)
+        elif kind == "world":
+            world = True
+            for category, registry in [("cards", self.cards), ("characters", self.characters), ("decks", self.decks), ("places", self.places), ("teams", self.teams), ("logic", self.logic)]: categories[category] = set(registry)
+        if include_dependencies:
+            for deck_id in list(categories["decks"]):
+                categories["cards"].update(item for item in self.decks.get(deck_id, {}).get("cards", []) if item in self.cards)
+            for character_id in list(categories["characters"]):
+                character = self.characters.get(character_id)
+                if character:
+                    categories["cards"].update(item for item in character.preferred_cards + character.best_cards + character.library_cards if item in self.cards)
+                    if character.deck_id in self.decks: categories["decks"].add(character.deck_id)
+            for team_id in list(categories["teams"]):
+                team = self.teams.get(team_id)
+                if team: categories["characters"].update(item for item in team.members if item in self.characters)
+            for character_id in list(categories["characters"]):
+                character = self.characters.get(character_id)
+                if character and include_dependencies and character.deck_id in self.decks: categories["decks"].add(character.deck_id)
+            for deck_id in list(categories["decks"]): categories["cards"].update(item for item in self.decks.get(deck_id, {}).get("cards", []) if item in self.cards)
+        for card_id in list(categories["cards"]):
+            card = self.cards.get(card_id)
+            if card and card.logic_graph and card.logic_graph in self.logic: categories["logic"].add(card.logic_graph)
+        return {"kind": kind, "entity_id": entity_id, "categories": categories, "world": world}
+
+    def package_media_items(self, scope):
+        result = []
+        for category, ids in scope["categories"].items():
+            registry = self.logic if category == "logic" else self.decks if category == "decks" else getattr(self, category, {})
+            for entity_id in ids:
+                entity = registry.get(entity_id) if isinstance(registry, dict) else None
+                folder = entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "") if entity else ""
+                if not folder: continue
+                root = DATA / folder
+                if not root.exists() or root == DATA: continue
+                result.append({"category": category, "id": entity_id, "path": str(root.relative_to(DATA))})
+        return result
+
+    def export_cbp(self, kind, entity_id, include_experience=False, include_dependencies=True):
+        scope = self.package_scope(kind, entity_id, include_dependencies)
+        filename = DATA / "exports" / f"{slug(entity_id or kind)}.cbp"
+        includes = {key: sorted(value) for key, value in scope["categories"].items()}
+        media_items = self.package_media_items(scope)
+        manifest = {"schema": 4, "kind": scope["kind"], "entity_id": entity_id, "created": time.time(), "asset_contract": "gdd_nested_v1", "experience_included": bool(include_experience), "world_included": bool(scope["world"]), "dependencies_included": bool(include_dependencies), "includes": includes, "required_categories": [key for key, value in includes.items() if value], "entity_media": media_items, "package_contract": "entity_dependency_closure_v1"}
         with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("manifest.json", json.dumps(manifest, indent=2))
-            for path in [DATA / "cards.json", DATA / "characters.json", DATA / "decks.json", DATA / "places.json", DATA / "teams.json", DATA / "world.json"]:
-                if path.exists(): archive.write(path, path.name)
-            for path in (DATA / "logic").glob("*.json"):
-                archive.write(path, "logic/" + path.name)
-            for item in includes["entity_media"]:
+            for category, ids in scope["categories"].items():
+                if category == "logic":
+                    for logic_id in ids:
+                        path = DATA / "logic" / f"{logic_id}.json"
+                        if path.exists(): archive.write(path, "logic/" + path.name)
+                elif category == "decks":
+                    archive.writestr("decks.json", json.dumps({key: self.decks[key] for key in ids if key in self.decks}, indent=2))
+                else:
+                    registry = getattr(self, category)
+                    if category == "places": records = [self.authored_entry(registry[key], {"current_duels"}) for key in ids if key in registry]
+                    else: records = [self.authored_entry(registry[key], CHARACTER_RUNTIME_FIELDS if category == "characters" else TEAM_RUNTIME_FIELDS if category == "teams" else set()) for key in ids if key in registry]
+                    archive.writestr(category + ".json", json.dumps(records, indent=2))
+            if scope["world"]: archive.writestr("world.json", json.dumps(self.world, indent=2))
+            if include_experience:
+                for category, ids in [("characters", scope["categories"]["characters"]), ("teams", scope["categories"]["teams"])]:
+                    for entity_id in ids:
+                        runtime_path = self.runtime_path(category, entity_id)
+                        if runtime_path.exists(): archive.write(runtime_path, f"runtime/{category}/{runtime_path.name}")
+            for item in media_items:
                 root = DATA / item["path"]
-                for path in root.rglob("*"):
-                    if path.is_file(): archive.write(path, "data/" + str(path.relative_to(DATA)))
+                for media_path in root.rglob("*"):
+                    if media_path.is_file() and media_path != filename and DATA / "exports" not in media_path.parents: archive.write(media_path, "data/" + str(media_path.relative_to(DATA)))
         return filename
 
     def inspect_cbp(self, path):
         with zipfile.ZipFile(path) as archive:
-            return json.loads(archive.read("manifest.json").decode("utf-8"))
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+            manifest["available_files"] = sorted(archive.namelist())
+            return manifest
 
-    def import_cbp(self, path, include=None):
-        include = set(include or ["cards", "characters", "decks", "places", "teams", "world", "logic"])
+    def import_cbp(self, path, include=None, include_experience=None):
         with zipfile.ZipFile(path) as archive:
-            names = set(archive.namelist())
-            if "cards" in include and "cards.json" in names:
-                self.cards.update({entry["id"]: CardDef(**entry) for entry in json.loads(archive.read("cards.json"))})
-            if "characters" in include and "characters.json" in names:
-                self.characters.update({entry["id"]: CharacterDef(**entry) for entry in json.loads(archive.read("characters.json"))})
-            if "decks" in include and "decks.json" in names: self.decks.update(json.loads(archive.read("decks.json")))
-            if "places" in include and "places.json" in names:
-                self.places.update({entry["id"]: self.place_from_entry(entry) for entry in json.loads(archive.read("places.json"))})
-                self.sync_place_runtime()
-            if "teams" in include and "teams.json" in names: self.teams.update({entry["id"]: TeamDef(**entry) for entry in json.loads(archive.read("teams.json"))})
-            if "world" in include and "world.json" in names:
-                incoming = json.loads(archive.read("world.json"))
-                for key, values in incoming.items():
-                    if isinstance(values, list):
-                        current = self.world.setdefault(key, [])
-                        current.extend(item for item in values if item.get("id") not in {entry.get("id") for entry in current})
-                    elif isinstance(values, dict): self.world[key] = {**self.world.get(key, {}), **values}
-            if "logic" in include:
-                for name in names:
-                    if name.startswith("logic/") and name.endswith(".json"):
-                        graph = LogicGraph.from_dict(json.loads(archive.read(name)))
-                        self.logic[Path(name).stem] = graph
-            if "cards" in include or "characters" in include or "teams" in include or "places" in include:
-                for name in names:
-                    if not name.startswith("data/") or name.endswith("/"): continue
-                    relative = Path(name[5:])
-                    if any(part in ["", ".", ".."] for part in relative.parts): continue
-                    category = relative.parts[0] if relative.parts else ""
-                    if category not in include or category not in ["cards", "characters", "teams", "places"]: continue
-                    target = DATA / relative
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(archive.read(name))
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+            available = set(archive.namelist())
+            requested = set(include or manifest.get("required_categories", []))
+            if include_experience is None: include_experience = bool(manifest.get("experience_included", False))
+            imported = []
+            def records(category):
+                name = category + ".json"
+                if name not in available: return []
+                payload = json.loads(archive.read(name).decode("utf-8"))
+                return payload if isinstance(payload, list) else list(payload.values())
+            allowed = manifest.get("includes", {})
+            if "cards" in requested:
+                for entry in records("cards"):
+                    if entry.get("id") in set(allowed.get("cards", [])): self.cards[entry["id"]] = CardDef(**entry)
+                imported.append("cards")
+            if "characters" in requested:
+                for entry in records("characters"):
+                    if entry.get("id") in set(allowed.get("characters", [])):
+                        entry.setdefault("relationship", "stranger")
+                        entry.setdefault("preferred_families", ["warrior"])
+                        entry.setdefault("deck_id", "")
+                        self.characters[entry["id"]] = CharacterDef(**entry)
+                imported.append("characters")
+            if "decks" in requested and "decks.json" in available:
+                incoming = json.loads(archive.read("decks.json").decode("utf-8"))
+                for deck_id in allowed.get("decks", []):
+                    if deck_id in incoming: self.decks[deck_id] = dict(incoming[deck_id])
+                imported.append("decks")
+            if "places" in requested:
+                for entry in records("places"):
+                    if entry.get("id") in set(allowed.get("places", [])): self.places[entry["id"]] = self.place_from_entry(entry)
+                imported.append("places")
+            if "teams" in requested:
+                for entry in records("teams"):
+                    if entry.get("id") in set(allowed.get("teams", [])): self.teams[entry["id"]] = TeamDef(**entry)
+                imported.append("teams")
+            if "logic" in requested:
+                for name in available:
+                    if name.startswith("logic/") and name.endswith(".json") and Path(name).stem in set(allowed.get("logic", [])): self.logic[Path(name).stem] = LogicGraph.from_dict(json.loads(archive.read(name)))
+                imported.append("logic")
+            if include_experience:
+                for name in available:
+                    if not name.startswith("runtime/") or not name.endswith(".json"): continue
+                    parts = Path(name).parts
+                    if len(parts) != 3 or parts[1] not in ["characters", "teams"]: continue
+                    category, entity_id = parts[1], Path(parts[2]).stem
+                    if entity_id not in set(allowed.get(category, [])): continue
+                    payload = json.loads(archive.read(name).decode("utf-8"))
+                    target = self.characters.get(entity_id) if category == "characters" else self.teams.get(entity_id)
+                    state = payload.get("state", payload) if isinstance(payload, dict) else {}
+                    if target and isinstance(state, dict):
+                        for key, value in state.items():
+                            if hasattr(target, key): setattr(target, key, value)
+            for name in available:
+                if not name.startswith("data/") or name.endswith("/"): continue
+                relative = Path(name[5:])
+                if any(part in ["", ".", ".."] for part in relative.parts): continue
+                category = relative.parts[0] if relative.parts else ""
+                if category not in ["cards", "characters", "teams", "places", "decks"] or category not in requested: continue
+                target = DATA / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(archive.read(name))
+        self.ensure_behavior_weights()
         self.ensure_entity_scaffolds()
+        self.media.scan()
         self.save()
-        return {"imported": sorted(include), "source": str(path), "nested_media": True}
+        return {"imported": sorted(imported), "source": str(path), "nested_media": True, "manifest": manifest, "experience_included": bool(include_experience)}
 
 
 def query_entities(values, query="", sort_mode="name"):
@@ -2809,8 +3065,7 @@ class DuelEngine:
         changes = {"thank": ("grateful", "ally"), "taunt": ("heated", "enemy"), "beg": ("uneasy", "opponent"), "flirt": ("curious", "ally"), "insult": ("angry", "enemy"), "apologize": ("calm", "opponent")}
         mood, relation = changes.get(action, ("neutral", "opponent"))
         target.mood = mood
-        if relation == "ally" and target.id not in actor.allies: actor.allies.append(target.id)
-        if relation == "enemy" and target.id not in actor.enemies: actor.enemies.append(target.id)
+        self.store.set_relationship(actor.id, target.id, relation, action)
         actor.history.append({"type": "interaction", "action": action, "target": target.id, "time": time.time()})
         target.history.append({"type": "interaction_received", "action": action, "actor": actor.id, "time": time.time()})
         self.log(f"{actor.name} {action}s with {target.name}; mood becomes {target.mood}.")
@@ -3725,15 +3980,56 @@ class DuelEngine:
         if state == "hidden": return {"id": "hidden", "kind": "hidden", "position": card.position, "face_up": False}
         return {"id": card.card.id, "name": card.card.name, "kind": card.card.kind, "position": card.position, "face_up": bool(card.face_up), "battle_position": card.battle_position, "visibility": state}
 
+    def knowledge_character(self, viewer):
+        side = viewer if isinstance(viewer, Duelist) else self.player if str(viewer) == "player" else self.opponent
+        return side.character if side else None
+
+    def known_card(self, viewer, card_or_id):
+        card_id = card_or_id.card.id if isinstance(card_or_id, CardInstance) else str(card_or_id)
+        side = viewer if isinstance(viewer, Duelist) else self.player if str(viewer) == "player" else self.opponent
+        if not side: return False
+        if isinstance(card_or_id, CardInstance) and self.owner_of(card_or_id) is side: return True
+        viewer_key = self.side_key(side)
+        if card_id in self.knowledge.get(viewer_key, {}).get("card_ids", []): return True
+        memory = getattr(side.character, "knowledge_state", {}).get("cards", {})
+        item = memory.get(card_id, {}) if isinstance(memory, dict) else {}
+        return float(item.get("confidence", 0.0) or 0.0) >= 0.35
+
+    def learn_visible_card(self, viewer, card, visibility):
+        character = self.knowledge_character(viewer)
+        if not character: return
+        state = character.knowledge_state.setdefault("cards", {})
+        record = dict(state.get(card.card.id, {}) or {})
+        already_seen = record.get("last_seen_turn") == self.turn and record.get("last_seen_phase") == self.phase and record.get("visibility") == visibility
+        record.update({"card_id": card.card.id, "last_seen_turn": self.turn, "last_seen_phase": self.phase, "visibility": visibility, "confidence": 1.0})
+        if not already_seen: record["sightings"] = int(record.get("sightings", 0)) + 1
+        state[card.card.id] = record
+        owner = self.owner_of(card)
+        if owner and owner is not (self.player if viewer is self.player or str(viewer) == "player" else self.opponent):
+            opponents = character.knowledge_state.setdefault("opponents", {})
+            opponent = opponents.setdefault(owner.character.id, {"cards": {}, "effects": {}, "sightings": 0})
+            prior = dict(opponent.get("cards", {}).get(card.card.id, {}) or {})
+            seen_before = prior.get("last_seen_turn") == self.turn and prior.get("last_seen_phase") == self.phase
+            prior.update({"last_seen_turn": self.turn, "last_seen_phase": self.phase, "confidence": 1.0})
+            if not seen_before: prior["sightings"] = int(prior.get("sightings", 0)) + 1
+            opponent.setdefault("cards", {})[card.card.id] = prior
+            if not seen_before:
+                opponent["sightings"] = int(opponent.get("sightings", 0)) + 1
+                character.learned_cards[card.card.id] = int(character.learned_cards.get(card.card.id, 0)) + 1
+        if not already_seen: character.learning_state["observations"] = int(character.learning_state.get("observations", 0)) + 1
+
     def observe_visible_information(self, viewer):
         viewer_key = self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer)
         if viewer_key not in self.knowledge: return
+        side = self.player if viewer_key == "player" else self.opponent
         known_cards = set(self.knowledge[viewer_key].get("card_ids", []))
         known_effects = set(self.knowledge[viewer_key].get("effect_ids", []))
         effect_facts = dict(self.knowledge[viewer_key].get("effect_facts", {}))
         for card in self.card_instances():
-            if self.visibility(viewer, card) == "hidden": continue
+            visibility = self.visibility(side, card)
+            if visibility == "hidden": continue
             known_cards.add(card.card.id)
+            self.learn_visible_card(side, card, visibility)
             for index, raw in enumerate(card.card.effects):
                 spec = EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index))
                 known_effects.add(spec.effect_id)
@@ -4715,6 +5011,11 @@ class DuelEngine:
         if isinstance(item, Duelist): return max(0, 8000 - item.hp) if item is enemy else -max(0, 8000 - item.hp)
         if not isinstance(item, CardInstance): return 0
         owner = self.owner_of(item)
+        known = self.known_card(actor, item)
+        if owner is enemy and not known:
+            score = 260 + (80 if item.position in ["set", "spell_trap"] else 0)
+            if spec and any(action.get("name") in ["destroy", "banish", "send_to_graveyard", "return_to_hand"] for action in spec.actions): score += 80
+            return score
         score = self.effective_atk(item, owner) if item.battle_position == "attack" else self.effective_defense(item, owner)
         if owner is enemy: score += 900
         else: score = -score
@@ -4728,13 +5029,22 @@ class DuelEngine:
         enemy = self.other(actor)
         character = actor.character
         weights = character.behavior_weights
+        family = str(card.card.family).lower()
+        kind = str(card.card.kind).lower()
+        subtypes = {str(item).lower() for item in getattr(card.card, "subtypes", [])}
         family_weights = weights.get("family_weights", {})
+        kind_weights = weights.get("card_kind_weights", {})
+        subtype_weights = weights.get("subtype_weights", {})
         phase_weights = weights.get("phase_weights", {})
-        state = "enemy" if enemy.character.id in character.enemies else "ally" if enemy.character.id in character.allies else character.relationship if character.relationship in ["enemy", "ally"] else "stranger"
-        state_weight = float(weights.get("state_weights", {}).get(state, 1.0))
-        family_weight = float(family_weights.get(card.card.family, 0.0))
+        relation = self.store.relationship_for(character.id, enemy.character.id)
+        state_weight = float(weights.get("state_weights", {}).get(relation, 1.0))
+        family_weight = float(family_weights.get(family, 0.0))
+        kind_weight = float(kind_weights.get(kind, 0.0))
+        subtype_weight = sum(float(subtype_weights.get(item, 0.0)) for item in subtypes)
+        preferred_bonus = 120 if card.card.id in character.preferred_cards or card.card.id in character.best_cards else 0
         learned_weight = int(character.learned_cards.get(card.card.id, 0)) * float(weights.get("adaptation", 1.0))
         phase_weight = float(phase_weights.get(self.phase, 1.0))
+        technique = character.technique_profile
         urgency = float(weights.get("risk_tolerance", 3.0)) if mode in ["monster", "set"] else float(weights.get("reward_value", 5.0))
         hp_pressure = max(0, 8000 - actor.hp) / 800.0 if mode == "spell" else 0.0
         effect_score = 0
@@ -4742,14 +5052,16 @@ class DuelEngine:
             spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
             if not spec.validate():
                 effect_score += self.declarative_effect_score(card, spec, actor, enemy)
-                if spec.trigger == "flip" and mode == "set": effect_score += 500
-                if spec.trigger == "battle" and mode == "set": effect_score += 700
+                if spec.trigger == "flip" and mode == "set": effect_score += 500 * float(technique.get("defense", 5.0)) / 5.0
+                if spec.trigger == "battle" and mode == "set": effect_score += 700 * float(technique.get("bluff", 5.0)) / 5.0
         stat_score = card.atk + card.card.stars * 40
-        if mode == "set": stat_score = card.defense * 1.25 + (card.atk * 0.15)
-        if mode == "trap": stat_score = effect_score + 150
+        if mode == "set": stat_score = card.defense * (1.0 + float(technique.get("defense", 5.0)) / 20.0) + card.atk * 0.15
+        if mode == "trap": stat_score = effect_score + 150 + float(technique.get("bluff", 5.0)) * 20
+        if mode == "monster": stat_score += float(technique.get("aggression", 5.0)) * card.atk / 50.0
+        if mode == "spell": stat_score += float(technique.get("control", 5.0)) * 20 + float(technique.get("resource", 5.0)) * 10
         bias_key = "summon_bias" if mode == "monster" else "set_bias" if mode == "set" else "activation_bias" if mode in ["spell", "trap"] else "summon_bias"
         bias = max(0.1, float(weights.get("duel", {}).get(bias_key, 1.0)))
-        return (stat_score + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * 200 + effect_score) * bias
+        return (stat_score + family_weight * 100 * phase_weight * state_weight + kind_weight * 45 + subtype_weight * 30 + preferred_bonus + learned_weight * 20 + urgency * 25 + hp_pressure * 200 + effect_score) * bias
 
     def ai_activation_spec(self, card):
         return next((EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects) if EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).trigger == "activate"), None)
@@ -4825,7 +5137,8 @@ class DuelEngine:
     def ai_battle_target_score(self, attacker, target, actor):
         defender = self.other(actor)
         attack_value = self.effective_atk(attacker, actor)
-        target_value = self.battle_value(target, defender)
+        target_known = self.known_card(actor, target)
+        target_value = self.battle_value(target, defender) if target_known else 1500.0 + float(actor.character.cognition.get("uncertainty", 5.0)) * 40.0
         score = 0
         if target.battle_position == "attack":
             score += (attack_value - target_value) * 4
@@ -4833,7 +5146,8 @@ class DuelEngine:
             elif attack_value < target_value: score -= 900
         else:
             score += 240 if attack_value > target_value else -180
-        if not target.face_up: score += 80
+        if not target.face_up:
+            score += 80 if target_known else -float(actor.character.technique_profile.get("risk", 5.0)) * 25
         target_score = self.ai_target_score(target, actor)
         score += target_score
         if target.battle_position == "defense" and attack_value <= target_value:

@@ -10,7 +10,12 @@
     "preferred_places": [
       "neon_playground"
     ],
-    "media_folder": "teams/the_duelers_1787428876584_the_duelers"
+    "media_folder": "teams/the_duelers_1787428876584_the_duelers",
+    "portrait": "team_placeholder",
+    "description": "",
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "preferred_cards": []
   },
   {
     "id": "trio_team",
@@ -24,6 +29,11 @@
     "preferred_places": [
       "mystery_void"
     ],
-    "media_folder": "teams/trio_mysterio_1787428876585_trio_team"
+    "media_folder": "teams/trio_mysterio_1787428876585_trio_team",
+    "portrait": "team_placeholder",
+    "description": "",
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "preferred_cards": []
   }
 ]

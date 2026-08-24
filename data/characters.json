@@ -13,7 +13,53 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/rival_echo_1787428876577_rival_echo"
+    "media_folder": "characters/rival_echo_1787428876577_rival_echo",
+    "description": "",
+    "preferred_card_kinds": [],
+    "preferred_subtypes": [],
+    "preferred_cards": [],
+    "preferred_places": [],
+    "technique_profile": {
+      "aggression": 5.0,
+      "defense": 5.0,
+      "control": 5.0,
+      "combo": 5.0,
+      "resource": 5.0,
+      "bluff": 5.0,
+      "risk": 5.0,
+      "adaptation": 5.0
+    },
+    "cognition": {
+      "smartness": 7.0,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "uncertainty": 5.0
+    },
+    "learning_policy": {
+      "observation_rate": 5.0,
+      "retention": 5.0,
+      "adaptation_rate": 5.0,
+      "decay": 1.0,
+      "history_limit": 10.0
+    },
+    "state_rules": {
+      "deck_ranges": {
+        "stranger": [
+          1,
+          10
+        ],
+        "ally": [
+          1,
+          10
+        ],
+        "enemy": [
+          1,
+          10
+        ]
+      },
+      "preferred_state": "stranger"
+    }
   },
   {
     "id": "trio_mysterio",
@@ -29,7 +75,53 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/trio_mysterio_1787428876578_trio_mysterio"
+    "media_folder": "characters/trio_mysterio_1787428876578_trio_mysterio",
+    "description": "",
+    "preferred_card_kinds": [],
+    "preferred_subtypes": [],
+    "preferred_cards": [],
+    "preferred_places": [],
+    "technique_profile": {
+      "aggression": 5.0,
+      "defense": 5.0,
+      "control": 5.0,
+      "combo": 5.0,
+      "resource": 5.0,
+      "bluff": 5.0,
+      "risk": 5.0,
+      "adaptation": 5.0
+    },
+    "cognition": {
+      "smartness": 10.0,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "uncertainty": 5.0
+    },
+    "learning_policy": {
+      "observation_rate": 5.0,
+      "retention": 5.0,
+      "adaptation_rate": 5.0,
+      "decay": 1.0,
+      "history_limit": 10.0
+    },
+    "state_rules": {
+      "deck_ranges": {
+        "stranger": [
+          1,
+          10
+        ],
+        "ally": [
+          1,
+          10
+        ],
+        "enemy": [
+          1,
+          10
+        ]
+      },
+      "preferred_state": "stranger"
+    }
   },
   {
     "id": "mystery_veil",
@@ -45,7 +137,53 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/mystery_veil_1787428876580_mystery_veil"
+    "media_folder": "characters/mystery_veil_1787428876580_mystery_veil",
+    "description": "",
+    "preferred_card_kinds": [],
+    "preferred_subtypes": [],
+    "preferred_cards": [],
+    "preferred_places": [],
+    "technique_profile": {
+      "aggression": 5.0,
+      "defense": 5.0,
+      "control": 5.0,
+      "combo": 5.0,
+      "resource": 5.0,
+      "bluff": 5.0,
+      "risk": 5.0,
+      "adaptation": 5.0
+    },
+    "cognition": {
+      "smartness": 10.0,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "uncertainty": 5.0
+    },
+    "learning_policy": {
+      "observation_rate": 5.0,
+      "retention": 5.0,
+      "adaptation_rate": 5.0,
+      "decay": 1.0,
+      "history_limit": 10.0
+    },
+    "state_rules": {
+      "deck_ranges": {
+        "stranger": [
+          1,
+          10
+        ],
+        "ally": [
+          1,
+          10
+        ],
+        "enemy": [
+          1,
+          10
+        ]
+      },
+      "preferred_state": "stranger"
+    }
   },
   {
     "id": "mystery_arc",
@@ -61,6 +199,52 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/mystery_arc_1787428876582_mystery_arc"
+    "media_folder": "characters/mystery_arc_1787428876582_mystery_arc",
+    "description": "",
+    "preferred_card_kinds": [],
+    "preferred_subtypes": [],
+    "preferred_cards": [],
+    "preferred_places": [],
+    "technique_profile": {
+      "aggression": 5.0,
+      "defense": 5.0,
+      "control": 5.0,
+      "combo": 5.0,
+      "resource": 5.0,
+      "bluff": 5.0,
+      "risk": 5.0,
+      "adaptation": 5.0
+    },
+    "cognition": {
+      "smartness": 8.0,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "uncertainty": 5.0
+    },
+    "learning_policy": {
+      "observation_rate": 5.0,
+      "retention": 5.0,
+      "adaptation_rate": 5.0,
+      "decay": 1.0,
+      "history_limit": 10.0
+    },
+    "state_rules": {
+      "deck_ranges": {
+        "stranger": [
+          1,
+          10
+        ],
+        "ally": [
+          1,
+          10
+        ],
+        "enemy": [
+          1,
+          10
+        ]
+      },
+      "preferred_state": "stranger"
+    }
   }
 ]
