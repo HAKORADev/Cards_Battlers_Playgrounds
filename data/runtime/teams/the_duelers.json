@@ -3,10 +3,10 @@
   "id": "the_duelers",
   "category": "teams",
   "state": {
-    "rank": 1,
-    "history": [],
     "effect_locked": false,
-    "team_effect": {},
-    "relationship": "stranger"
+    "history": [],
+    "rank": 1,
+    "relationship": "stranger",
+    "team_effect": {}
   }
 }

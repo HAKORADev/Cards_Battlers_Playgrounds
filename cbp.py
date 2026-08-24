@@ -1127,8 +1127,8 @@ class ContentStore:
         self.world_checkpoint_interval = 15.0
         self.world_sessions = {}
         self.rules = read_json(DATA / "rules.json", {})
-        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0)]: self.world.setdefault(key, default)
+        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}})
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
         self.load()
 
     def role_config(self):
@@ -1189,6 +1189,14 @@ class ContentStore:
     def runtime_entry(self, entity, runtime_fields):
         return {key: getattr(entity, key) for key in runtime_fields if hasattr(entity, key)}
 
+    def place_from_entry(self, entry):
+        values = dict(entry)
+        current_duels = int(values.pop("current_duels", 0) or 0)
+        return PlaceDef(current_duels=current_duels, **values)
+
+    def sync_place_runtime(self):
+        self.world["place_occupancy"] = {place.id: int(place.current_duels) for place in self.places.values()}
+
     def load(self):
         cards_data = read_json(DATA / "cards.json", [])
         character_data = read_json(DATA / "characters.json", [])
@@ -1201,11 +1209,14 @@ class ContentStore:
         for character in self.characters.values():
             if not character.library_cards: character.library_cards = list(self.decks.get(character.deck_id, {}).get("cards", []))[:6]
         for deck in self.decks.values(): deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.cards)
-        self.places = {entry["id"]: PlaceDef(**entry) for entry in read_json(DATA / "places.json", [])}
+        self.places = {entry["id"]: self.place_from_entry(entry) for entry in read_json(DATA / "places.json", [])}
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
-        legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
+        legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}})
         self.world = self.migrate_world_state(legacy_world)
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0)]: self.world.setdefault(key, default)
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
+        occupancy = self.world.get("place_occupancy", {}) if isinstance(self.world, dict) else {}
+        for place in self.places.values(): place.current_duels = int(occupancy.get(place.id, place.current_duels) or 0)
+        self.sync_place_runtime()
         if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
         self.rules = read_json(DATA / "rules.json", self.rules if isinstance(self.rules, dict) else {})
         self.logic = {}
@@ -1283,18 +1294,18 @@ class ContentStore:
             write_json(DATA / "cards.json", [card.__dict__ for card in self.cards.values()])
             write_json(DATA / "characters.json", [self.authored_entry(char, CHARACTER_RUNTIME_FIELDS) for char in self.characters.values()])
             write_json(DATA / "decks.json", self.decks)
-            write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
+            write_json(DATA / "places.json", [self.authored_entry(place, {"current_duels"}) for place in self.places.values()])
             write_json(DATA / "teams.json", [self.authored_entry(team, TEAM_RUNTIME_FIELDS) for team in self.teams.values()])
         if "runtime_characters" in requested:
             for char in self.characters.values(): write_json(self.runtime_path("characters", char.id), {"schema": 2, "id": char.id, "category": "characters", "state": self.runtime_entry(char, CHARACTER_RUNTIME_FIELDS)})
         if "runtime_teams" in requested:
             for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
         if "runtime_world" in requested:
-            write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
+            self.sync_place_runtime()
             world_keys = ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
             defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
             for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
-            write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "collections": world_keys})
+            write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
         if "logic" in requested:
             for key, graph in self.logic.items(): write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
@@ -1305,6 +1316,7 @@ class ContentStore:
         place = self.places.get(place_id)
         if not place or place.current_duels >= place.capacity: return False
         place.current_duels += 1
+        self.sync_place_runtime()
         self.save()
         return True
 
@@ -1312,6 +1324,7 @@ class ContentStore:
         place = self.places.get(place_id)
         if place:
             place.current_duels = max(0, place.current_duels - 1)
+            self.sync_place_runtime()
             self.save()
 
     def world_context(self):
@@ -1868,10 +1881,10 @@ class ContentStore:
     def update_card(self, card_id, values):
         card = self.cards.get(card_id)
         if not card: return None
-        allowed = {"name", "kind", "stars", "atk", "defense", "family", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method"}
+        allowed = {"name", "kind", "stars", "atk", "defense", "family", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method", "effects"}
         merged = {key: getattr(card, key) for key in allowed}
         merged.update({key: value for key, value in values.items() if key in allowed})
-        errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], card.effects)
+        errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], merged["effects"])
         if errors: return None
         for key, value in merged.items(): setattr(card, key, value)
         card.frame = "yellow" if card.kind == "normal" else "orange" if card.kind == "effect" else "sky" if card.kind in ["spell", "field"] else "pink" if card.kind == "trap" else "violet" if card.kind == "fusion" else "blue" if card.kind == "ritual" else "red"
@@ -1942,7 +1955,9 @@ class ContentStore:
             if "characters" in include and "characters.json" in names:
                 self.characters.update({entry["id"]: CharacterDef(**entry) for entry in json.loads(archive.read("characters.json"))})
             if "decks" in include and "decks.json" in names: self.decks.update(json.loads(archive.read("decks.json")))
-            if "places" in include and "places.json" in names: self.places.update({entry["id"]: PlaceDef(**entry) for entry in json.loads(archive.read("places.json"))})
+            if "places" in include and "places.json" in names:
+                self.places.update({entry["id"]: self.place_from_entry(entry) for entry in json.loads(archive.read("places.json"))})
+                self.sync_place_runtime()
             if "teams" in include and "teams.json" in names: self.teams.update({entry["id"]: TeamDef(**entry) for entry in json.loads(archive.read("teams.json"))})
             if "world" in include and "world.json" in names:
                 incoming = json.loads(archive.read("world.json"))
@@ -2985,41 +3000,25 @@ class DuelEngine:
         self.run_logic(card, "summon", actor, self.other(actor))
         return True, ""
 
+    def _manual_procedure_summon(self, card, actor, kind, materials):
+        procedure = ProcedureSpec.from_card(card)
+        if procedure.kind != kind: return False, "The card does not declare the requested summon procedure."
+        started = self.begin_summon_procedure(card, actor, procedure)
+        if not started[0]: return started
+        if self.pending_cost: return True, "pending_cost"
+        return self.resolve_pending_procedure(materials)
+
     def fusion_summon(self, card, materials=None):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
         if card.card.summon_method != "fusion" or card not in self.player.extra: return False, "Select a Fusion monster from the Extra Deck."
-        if materials is None: return self.begin_summon_procedure(card, self.player, ProcedureSpec.from_card(card))
         procedure = ProcedureSpec.from_card(card)
-        valid, reason = self.validate_procedure_materials(card, materials, self.player, procedure)
-        if not valid: return False, reason
-        if not any(value is None for value in self.player.monsters): return False, "All five monster zones are occupied."
-        source_zone = card.position
-        paid, reason = self.pay_procedure_materials(materials, self.player, procedure.material_destination)
-        if not paid: return False, reason
-        placed, reason = self.place_procedure_summon(card, self.player, procedure.source_method or "fusion", source_zone, None, "fusion_procedure")
-        if not placed: return False, reason
-        self.log(f"{self.player.name} fusion summons {card.card.name}.")
-        self.react("fusion_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.run_logic(card, "summon", self.player, self.opponent)
-        return True, ""
+        return self.begin_summon_procedure(card, self.player, procedure) if materials is None else self._manual_procedure_summon(card, self.player, "fusion", materials)
 
     def ritual_summon(self, card, tributes=None):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Ritual summoning is only available during your main phase."
         if card.card.summon_method != "ritual" or card not in self.player.hand: return False, "Select a Ritual monster from your hand."
-        if tributes is None: return self.begin_summon_procedure(card, self.player, ProcedureSpec.from_card(card))
         procedure = ProcedureSpec.from_card(card)
-        valid, reason = self.validate_procedure_materials(card, tributes, self.player, procedure)
-        if not valid: return False, reason
-        if not any(value is None for value in self.player.monsters): return False, "All five monster zones are occupied."
-        source_zone = card.position
-        paid, reason = self.pay_procedure_materials(tributes, self.player, procedure.material_destination)
-        if not paid: return False, reason
-        placed, reason = self.place_procedure_summon(card, self.player, procedure.source_method or "ritual", source_zone, None, "ritual_procedure")
-        if not placed: return False, reason
-        self.log(f"{self.player.name} ritual summons {card.card.name}.")
-        self.react("ritual_summon", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
-        self.run_logic(card, "summon", self.player, self.opponent)
-        return True, ""
+        return self.begin_summon_procedure(card, self.player, procedure) if tributes is None else self._manual_procedure_summon(card, self.player, "ritual", tributes)
 
     def summon(self, card, actor=None):
         actor = actor or self.player
@@ -6135,10 +6134,11 @@ class CardMakerScene(Scene):
         self.materials = list(card.materials) if card else []
         self.materials_text = TextInput((80, 365, 640, 34), ", ".join(self.materials))
         self.ritual_cost = int(card.ritual_cost) if card else 0
+        self.effects = [dict(raw) for raw in card.effects] if card else []
         self.refresh_buttons()
 
     def refresh_buttons(self):
-        self.buttons = [Button((420, 150, 150, 34), "TYPE: " + self.kind.upper(), lambda: self.cycle_kind(), COLORS["violet"]), Button((590, 150, 150, 34), "FAMILY: " + self.family.upper(), lambda: self.cycle_family(), COLORS["cyan"]), Button((420, 200, 150, 34), "LOGIC: " + (self.logic_graph or "NONE").upper(), lambda: self.cycle_logic(), COLORS["gold"]), Button((590, 200, 150, 34), "TARGET: " + self.targets[0].upper(), lambda: self.cycle_target(), COLORS["green"]), Button((80, 340, 110, 34), "STAR +", lambda: self.change("stars", 1)), Button((200, 340, 110, 34), "ATK +", lambda: self.change("atk", 100)), Button((320, 340, 110, 34), "DEF +", lambda: self.change("defense", 100)), Button((440, 340, 150, 34), "TIMING", lambda: self.cycle_timing()), Button((80, 410, 180, 34), "SUMMON MODE", lambda: self.cycle_summon()), Button((280, 410, 180, 34), "TARGET COUNT", lambda: self.cycle_target_count()), Button((80, 470, 240, 38), "SAVE MODIFIED" if self.card_id else "CREATE CARD", lambda: self.save_card(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((420, 150, 150, 34), "TYPE: " + self.kind.upper(), lambda: self.cycle_kind(), COLORS["violet"]), Button((590, 150, 150, 34), "FAMILY: " + self.family.upper(), lambda: self.cycle_family(), COLORS["cyan"]), Button((420, 200, 150, 34), "LOGIC: " + (self.logic_graph or "NONE").upper(), lambda: self.cycle_logic(), COLORS["gold"]), Button((590, 200, 150, 34), "TARGET: " + self.targets[0].upper(), lambda: self.cycle_target(), COLORS["green"]), Button((420, 245, 150, 34), "EFFECTS: " + str(len(self.effects)), lambda: self.open_effects(), COLORS["orange"]), Button((80, 340, 110, 34), "STAR +", lambda: self.change("stars", 1)), Button((200, 340, 110, 34), "ATK +", lambda: self.change("atk", 100)), Button((320, 340, 110, 34), "DEF +", lambda: self.change("defense", 100)), Button((440, 340, 150, 34), "TIMING", lambda: self.cycle_timing()), Button((80, 410, 180, 34), "SUMMON MODE", lambda: self.cycle_summon()), Button((280, 410, 180, 34), "TARGET COUNT", lambda: self.cycle_target_count()), Button((80, 470, 240, 38), "SAVE MODIFIED" if self.card_id else "CREATE CARD", lambda: self.save_card(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def cycle_kind(self):
         values = ["normal", "effect", "spell", "trap", "field", "fusion", "ritual", "legendary"]
@@ -6148,6 +6148,8 @@ class CardMakerScene(Scene):
         else: self.summon_method, self.materials, self.ritual_cost = "normal", [], 0
         self.materials_text.value = ", ".join(self.materials)
         self.refresh_buttons()
+
+    def open_effects(self): self.app.push(CardEffectsScene(self, self))
 
     def cycle_family(self):
         values = ["warrior", "aqua", "machine", "fiend", "spell", "dragon", "beast"]
@@ -6188,12 +6190,13 @@ class CardMakerScene(Scene):
     def save_card(self):
         graph = self.logic_graph
         self.materials = [value.strip() for value in self.materials_text.value.split(",") if value.strip()]
-        values = {"name": self.name.value, "kind": self.kind, "stars": self.stars if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": self.ritual_cost, "summon_method": self.summon_method}
-        errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"])
+        values = {"name": self.name.value, "kind": self.kind, "stars": self.stars if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": self.ritual_cost, "summon_method": self.summon_method, "effects": self.effects}
+        errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"], values["effects"])
         if errors: self.app.notify("Card rejected: " + "; ".join(errors[:2])); return
         if self.card_id:
             if not self.app.store.update_card(self.card_id, values): self.app.notify("Card update failed."); return
-        else: self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value)
+        else:             self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"])
+
         self.app.store.load()
         self.app.notify("Card saved with its authored data and editable folder structure.")
 
@@ -6211,6 +6214,151 @@ class CardMakerScene(Scene):
         draw_text(surface, f"STARS {self.stars} | ATK {self.atk} | DEF {self.defense} | RITUAL COST {self.ritual_cost}", (80, 325), self.app.assets.font(13, True), COLORS["cream"])
         self.materials_text.draw(surface, self.app.assets.font(12), "Fusion material IDs, comma-separated")
         draw_text(surface, "Effects and logic are authored through the card definition and assigned logic graphs.", (80, 445), self.app.assets.font(10), COLORS["gold"])
+        self.draw_buttons(surface, 10)
+        self.app.draw_notice(surface)
+
+
+class CardEffectsScene(Scene):
+    def __init__(self, owner, card_maker):
+        super().__init__(owner.app)
+        self.owner = card_maker
+        self.card_maker = card_maker
+
+    def enter(self):
+        self.effects = self.card_maker.effects
+        self.selected_index = None
+        self.effect_id = TextInput((46, 132, 310, 32), "effect_1")
+        self.trigger = TextInput((46, 190, 310, 32), "on_summon")
+        self.condition = TextInput((46, 248, 310, 32), "")
+        self.action = TextInput((46, 306, 310, 32), "damage")
+        self.amount = TextInput((46, 364, 150, 32), "500")
+        self.target = TextInput((206, 364, 150, 32), "source")
+        self.count = TextInput((46, 422, 150, 32), "0")
+        self.cost_count = TextInput((206, 422, 150, 32), "1")
+        self.phase = "any"
+        self.cost_kind = "none"
+        self.once = ""
+        self.speed = 1
+        self.optional = False
+        self.refresh_buttons()
+
+    def integer(self, value, fallback=0):
+        try: return int(str(value).strip())
+        except (TypeError, ValueError): return fallback
+
+    def selected_effect(self):
+        return self.effects[self.selected_index] if self.selected_index is not None and self.selected_index < len(self.effects) else None
+
+    def load_effect(self, index):
+        if index < 0 or index >= len(self.effects): return
+        self.selected_index = index
+        spec = EffectSpec.from_dict(self.effects[index], "effect_" + str(index + 1))
+        self.effect_id.value = spec.effect_id
+        self.trigger.value = spec.trigger
+        self.condition.value = str(spec.conditions[0]) if spec.conditions else ""
+        action = spec.actions[0] if spec.actions else {"name": "damage", "amount": 500, "target": "source"}
+        self.action.value = action.get("name", "damage")
+        self.amount.value = str(action.get("amount", 500))
+        self.target.value = str(action.get("target", "source"))
+        self.count.value = str(spec.selector.get("count", 0) if spec.selector else 0)
+        self.phase = str(spec.window.get("phase", "any")) if not isinstance(spec.window.get("phase", "any"), list) else str(spec.window.get("phase", ["any"])[0])
+        self.once = spec.once
+        self.speed = spec.speed
+        self.optional = spec.optional
+        costs = spec.costs[0] if spec.costs else {}
+        self.cost_kind = str(costs.get("kind", "none"))
+        self.cost_count.value = str(costs.get("count", costs.get("amount", 1)))
+        self.refresh_buttons()
+
+    def new_effect(self):
+        self.selected_index = None
+        self.effect_id.value = "effect_" + str(len(self.effects) + 1)
+        self.trigger.value = "on_summon"
+        self.condition.value = ""
+        self.action.value = "damage"
+        self.amount.value = "500"
+        self.target.value = "source"
+        self.count.value = "0"
+        self.cost_count.value = "1"
+        self.phase, self.cost_kind, self.once, self.speed, self.optional = "any", "none", "", 1, False
+        self.refresh_buttons()
+
+    def cycle(self, attribute, values):
+        current = getattr(self, attribute)
+        setattr(self, attribute, values[(values.index(current) + 1) % len(values)] if current in values else values[0])
+        self.refresh_buttons()
+
+    def cycle_phase(self): self.cycle("phase", ["any", "draw", "standby", "main", "battle", "end"])
+    def cycle_cost(self): self.cycle("cost_kind", ["none", "discard", "tribute", "pay_hp"])
+    def cycle_once(self): self.cycle("once", ["", "once", "once_per_turn", "once_per_duel"])
+    def cycle_speed(self): self.speed = self.speed % 3 + 1; self.refresh_buttons()
+    def toggle_optional(self): self.optional = not self.optional; self.refresh_buttons()
+
+    def effect_payload(self):
+        effect_id = self.effect_id.value.strip() or "effect_" + str(len(self.effects) + 1)
+        trigger = self.trigger.value.strip() or "manual"
+        action = self.action.value.strip() or "damage"
+        amount = self.integer(self.amount.value, 0)
+        target = self.target.value.strip() or "source"
+        count = max(0, self.integer(self.count.value, 0))
+        targets = [] if target in ["", "source", "none"] else [target]
+        selector = {"target_groups": targets, "count": count} if targets and count else {}
+        costs = []
+        cost_count = max(1, self.integer(self.cost_count.value, 1))
+        if self.cost_kind in ["discard", "tribute"]: costs = [{"kind": self.cost_kind, "count": cost_count, "select": {"side": "self", "zone": "hand" if self.cost_kind == "discard" else "monster", "count": cost_count}}]
+        elif self.cost_kind == "pay_hp": costs = [{"kind": "pay_hp", "amount": max(0, amount)}]
+        return {"id": effect_id, "trigger": trigger, "window": {"phase": self.phase, "event": trigger}, "when": [self.condition.value.strip()] if self.condition.value.strip() else [], "cost": costs, "select": selector, "targets": targets, "actions": [{"name": action, "amount": amount, "target": target}], "optional": self.optional, "once": self.once, "speed": self.speed, "notify": {"kind": "yes_no", "text": "Activate this effect?", "options": ["yes", "no"]} if self.optional else {}}
+
+    def save_effect(self):
+        raw = self.effect_payload()
+        errors = self.app.store.validate_effects([raw])
+        if errors:
+            self.app.notify("Effect rejected: " + "; ".join(errors[:2]))
+            return
+        if self.selected_index is None: self.effects.append(raw); self.selected_index = len(self.effects) - 1
+        else: self.effects[self.selected_index] = raw
+        self.card_maker.effects = self.effects
+        self.app.notify("Structured effect saved to the card draft.")
+        self.load_effect(self.selected_index)
+
+    def delete_effect(self):
+        if self.selected_index is None or self.selected_index >= len(self.effects): return
+        self.effects.pop(self.selected_index)
+        self.card_maker.effects = self.effects
+        self.new_effect()
+
+    def apply_and_back(self):
+        self.card_maker.effects = self.effects
+        self.card_maker.refresh_buttons()
+        self.app.pop()
+
+    def refresh_buttons(self):
+        self.buttons = [Button((420, 72, 104, 34), "NEW", lambda: self.new_effect(), COLORS["gold"]), Button((532, 72, 118, 34), "SAVE EFFECT", lambda: self.save_effect(), COLORS["green"]), Button((662, 72, 98, 34), "DELETE", lambda: self.delete_effect(), COLORS["red"]), Button((420, 500, 190, 38), "APPLY TO CARD", lambda: self.apply_and_back(), COLORS["violet"]), Button((620, 500, 140, 38), "CANCEL", lambda: self.app.pop(), COLORS["muted"]), Button((420, 132, 150, 32), "PHASE: " + self.phase.upper(), lambda: self.cycle_phase(), COLORS["cyan"]), Button((580, 132, 180, 32), "COST: " + self.cost_kind.upper(), lambda: self.cycle_cost(), COLORS["orange"]), Button((420, 190, 150, 32), "ONCE: " + (self.once.upper() or "NO"), lambda: self.cycle_once(), COLORS["gold"]), Button((580, 190, 180, 32), "SPEED: " + str(self.speed), lambda: self.cycle_speed(), COLORS["cyan"]), Button((420, 248, 150, 32), "OPTIONAL: " + ("YES" if self.optional else "NO"), lambda: self.toggle_optional(), COLORS["green"])]
+
+    def handle(self, event):
+        for field_input in [self.effect_id, self.trigger, self.condition, self.action, self.amount, self.target, self.count, self.cost_count]: field_input.handle(event)
+        super().handle(event)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and 42 <= event.pos[0] <= 360 and 118 <= event.pos[1] <= 470:
+            index = (event.pos[1] - 118) // 42
+            if index < len(self.effects): self.load_effect(index)
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        draw_text(surface, "CARD EFFECTS EDITOR", (34, 28), self.app.assets.font(28, True), COLORS["orange"])
+        draw_text(surface, "Author valid structured effects; each card can contain multiple independent effect records.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        self.draw_panel(surface, (32, 96, 350, 400), "EFFECT FORM", COLORS["orange"])
+        self.draw_panel(surface, (402, 96, 368, 390), "EFFECT POLICY", COLORS["cyan"])
+        for field_input, label in [(self.effect_id, "Effect ID"), (self.trigger, "Trigger"), (self.condition, "Condition expression"), (self.action, "Action name"), (self.amount, "Amount"), (self.target, "Action target"), (self.count, "Target count"), (self.cost_count, "Cost count / HP")]: field_input.draw(surface, self.app.assets.font(11), label)
+        draw_text(surface, "EFFECTS", (52, 108), self.app.assets.font(12, True), COLORS["gold"])
+        for index, raw in enumerate(self.effects[:8]):
+            y = 130 + index * 42
+            color = COLORS["violet"] if index == self.selected_index else COLORS["line"]
+            pygame.draw.rect(surface, color, pygame.Rect(42, y, 318, 34), 1)
+            spec = EffectSpec.from_dict(raw, "effect_" + str(index + 1))
+            draw_text(surface, f"{index + 1}. {spec.effect_id} | {spec.trigger}", (50, y + 9), self.app.assets.font(10, True), COLORS["cream"])
+        draw_text(surface, "Action vocabulary", (420, 300), self.app.assets.font(11, True), COLORS["gold"])
+        draw_text(surface, ", ".join(sorted(EffectSpec.action_names)), (420, 322), self.app.assets.font(9), COLORS["muted"])
+        draw_text(surface, "Costs: discard, tribute, or pay HP. Selectors and conditions are saved as schema data.", (420, 382), self.app.assets.font(10), COLORS["cream"])
         self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 

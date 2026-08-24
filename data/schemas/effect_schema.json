@@ -5,7 +5,7 @@
     "content_roots": {"authored": "data/", "assets": "data/assets/", "schemas": "data/schemas/", "runtime": "data/runtime/"},
     "profile": {"path": "data/save.json", "purpose": "small active-user marker and preferences only", "identity_fields": ["active_user_id", "active_user_folder", "setup_complete"], "excluded_content": ["character_definition", "world_state", "duel_history"]},
     "registration": {"first_run": ["name", "portrait", "gender"], "character_id": "generated user_<timestamp>", "character_root": "data/characters/<user_id>/", "required_folders": ["logic", "weights", "decks", "pfp", "animations", "audio", "duel"]},
-    "runtime_layout": {"character_state": "data/runtime/characters/<id>.json", "team_state": "data/runtime/teams/<id>.json", "world_index": "data/runtime/world/index.json", "world_collections": "data/runtime/world/collections/<collection>.json"},
+    "runtime_layout": {"character_state": "data/runtime/characters/<id>.json", "team_state": "data/runtime/teams/<id>.json", "world_index": "data/runtime/world/index.json", "world_collections": "data/runtime/world/collections/<collection>.json", "place_occupancy": "data/runtime/world/index.json:place_occupancy"},
     "relationships": {"values": ["stranger", "ally", "enemy"], "default": "stranger", "side_keys": ["player", "opponent"], "side_keys_are_social_relationships": false},
     "phases": {"canonical_values": ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"], "ui_abbreviations": {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}},
     "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to centered aspect-preserving window viewport"},
@@ -28,6 +28,8 @@
     }
   },
   "place": {
+    "authored_fields": ["id", "name", "capacity", "background", "day_night", "media_folder", "effects", "event_response_policies", "event_window_policies", "trigger_order_policies"],
+    "runtime_fields": {"current_duels": "stored in data/runtime/world/index.json under place_occupancy; never written to authored data/places.json"},
     "event_response_policies": {
       "event_name": {
         "enabled": "boolean; false or absent keeps the event non-blocking",
@@ -54,7 +56,9 @@
       }
     }
   },
-  "effect": {
+      "effect_editor": {"route": "CardEffectsScene", "card_field": "effects", "supported_controls": ["id", "trigger", "phase", "condition", "cost", "selector", "action", "amount", "target", "optional", "once", "speed", "notification"], "validation": "EffectSpec.validate and ContentStore.validate_effects"},
+    "effect": {
+
     "id": "stable_effect_id",
     "trigger": "on_summon",
     "event_vocabulary": ["phase_enter", "turn_start", "turn_end", "draw", "summon", "special_summon", "fusion_summon", "ritual_summon", "activate", "set", "attack", "attacked", "damage", "heal", "destroy", "movement", "set_face_up", "set_face_down", "switch_position"],

@@ -3,7 +3,7 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
-    "mood": "focused",
+    "rank": 10,
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -37,9 +37,15 @@
         "BATTLE": 1.0
       }
     },
+    "activity": "idle",
+    "current_place": "",
     "cooldown_until": 0.0,
-    "enemies": [],
-    "rank": 10,
+    "movement_progress": 0.0,
+    "learned_opponents": {},
+    "relationship": "stranger",
+    "learned_cards": {},
+    "history": [],
+    "borrowed_cards": [],
     "library_cards": [
       "aqua_sentinel",
       "aqua_sentinel",
@@ -91,16 +97,10 @@
       "void_titan",
       "trio_relic"
     ],
-    "learned_opponents": {},
-    "availability": "free",
     "destination": "",
-    "movement_progress": 0.0,
-    "history": [],
-    "relationship": "stranger",
+    "enemies": [],
+    "availability": "free",
     "allies": [],
-    "current_place": "",
-    "activity": "idle",
-    "borrowed_cards": [],
-    "learned_cards": {}
+    "mood": "focused"
   }
 }
