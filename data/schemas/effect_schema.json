@@ -10,7 +10,8 @@
     "phases": {"canonical_values": ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"], "ui_abbreviations": {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}},
     "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to centered aspect-preserving window viewport"},
     "rules": {"path": "data/rules.json", "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only", "fusion_source": "extra", "ritual_source": "hand", "fusion_and_ritual_are_distinct": true},
-    "watching": {"house_player": "the participant recorded in accepted_by/house_player when the request is accepted", "guest_player": "the other participant", "scene": "full DuelScene using the engine-backed live world session", "orientation": "house_player is engine.player so the board, opponent rotation, hand, LP, and reactions use the house POV", "replay": false}
+    "watching": {"house_player": "the participant recorded in accepted_by/house_player when the request is accepted", "guest_player": "the other participant", "scene": "full DuelScene using the engine-backed live world session", "orientation": "house_player is engine.player so the board, opponent rotation, hand, LP, and reactions use the house POV", "replay": false},
+    "duel_ai": {"scope": "duel decisions only; world relationships, trading, and character-stat simulation are separate systems", "side_neutral": true, "decision_order": ["chain_or_pending_response", "pending_cost_or_procedure", "pending_target", "pending_effect", "trap_window", "main_phase_plan", "battle_plan", "phase_advance"], "main_actions": ["normal_summon", "fusion_summon", "ritual_summon", "set_monster", "set_trap", "activate_spell", "activate_field"], "battle_actions": ["choose_attacker", "choose_legal_target", "avoid_known_losing_defense_attack"], "policy_weights": ["summon_bias", "set_bias", "activation_bias", "removal_bias", "defense_bias", "attack_bias", "trap_threshold"], "autonomous_actor": "pending interaction owner or chain priority side, otherwise active side", "regression": "completed deterministic AI-vs-AI duels must resolve without stalls and exercise summons, sets, activations, trap windows, flips, and shared combat"}
   },
   "card": {
     "summon_procedure": {
@@ -62,7 +63,7 @@
 
     "id": "stable_effect_id",
     "trigger": "on_summon",
-    "event_vocabulary": ["phase_enter", "turn_start", "turn_end", "draw", "summon", "special_summon", "fusion_summon", "ritual_summon", "activate", "set", "attack", "attacked", "damage", "heal", "destroy", "movement", "set_face_up", "set_face_down", "switch_position"],
+    "event_vocabulary": ["phase_enter", "turn_start", "turn_end", "draw", "summon", "special_summon", "fusion_summon", "ritual_summon", "activate", "set", "attack", "attacked", "damage", "heal", "destroy", "flip", "movement", "set_face_up", "set_face_down", "switch_position"],
     "event_record": {
       "context_id": "stable rule-event sequence ID",
       "trigger": "normalized event name",

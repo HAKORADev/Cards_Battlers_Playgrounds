@@ -671,5 +671,303 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {}
+  },
+  {
+    "id": "dark_hole",
+    "name": "Dark Hole",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "spell",
+    "description": "Destroy all monsters on the field.",
+    "effects": [
+      {
+        "id": "dark_hole_board_wipe",
+        "trigger": "activate",
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "selector": {
+          "side": "both",
+          "zone": "monster",
+          "count": "all"
+        },
+        "actions": [
+          {
+            "name": "destroy",
+            "target": "selected"
+          }
+        ],
+        "target_policy": {
+          "revalidate": true
+        }
+      }
+    ],
+    "art_color": [
+      96,
+      88,
+      70
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/dark_hole_1787601598774_dark_hole",
+    "art_folder": "cards/placeholder_classic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
+  },
+  {
+    "id": "mystical_space_typhoon",
+    "name": "Mystical Space Typhoon",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "spell",
+    "description": "Target 1 Spell/Trap on the field; destroy that target.",
+    "effects": [
+      {
+        "id": "mystical_space_typhoon_destroy",
+        "trigger": "activate",
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "selector": {
+          "side": "both",
+          "zone": "spell_trap",
+          "count": 1
+        },
+        "actions": [
+          {
+            "name": "destroy",
+            "target": "selected"
+          }
+        ],
+        "target_policy": {
+          "revalidate": true
+        }
+      }
+    ],
+    "art_color": [
+      96,
+      88,
+      70
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/mystical_space_typhoon_1787601598775_mystical_space_typhoon",
+    "art_folder": "cards/placeholder_classic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
+  },
+  {
+    "id": "summoned_skull",
+    "name": "Summoned Skull",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 6,
+    "atk": 2500,
+    "defense": 1200,
+    "family": "fiend",
+    "description": "A fiend with dark powers for confusing the enemy. Among the Fiend-Type monsters, this monster boasts considerable force.",
+    "effects": [],
+    "art_color": [
+      96,
+      88,
+      70
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/summoned_skull_1787601598775_summoned_skull",
+    "art_folder": "cards/placeholder_classic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
+  },
+  {
+    "id": "dark_magician",
+    "name": "Dark Magician",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 7,
+    "atk": 2500,
+    "defense": 2100,
+    "family": "spellcaster",
+    "description": "The ultimate wizard in terms of attack and defense.",
+    "effects": [],
+    "art_color": [
+      96,
+      88,
+      70
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/dark_magician_1787601598776_dark_magician",
+    "art_folder": "cards/placeholder_classic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
+  },
+  {
+    "id": "mirror_force",
+    "name": "Mirror Force",
+    "kind": "trap",
+    "frame": "purple",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "trap",
+    "description": "When an opponent's monster declares an attack: Destroy all your opponent's Attack Position monsters.",
+    "effects": [
+      {
+        "id": "mirror_force_attack_response",
+        "trigger": "battle",
+        "window": {
+          "phase": "battle",
+          "event": "battle"
+        },
+        "selector": {
+          "side": "opponent",
+          "zone": "monster",
+          "position": "attack",
+          "count": "all"
+        },
+        "actions": [
+          {
+            "name": "destroy",
+            "target": "selected"
+          }
+        ],
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 2
+      }
+    ],
+    "art_color": [
+      96,
+      88,
+      70
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "battle",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/mirror_force_1787601598777_mirror_force",
+    "art_folder": "cards/placeholder_classic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
+  },
+  {
+    "id": "man_eater_bug",
+    "name": "Man-Eater Bug",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 2,
+    "atk": 450,
+    "defense": 600,
+    "family": "insect",
+    "description": "FLIP: Target 1 monster on the field; destroy it.",
+    "effects": [
+      {
+        "id": "man_eater_bug_flip_destroy",
+        "trigger": "flip",
+        "window": {
+          "phase": "battle",
+          "event": "flip"
+        },
+        "selector": {
+          "side": "both",
+          "zone": "monster",
+          "count": 1
+        },
+        "actions": [
+          {
+            "name": "destroy",
+            "target": "selected"
+          }
+        ],
+        "target_policy": {
+          "revalidate": true
+        }
+      }
+    ],
+    "art_color": [
+      96,
+      88,
+      70
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/man_eater_bug_1787601598777_man_eater_bug",
+    "art_folder": "cards/placeholder_classic",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   }
 ]

@@ -3,49 +3,15 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
-    "rank": 10,
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 10.0,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 2.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 2.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0
-      },
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      }
-    },
     "activity": "idle",
-    "current_place": "",
-    "cooldown_until": 0.0,
-    "movement_progress": 0.0,
-    "learned_opponents": {},
-    "relationship": "stranger",
     "learned_cards": {},
     "history": [],
-    "borrowed_cards": [],
+    "movement_progress": 0.0,
+    "enemies": [],
+    "allies": [],
+    "relationship": "stranger",
+    "learned_opponents": {},
+    "current_place": "",
     "library_cards": [
       "aqua_sentinel",
       "aqua_sentinel",
@@ -97,10 +63,55 @@
       "void_titan",
       "trio_relic"
     ],
+    "borrowed_cards": [],
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 2.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 2.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      }
+    },
     "destination": "",
-    "enemies": [],
     "availability": "free",
-    "allies": [],
-    "mood": "focused"
+    "rank": 10,
+    "mood": "focused",
+    "cooldown_until": 0.0
   }
 }

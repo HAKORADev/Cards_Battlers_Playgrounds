@@ -361,16 +361,19 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
         star_count = max(0, min(11, int(card.stars)))
         star_size = max(5, min(14, int(layout_rect.width * 0.12)))
         star_gap = max(1, star_size // 8)
-        while star_count and star_count * star_size + max(0, star_count - 1) * star_gap > layout_rect.width - 8: star_size = max(5, star_size - 1)
-        native_star_size = render_size(surface, (star_size, star_size))
-        star_image = assets.image("star_level", native_star_size)
-        if star_image and star_count:
-            total_width = star_count * star_size + max(0, star_count - 1) * star_gap
-            start_x = layout_rect.centerx - total_width // 2
-            for star_index in range(star_count):
-                star_point = render_point(surface, (start_x + star_index * (star_size + star_gap), row_y - star_size // 2))
-                surface.blit(star_image, star_point)
-        else: draw_text(surface, "★" * star_count, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
+        available_width = max(1, layout_rect.width - 8)
+        while star_count and star_size > 5 and star_count * star_size + max(0, star_count - 1) * star_gap > available_width: star_size -= 1
+        total_width = star_count * star_size + max(0, star_count - 1) * star_gap
+        if star_count and total_width <= available_width:
+            native_star_size = render_size(surface, (star_size, star_size))
+            star_image = assets.image("star_level", native_star_size)
+            if star_image:
+                start_x = layout_rect.centerx - total_width // 2
+                for star_index in range(star_count):
+                    star_point = render_point(surface, (start_x + star_index * (star_size + star_gap), row_y - star_size // 2))
+                    surface.blit(star_image, star_point)
+            else: draw_text(surface, "★" * star_count, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
+        else: draw_text(surface, f"★{star_count}", (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
     else:
         row_label = "TRAP CARD" if card.kind == "trap" else "SPELL CARD"
         draw_text(surface, row_label, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
@@ -1266,6 +1269,7 @@ class ContentStore:
             for family in [card.family for card in self.cards.values()]: family_weights.setdefault(family, 2.0 if family in character.preferred_families else 0.0)
             character.behavior_weights.setdefault("state_weights", {"stranger": 1.0, "ally": 0.5, "enemy": 2.0, "opponent": 1.0})
             character.behavior_weights.setdefault("phase_weights", {"MAIN 1": 1.0, "MAIN 2": 1.0, "BATTLE": 1.0})
+            character.behavior_weights.setdefault("duel", {"summon_bias": 1.0, "set_bias": 1.0, "activation_bias": 1.0, "removal_bias": 1.0, "defense_bias": 1.0, "attack_bias": 1.0, "trap_threshold": 0.0})
             character.learned_cards = {str(key): int(value) for key, value in character.learned_cards.items()}
             character.learned_opponents = {str(key): int(value) for key, value in character.learned_opponents.items()}
 
@@ -1480,7 +1484,7 @@ class ContentStore:
     def _simulation_action(self, battle):
         session = self._world_session(battle)
         if not session: return
-        active_before = session.active
+        active_before = session.autonomous_actor()
         result = session.autonomous_step(active_before)
         battle["turn"] = session.turn
         battle["phase"] = "post_duel" if session.finished else session.phase.lower()
@@ -2268,7 +2272,10 @@ class SelectorRuntime:
             owner = self.engine.player if candidate in self.engine.player.hand + self.engine.player.graveyard + self.engine.player.banished else self.engine.opponent
             if owner.character.gender.lower() != str(selector["gender"]).lower(): return False
         if selector.get("face_up") is not None and bool(candidate.face_up) is not bool(selector["face_up"]): return False
-        if selector.get("position") and selector["position"] not in ["any", candidate.position]: return False
+        if selector.get("position"):
+            expected_position = str(selector["position"]).lower()
+            actual_position = str(candidate.battle_position if expected_position in ["attack", "defense"] else candidate.position).lower()
+            if expected_position not in ["any", actual_position]: return False
         stat = selector.get("stat")
         if stat:
             field_name = stat.get("field", "attack")
@@ -2579,8 +2586,10 @@ class DuelEngine:
     def legal_targets(self, card, actor=None, selector=None):
         actor = actor or self.player
         selector = selector or self.legacy_selector(card, actor)
-        if selector: return SelectorRuntime(self, actor, card).select(selector)
-        return []
+        if not selector: return []
+        candidate_selector = dict(selector)
+        candidate_selector.pop("count", None)
+        return SelectorRuntime(self, actor, card).select(candidate_selector)
 
     def revalidate_pending_targets(self, pending):
         if not pending.get("target_policy", {}).get("revalidate", True): return True, ""
@@ -2625,17 +2634,20 @@ class DuelEngine:
             self.run_logic(card, trigger, actor, self.other(actor))
         return True, ""
 
-    def activate_trap(self, trap):
-        if not self.pending_trap or trap is not self.pending_trap["trap"] or trap not in self.player.spells: return False, "No trap is waiting for this timing window."
-        self.player.spells[self.player.spells.index(trap)] = None
+    def activate_trap(self, trap, actor=None):
+        actor = actor or self.player
+        if not self.pending_trap or trap is not self.pending_trap["trap"] or trap not in actor.spells: return False, "No trap is waiting for this timing window."
+        attacker = self.pending_trap.get("attacker") or self.other(actor)
+        actor.spells[actor.spells.index(trap)] = None
         trap.position = "graveyard"
         trap.face_up = True
-        self.player.graveyard.append(trap)
+        actor.graveyard.append(trap)
         self.pending_trap = None
-        self.log(f"{self.player.name} activates {trap.card.name} in the opponent attack window.")
-        self.emit_event("activate", self.player, source=trap, target=self.opponent, metadata={"zone": "spell_trap", "trap_window": True})
-        self.react("trap", self.player.character.id, self.opponent.character.id, "opponent", "cards", trap.card.id)
-        self.resolve(trap, "battle", self.opponent, self.player)
+        self.log(f"{actor.name} activates {trap.card.name} in the opponent attack window.")
+        self.emit_event("activate", actor, source=trap, target=attacker, metadata={"zone": "spell_trap", "trap_window": True})
+        attacker_owner = self.owner_of(attacker)
+        self.react("trap", actor.character.id, attacker_owner.character.id if attacker_owner else "", "opponent", "cards", trap.card.id)
+        self.resolve(trap, "battle", attacker, actor)
         return True, ""
 
     def activate_set_spell(self, card):
@@ -3085,57 +3097,71 @@ class DuelEngine:
         self.run_logic(card, "summon", actor, self.other(actor))
         return True, ""
 
-    def set_card(self, card):
-        if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]:
+    def set_card(self, card, actor=None):
+        actor = actor or self.player
+        if self.finished or self.active is not actor or self.phase not in ["MAIN 1", "MAIN 2"]:
             return False, "Setting is only available during your main phase."
-        if card not in self.player.hand: return False, "Select a card in your hand."
-        target = self.player.monsters if card.card.kind in ["normal", "effect", "legendary"] else self.player.spells
+        if card not in actor.hand: return False, "Select a card in the acting side's hand."
+        is_monster = card.card.kind in ["normal", "effect", "legendary"]
+        target = actor.monsters if is_monster else actor.spells
         zone = next((index for index, value in enumerate(target) if value is None), None)
         if zone is None: return False, "That zone is full."
-        self.player.hand.remove(card)
+        if is_monster and self.normal_summon_remaining(actor) <= 0: return False, "No normal summon or set permission remains this turn."
+        if is_monster:
+            permission, reason = self.consume_normal_summon(actor)
+            if not permission: return False, reason
+        actor.hand.remove(card)
         card.position = "set"
         card.face_up = False
-        if target is self.player.monsters: card.battle_position = "defense"
+        if is_monster: card.battle_position = "defense"
         target[zone] = card
-        self.log(f"{self.player.name} sets a card.")
-        self.emit_event("set", self.player, source=card, target=card, metadata={"zone": "monster" if target is self.player.monsters else "spell_trap", "face_up": False})
-        self.react("set", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
+        self.log(f"{actor.name} sets a card.")
+        self.emit_event("set", actor, source=card, target=card, metadata={"zone": "monster" if is_monster else "spell_trap", "face_up": False})
+        self.react("set", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id)
         return True, ""
 
-    def activate(self, card):
-        if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]:
-            return False, "Activation is only available during your main phase."
-        if card not in self.player.hand or card.card.kind not in ["spell", "field"]: return False, "Select a spell or field card in your hand."
+    def activate(self, card, actor=None):
+        actor = actor or self.player
+        if self.finished or self.active is not actor or self.phase not in ["MAIN 1", "MAIN 2"]:
+            return False, "Activation is only available during the acting side's main phase."
+        if card not in actor.hand or card.card.kind not in ["spell", "field"]: return False, "Select a spell or field card in the acting side's hand."
         if card.card.timing not in ["main", "any"]: return False, "This card is waiting for a different timing window."
         effect_specs = [EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects)]
         activate_spec = next((spec for spec in effect_specs if spec.trigger == "activate"), None)
-        selector = activate_spec.selector if activate_spec and activate_spec.selector else self.legacy_selector(card, self.player)
-        required = int(selector.get("count", card.card.target_count or 0) or 0)
+        selector = activate_spec.selector if activate_spec and activate_spec.selector else self.legacy_selector(card, actor)
+        raw_required = selector.get("count", card.card.target_count or 0) if selector else 0
+        try: required = 0 if raw_required == "all" else int(raw_required or 0)
+        except (TypeError, ValueError): required = 0
         if selector and required:
-            candidates = self.legal_targets(card, self.player, selector)
+            candidates = self.legal_targets(card, actor, selector)
             if not candidates: return False, "This card has no legal target in the current field state."
             if required > len(candidates): return False, "This card requires more legal targets than are currently available."
-            self.pending_target = {"card": card, "trigger": "activate", "actor": self.player, "selected": [], "candidates": candidates, "selector": selector, "required": required, "target_policy": activate_spec.target_policy if activate_spec else {"revalidate": False}, "snapshot": [getattr(item.card, "id", getattr(item, "name", "")) for item in candidates]}
+            self.pending_target = {"card": card, "trigger": "activate", "actor": actor, "selected": [], "candidates": candidates, "selector": selector, "required": required, "target_policy": activate_spec.target_policy if activate_spec else {"revalidate": False}, "snapshot": [self.entity_id(item) for item in candidates]}
             self.notify("choose_target", f"Select {required} legal target(s) for {card.card.name}.", ["ok"], {"card": card.card.id, "count": required})
             self.log(f"Select {required} legal target(s) for {card.card.name}.")
             return True, ""
-        self.player.hand.remove(card)
+        actor.hand.remove(card)
         if card.card.kind == "field":
+            if self.field_card:
+                old = self.field_card
+                owner = self.field_card_owner or self.other(actor)
+                old.position = "graveyard"
+                owner.graveyard.append(old)
             self.field_card = card
-            self.field_card_owner = self.player
+            self.field_card_owner = actor
             card.position = "field"
-            self.log(f"{self.player.name} activates field card {card.card.name}.")
+            self.log(f"{actor.name} activates field card {card.card.name}.")
         else:
             card.position = "graveyard"
-            self.player.graveyard.append(card)
-            self.log(f"{self.player.name} activates {card.card.name}.")
-        self.emit_event("activate", self.player, source=card, target=self.opponent, metadata={"zone": "field" if card.card.kind == "field" else "graveyard"}, include_source=False)
-        self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
+            actor.graveyard.append(card)
+            self.log(f"{actor.name} activates {card.card.name}.")
+        self.emit_event("activate", actor, source=card, target=self.other(actor), metadata={"zone": "field" if card.card.kind == "field" else "graveyard"}, include_source=False)
+        self.react("activate", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id)
         if self.chain_enabled(activate_spec):
-            self.add_chain_link(card, activate_spec, self.player, self.opponent, "activate", {"target_snapshot": [self.opponent.character.id]})
+            self.add_chain_link(card, activate_spec, actor, self.other(actor), "activate", {"target_snapshot": [self.other(actor).character.id]})
         else:
-            self.resolve(card, "activate", actor=self.player)
-            self.run_logic(card, "activate", self.player, self.opponent)
+            self.resolve(card, "activate", actor=actor, target=self.other(actor))
+            self.run_logic(card, "activate", actor, self.other(actor))
         return True, ""
 
     def owner_of(self, card):
@@ -3302,28 +3328,32 @@ class DuelEngine:
             if any(isinstance(item, CardInstance) and item.owner != actor.name for item in legal): score += 40
         return score
 
-    def ai_response_score(self, candidate):
+    def ai_response_score(self, candidate, actor=None):
+        actor = actor or self.opponent
+        enemy = self.other(actor)
         spec = candidate["spec"]
-        score = int(spec.speed) * 100 + self.declarative_effect_score(candidate["card"], spec, self.opponent, self.player)
+        score = int(spec.speed) * 100 + self.declarative_effect_score(candidate["card"], spec, actor, enemy)
         if any(action.get("name") == "negate_chain" for action in spec.actions): score += 10000
         return score
 
-    def ai_chain_step(self):
-        if self.finished or not self.chain_window or self.chain_priority is not self.opponent: return False, "AI does not have chain priority."
-        candidates = self.response_candidates(self.opponent, self.chain_window.get("trigger", ""))
-        if not candidates: return self.pass_chain_priority(self.opponent)
-        candidate = max(candidates, key=lambda item: (self.ai_response_score(item), item["card"].card.id, item["spec"].effect_id))
+    def ai_chain_step_for(self, actor):
+        if self.finished or not self.chain_window or self.chain_priority is not actor: return False, "This side does not have chain priority."
+        candidates = self.response_candidates(actor, self.chain_window.get("trigger", ""))
+        if not candidates: return self.pass_chain_priority(actor)
+        candidate = max(candidates, key=lambda item: (self.ai_response_score(item, actor), item["card"].card.id, item["spec"].effect_id))
         selector = candidate["selector"]
         required = int(selector.get("count", candidate["card"].card.target_count or 0) or 0) if selector else 0
         target = None
         if required:
             legal = list(candidate["targets"])
-            if len(legal) < required: return self.pass_chain_priority(self.opponent)
-            ranked = sorted(legal, key=lambda item: (self.ai_card_score(item, "monster") if isinstance(item, CardInstance) else 0, self.entity_id(item)))
+            if len(legal) < required: return self.pass_chain_priority(actor)
+            ranked = sorted(legal, key=lambda item: (self.ai_target_score(item, actor, candidate["spec"]), self.entity_id(item)))
             target = ranked[-1] if required == 1 else ranked[-required:]
-        result = self.begin_response_card(candidate["card"], candidate["spec"].effect_id, self.opponent, target)
-        if not result[0] and result[1] not in ["pending", "pending_cost"]: return self.pass_chain_priority(self.opponent)
+        result = self.begin_response_card(candidate["card"], candidate["spec"].effect_id, actor, target)
+        if not result[0] and result[1] not in ["pending", "pending_cost"]: return self.pass_chain_priority(actor)
         return result
+
+    def ai_chain_step(self): return self.ai_chain_step_for(self.opponent)
 
     def consume_chain_response_prompt(self):
         notification = self.pending_notification("chain_response")
@@ -4265,6 +4295,10 @@ class DuelEngine:
         if not target.face_up:
             target.face_up = True
             self.log(f"{target.card.name} flips face-up.")
+            self.emit_event("flip", defender_side, source=target, target=target, metadata={"position": target.battle_position})
+            self.react("flip", defender_side.character.id, attacker_side.character.id, "opponent", "cards", target.card.id)
+            self.resolve(target, "flip", actor=defender_side, target=attacker)
+            self.run_logic(target, "flip", defender_side, attacker_side)
         attack_value = self.effective_atk(attacker, attacker_side)
         target_in_attack = target.battle_position == "attack"
         target_value = self.battle_value(target, defender_side)
@@ -4381,59 +4415,182 @@ class DuelEngine:
         self.resolve_pending_procedure(selected)
         return True
 
-    def ai_defense_estimate(self, card):
+    def ai_defense_estimate(self, card, actor=None):
+        actor = actor or self.opponent
         if not card.face_up: return 0
-        return self.effective_atk(card, self.player) if card.battle_position == "attack" else self.effective_defense(card, self.player)
+        return self.effective_atk(card, actor) if card.battle_position == "attack" else self.effective_defense(card, actor)
 
-    def ai_card_score(self, card, mode):
-        character = self.opponent.character
+    def ai_target_score(self, item, actor, spec=None):
+        enemy = self.other(actor)
+        if isinstance(item, Duelist): return max(0, 8000 - item.hp) if item is enemy else -max(0, 8000 - item.hp)
+        if not isinstance(item, CardInstance): return 0
+        owner = self.owner_of(item)
+        score = self.effective_atk(item, owner) if item.battle_position == "attack" else self.effective_defense(item, owner)
+        if owner is enemy: score += 900
+        else: score = -score
+        if not item.face_up: score += 120 if owner is enemy else -120
+        if item.card.kind in ["spell", "field", "trap"]: score += 180 if owner is enemy else -180
+        if spec and any(action.get("name") == "destroy" for action in spec.actions) and owner is enemy: score += 300
+        return score
+
+    def ai_card_score(self, card, mode, actor=None):
+        actor = actor or self.opponent
+        enemy = self.other(actor)
+        character = actor.character
         weights = character.behavior_weights
         family_weights = weights.get("family_weights", {})
         phase_weights = weights.get("phase_weights", {})
-        state = "enemy" if self.player.character.id in character.enemies else "ally" if self.player.character.id in character.allies else character.relationship if character.relationship in ["enemy", "ally"] else "stranger"
+        state = "enemy" if enemy.character.id in character.enemies else "ally" if enemy.character.id in character.allies else character.relationship if character.relationship in ["enemy", "ally"] else "stranger"
         state_weight = float(weights.get("state_weights", {}).get(state, 1.0))
         family_weight = float(family_weights.get(card.card.family, 0.0))
         learned_weight = int(character.learned_cards.get(card.card.id, 0)) * float(weights.get("adaptation", 1.0))
         phase_weight = float(phase_weights.get(self.phase, 1.0))
-        urgency = float(weights.get("risk_tolerance", 3.0)) if mode == "monster" else float(weights.get("reward_value", 5.0))
-        hp_pressure = max(0, 8000 - self.opponent.hp) / 800.0 if mode == "spell" else 0.0
+        urgency = float(weights.get("risk_tolerance", 3.0)) if mode in ["monster", "set"] else float(weights.get("reward_value", 5.0))
+        hp_pressure = max(0, 8000 - actor.hp) / 800.0 if mode == "spell" else 0.0
         effect_score = 0
         for index, raw_effect in enumerate(card.card.effects):
             spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
-            if not spec.validate() and spec.trigger in ["activate", "summon", "respond", "chain_response"]:
-                effect_score += self.declarative_effect_score(card, spec, self.opponent, self.player)
-        return card.atk + card.card.stars * 40 + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * (200 if card.card.family == "spell" else 0) + effect_score
+            if not spec.validate():
+                effect_score += self.declarative_effect_score(card, spec, actor, enemy)
+                if spec.trigger == "flip" and mode == "set": effect_score += 500
+                if spec.trigger == "battle" and mode == "set": effect_score += 700
+        stat_score = card.atk + card.card.stars * 40
+        if mode == "set": stat_score = card.defense * 1.25 + (card.atk * 0.15)
+        if mode == "trap": stat_score = effect_score + 150
+        bias_key = "summon_bias" if mode == "monster" else "set_bias" if mode == "set" else "activation_bias" if mode in ["spell", "trap"] else "summon_bias"
+        bias = max(0.1, float(weights.get("duel", {}).get(bias_key, 1.0)))
+        return (stat_score + family_weight * 100 * phase_weight * state_weight + learned_weight * 20 + urgency * 25 + hp_pressure * 200 + effect_score) * bias
 
-    def ai_main_plan(self):
+    def ai_activation_spec(self, card):
+        return next((EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects) if EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).trigger == "activate"), None)
+
+    def ai_activation_score(self, card, actor):
+        spec = self.ai_activation_spec(card)
+        if not spec: return self.ai_card_score(card, "spell", actor)
+        score = self.ai_card_score(card, "spell", actor)
+        selector = spec.selector or self.legacy_selector(card, actor)
+        legal = self.legal_targets(card, actor, selector) if selector else []
+        enemy = self.other(actor)
+        own_value = sum(max(0, self.ai_target_score(item, enemy)) for item in legal if self.owner_of(item) is actor)
+        enemy_value = sum(max(0, self.ai_target_score(item, actor)) for item in legal if self.owner_of(item) is enemy)
+        for action in spec.actions:
+            name = action.get("name", "")
+            if name == "destroy":
+                score += (enemy_value * 2 - own_value * 3) * float(actor.character.behavior_weights.get("duel", {}).get("removal_bias", 1.0))
+                if enemy_value <= 0: score -= 100000
+            elif name in ["banish", "send_to_graveyard", "return_to_hand", "control"]:
+                score += enemy_value - own_value
+            elif name == "draw":
+                score += max(1, int(action.get("amount", 1) or 1)) * 140
+        if selector and selector.get("zone") == "spell_trap" and not any(self.owner_of(item) is enemy for item in legal): score -= 100000
+        return score * float(actor.character.behavior_weights.get("duel", {}).get("activation_bias", 1.0))
+
+    def ai_can_activate(self, card, actor):
+        if card not in actor.hand or card.card.kind not in ["spell", "field"] or card.card.timing not in ["main", "any"]: return False
+        spec = self.ai_activation_spec(card)
+        selector = spec.selector if spec and spec.selector else self.legacy_selector(card, actor)
+        if selector:
+            legal = self.legal_targets(card, actor, selector)
+            if not legal: return False
+            if selector.get("zone") in ["monster", "spell_trap", "field"] and not any(self.owner_of(item) is self.other(actor) for item in legal if isinstance(item, CardInstance)) and any(action.get("name") in ["destroy", "banish", "send_to_graveyard", "return_to_hand", "control"] for action in (spec.actions if spec else [])): return False
+            required = selector.get("count", card.card.target_count or 0)
+            if required == "all": return True
+            try: required = int(required or 0)
+            except (TypeError, ValueError): required = 0
+            if required and len(legal) < required: return False
+        return self.ai_activation_score(card, actor) > -50000
+
+    def ai_main_plan(self, actor=None):
+        actor = actor or self.opponent
         actions = []
-        if any(value is None for value in self.opponent.monsters):
-            for card in self.opponent.hand + self.opponent.extra:
-                if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, self.opponent): actions.append({"kind": "summon", "card": card, "score": self.ai_card_score(card, "monster") + 120})
-        for card in self.opponent.hand:
-            if card.card.kind in ["spell", "field"]:
-                score = self.ai_card_score(card, "spell")
-                if score > -50000: actions.append({"kind": "activate", "card": card, "score": score})
+        if any(value is None for value in actor.monsters):
+            for card in actor.hand + actor.extra:
+                if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, actor):
+                    actions.append({"kind": "summon", "card": card, "score": self.ai_card_score(card, "monster", actor) + 120})
+        if self.normal_summon_remaining(actor) > 0 and any(value is None for value in actor.monsters):
+            for card in actor.hand:
+                if card.card.kind in ["normal", "effect", "legendary"] and self.ai_can_summon(card, actor):
+                    actions.append({"kind": "set", "card": card, "score": self.ai_card_score(card, "set", actor)})
+        for card in actor.hand:
+            if card.card.kind in ["spell", "field"] and self.ai_can_activate(card, actor):
+                actions.append({"kind": "activate", "card": card, "score": self.ai_activation_score(card, actor)})
+            elif card.card.kind == "trap" and any(value is None for value in actor.spells):
+                actions.append({"kind": "set", "card": card, "score": self.ai_card_score(card, "trap", actor)})
         return max(actions, key=lambda item: (item["score"], item["card"].card.id, item["kind"])) if actions else None
+
+    def autonomous_actor(self):
+        if self.chain_window and self.chain_priority: return self.chain_priority
+        if self.pending_discard: return self.pending_discard
+        for pending in [self.pending_trigger_order, self.pending_cost, self.pending_procedure, self.pending_response, self.pending_target, self.pending_summon, self.pending_effect]:
+            if isinstance(pending, dict) and pending.get("actor"): return pending["actor"]
+        if self.pending_trigger_order and self.pending_trigger_order.get("chooser"): return self.pending_trigger_order["chooser"]
+        if self.pending_trap:
+            defender = self.pending_trap.get("defender")
+            if defender: return defender
+        return self.active
+
+    def ai_choose_cards(self, cards, actor, count):
+        return sorted(list(cards or []), key=lambda item: (self.ai_card_score(item, "cost", actor), item.card.id))[:max(0, int(count or 0))]
+
+    def ai_battle_target_score(self, attacker, target, actor):
+        defender = self.other(actor)
+        attack_value = self.effective_atk(attacker, actor)
+        target_value = self.battle_value(target, defender)
+        score = 0
+        if target.battle_position == "attack":
+            score += (attack_value - target_value) * 4
+            if attack_value > target_value: score += 900
+            elif attack_value < target_value: score -= 900
+        else:
+            score += 240 if attack_value > target_value else -180
+        if not target.face_up: score += 80
+        target_score = self.ai_target_score(target, actor)
+        score += target_score
+        if target.battle_position == "defense" and attack_value <= target_value:
+            score -= target_score + 1000 + (target_value - attack_value) * 4 * float(actor.character.behavior_weights.get("duel", {}).get("defense_bias", 1.0))
+        return score * float(actor.character.behavior_weights.get("duel", {}).get("attack_bias", 1.0))
+
+    def ai_open_trap_window(self, attacker):
+        defender = self.other(self.owner_of(attacker) or self.active)
+        traps = [item for item in defender.spells if item and item.card.kind == "trap" and not item.face_up]
+        if not traps: return False
+        trap = max(traps, key=lambda item: (self.ai_card_score(item, "trap", defender), item.card.id))
+        if self.ai_card_score(trap, "trap", defender) < float(defender.character.behavior_weights.get("duel", {}).get("trap_threshold", 0.0)): return False
+        self.pending_trap = {"trap": trap, "attacker": attacker, "defender": defender}
+        self.notify("question", f"Activate {trap.card.name}?", ["yes", "no"], {"trap": trap.card.id, "attacker": attacker.card.id, "defender": defender.character.id})
+        self.log(f"Trap window: {trap.card.name} can answer {attacker.card.name}.")
+        attacker_owner = self.owner_of(attacker)
+        self.react("trap_window", defender.character.id, attacker_owner.character.id if attacker_owner else "", "opponent", "cards", trap.card.id)
+        return True
+
+    def ai_effect_answer(self, actor):
+        notification = self.pending_notification("yes_no")
+        if not notification: return "waiting"
+        pending = self.pending_effect
+        value = self.declarative_effect_score(pending["card"], pending["spec"], actor, self.other(actor)) if pending else 0
+        answer = "yes" if value > 0 and "yes" in notification.options else "no" if "no" in notification.options else notification.options[0]
+        return self.respond_notification(notification.notification_id, answer)
 
     def autonomous_step(self, actor):
         if self.finished: return "finished"
         if self.chain_window:
-            if self.chain_priority is actor:
-                notification = self.pending_notification("chain_response")
-                if notification: return self.pass_chain_priority(actor)
+            if self.chain_priority is actor: return self.ai_chain_step_for(actor)
             return "waiting"
         if self.pending_discard:
-            if self.pending_discard is actor and actor.hand: return self.discard(actor.hand[-1])
+            if self.pending_discard is actor and actor.hand: return self.discard(self.ai_choose_cards(actor.hand, actor, 1)[0])
             return "waiting"
         if self.pending_trigger_order:
             pending = self.pending_trigger_order
             if pending.get("chooser") is not actor: return "waiting"
-            selected = [item["effect_id"] for item in pending["members"]]
-            return self.resolve_trigger_order(selected)
+            required = [item for item in pending["members"] if not item.get("optional")]
+            optional = [item for item in pending["members"] if item.get("optional") and self.ai_trigger_effect_score(item, actor) > 0]
+            selected = required + optional
+            selected.sort(key=lambda item: (-self.ai_trigger_effect_score(item, actor), item["effect_id"]))
+            return self.resolve_trigger_order([item["effect_id"] for item in selected])
         if self.pending_cost:
             if self.pending_cost.get("actor") is not actor: return "waiting"
             required = int(self.pending_cost.get("required", 0))
-            return self.resolve_pending_cost(list(self.pending_cost.get("candidates", [])[:required]))
+            return self.resolve_pending_cost(self.ai_choose_cards(self.pending_cost.get("candidates", []), actor, required))
         if self.pending_procedure:
             if self.pending_procedure.get("actor") is not actor: return "waiting"
             procedure = self.pending_procedure["procedure"]
@@ -4442,93 +4599,56 @@ class DuelEngine:
             return self.resolve_pending_procedure(selected)
         if self.pending_response:
             if self.pending_response.get("actor") is not actor: return "waiting"
-            notification = self.pending_notification("choose_target")
             candidates = self.pending_response.get("candidates", [])
-            if notification and candidates: return self.respond_notification(notification.notification_id, "ok", candidates[0])
+            if candidates:
+                selected = max(candidates, key=lambda item: (self.ai_target_score(item, actor, self.pending_response.get("spec")), self.entity_id(item)))
+                return self.resolve_pending_response([selected])
             return "waiting"
         if self.pending_target:
             if self.pending_target.get("actor") is not actor: return "waiting"
-            notification = self.pending_notification("choose_target")
             candidates = self.pending_target.get("candidates", [])
-            if notification and candidates: return self.respond_notification(notification.notification_id, "ok", candidates[0])
+            if candidates:
+                selected = max(candidates, key=lambda item: (self.ai_target_score(item, actor), self.entity_id(item)))
+                return self.respond_notification(self.pending_notification("choose_target").notification_id, "ok", selected)
             return "waiting"
         if self.pending_summon:
             if self.pending_summon.get("actor") is not actor: return "waiting"
-            notification = self.pending_notification("choose_target")
             candidates = self.pending_summon.get("candidates", [])
-            if notification and candidates: return self.respond_notification(notification.notification_id, "ok", candidates[0])
+            if candidates:
+                selected = max(candidates, key=lambda item: (self.ai_target_score(item, actor), self.entity_id(item)))
+                return self.respond_notification(self.pending_notification("choose_target").notification_id, "ok", selected)
             return "waiting"
         if self.pending_effect:
             if self.pending_effect.get("actor") is not actor: return "waiting"
-            notification = self.pending_notification("yes_no")
-            if notification:
-                answer = "no" if "no" in notification.options else notification.options[0]
-                return self.respond_notification(notification.notification_id, answer)
-            return "waiting"
+            return self.ai_effect_answer(actor)
         if self.pending_trap:
-            notification = self.pending_notification("question")
-            if notification and "no" in notification.options: return self.respond_notification(notification.notification_id, "no")
-            return "waiting"
+            defender = self.pending_trap.get("defender") or next((side for side in [self.player, self.opponent] if self.pending_trap["trap"] in side.spells), None)
+            if defender is not actor: return "waiting"
+            return self.activate_trap(self.pending_trap["trap"], actor)
         if self.active is not actor: return "waiting"
         if self.phase in ["MAIN 1", "MAIN 2"]:
-            candidates = [item for item in actor.hand + actor.extra if item.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(item, actor)]
-            if candidates:
-                card = max(candidates, key=lambda item: (item.atk, item.card.stars, item.card.id))
-                if card.card.summon_method in ["fusion", "ritual"]: return self.begin_summon_procedure(card, actor, ProcedureSpec.from_card(card))
-                return self.summon(card, actor)
+            plan = self.ai_main_plan(actor)
+            if plan:
+                card, kind = plan["card"], plan["kind"]
+                if kind == "summon":
+                    if card.card.summon_method in ["fusion", "ritual"]: return self.begin_summon_procedure(card, actor, ProcedureSpec.from_card(card))
+                    return self.summon(card, actor)
+                if kind == "set": return self.set_card(card, actor)
+                if kind == "activate": return self.activate(card, actor)
         if self.phase == "BATTLE":
-            attacker = next((item for item in actor.monsters if item and item.face_up and item.battle_position == "attack" and not item.attacked), None)
-            if attacker:
+            attackers = [item for item in actor.monsters if item and item.face_up and item.battle_position == "attack" and not item.attacked]
+            if attackers:
+                attacker = max(attackers, key=lambda item: (self.ai_card_score(item, "monster", actor), item.card.id))
+                if self.ai_open_trap_window(attacker): return "pending_trap"
                 targets = [item for item in self.other(actor).monsters if item]
-                target = min(targets, key=lambda item: (self.battle_value(item, self.other(actor)), item.card.id)) if targets else None
+                target = max(targets, key=lambda item: (self.ai_battle_target_score(attacker, item, actor), self.entity_id(item))) if targets else None
                 return self.resolve_battle(actor, attacker, target)
         self.advance()
         return "phase_advanced"
 
     def ai_step(self):
-        if self.finished: return
-        if self.ai_resolve_pending_trigger_order(): return
-        if self.active is not self.opponent: return
-        if self.ai_resolve_pending_procedure(): return
-        if self.pending_discard is self.opponent:
-            self.discard(self.opponent.hand[-1])
-            return
-        if self.phase in ["MAIN 1", "MAIN 2"]:
-            plan = self.ai_main_plan()
-            if plan and plan["kind"] == "summon":
-                card = plan["card"]
-                if card.card.summon_method == "fusion": result = self.begin_summon_procedure(card, self.opponent, ProcedureSpec.from_card(card))
-                elif card.card.summon_method == "ritual": result = self.begin_summon_procedure(card, self.opponent, ProcedureSpec.from_card(card))
-                else: result = self.summon(card, self.opponent)
-                if result[0] and result[1] not in ["pending_procedure", "pending_cost"]: self.log(f"{self.opponent.name} summons {card.card.name}.")
-                return
-            if plan and plan["kind"] == "activate":
-                card = plan["card"]
-                self.opponent.hand.remove(card)
-                self.opponent.graveyard.append(card)
-                self.log(f"{self.opponent.name} activates {card.card.name}.")
-                self.resolve_ai(card, "activate")
-                self.run_logic(card, "activate", self.opponent, self.player)
-                return
-        if self.phase == "BATTLE":
-            attacker = next((item for item in self.opponent.monsters if item and not item.attacked), None)
-            if self.pending_trap:
-                self.activate_trap(self.pending_trap["trap"])
-                return
-            traps = [item for item in self.player.spells if item and item.card.kind == "trap" and not item.face_up]
-            if attacker and traps:
-                self.pending_trap = {"trap": traps[0], "attacker": attacker}
-                self.notify("question", f"Activate {traps[0].card.name}?", ["yes", "no"], {"trap": traps[0].card.id, "attacker": attacker.card.id})
-                self.log(f"Trap window: {traps[0].card.name} can answer {attacker.card.name}.")
-                self.react("trap_window", self.player.character.id, self.opponent.character.id, "opponent", "cards", traps[0].card.id)
-                return
-            for card in [item for item in self.opponent.monsters if item]:
-                if card.attacked: continue
-                targets = [item for item in self.player.monsters if item]
-                target = min(targets, key=lambda item: (self.battle_value(item, self.player), item.card.id)) if targets else None
-                self.resolve_battle(self.opponent, card, target)
-                return
-        self.advance()
+        if self.finished or self.active is not self.opponent: return
+        self.autonomous_step(self.opponent)
 
 
 class Button:

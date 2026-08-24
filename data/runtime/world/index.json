@@ -8,10 +8,6 @@
     "default_opponent_team": "trio_team",
     "default_place": "neon_playground"
   },
-  "place_occupancy": {
-    "neon_playground": 0,
-    "mystery_void": 0
-  },
   "collections": [
     "requests",
     "orders",

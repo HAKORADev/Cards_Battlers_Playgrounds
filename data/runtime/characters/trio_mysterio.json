@@ -3,7 +3,24 @@
   "id": "trio_mysterio",
   "category": "characters",
   "state": {
-    "rank": 1,
+    "activity": "idle",
+    "learned_cards": {},
+    "history": [],
+    "movement_progress": 0.0,
+    "enemies": [],
+    "allies": [],
+    "relationship": "stranger",
+    "learned_opponents": {},
+    "current_place": "",
+    "library_cards": [
+      "trio_relic",
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ],
+    "borrowed_cards": [],
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -23,7 +40,9 @@
         "god_of_cards": 2.0,
         "field": 0.0,
         "fusion": 0.0,
-        "ritual": 0.0
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0
       },
       "state_weights": {
         "stranger": 1.0,
@@ -35,29 +54,21 @@
         "MAIN 1": 1.0,
         "MAIN 2": 1.0,
         "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
       }
     },
-    "activity": "idle",
-    "current_place": "",
-    "cooldown_until": 0.0,
-    "movement_progress": 0.0,
-    "learned_opponents": {},
-    "relationship": "stranger",
-    "learned_cards": {},
-    "history": [],
-    "borrowed_cards": [],
-    "library_cards": [
-      "trio_relic",
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
     "destination": "",
-    "enemies": [],
     "availability": "free",
-    "allies": [],
-    "mood": "mysterious"
+    "rank": 1,
+    "mood": "mysterious",
+    "cooldown_until": 0.0
   }
 }
