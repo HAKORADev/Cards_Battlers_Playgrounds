@@ -394,6 +394,7 @@ class AssetBank:
         self.sized_images = {}
         self.menu_layers = {}
         self.cursor_cache = {}
+        self.reaction_sounds = {}
         self.card_templates = {}
         self.card_badges = {}
         self.splash_names = []
@@ -578,6 +579,18 @@ class AssetBank:
         return universal if universal.exists() else None
     def play_duel_music(self, place_id, enabled, volume=0.35, night=False):
         return self.loop_music(self.place_music_path(place_id, night), enabled, volume)
+    def play_reaction_audio(self, path, enabled=True, volume=0.8):
+        if not enabled or not path or not Path(path).exists(): return False
+        try:
+            sound = self.reaction_sounds.get(str(path))
+            if sound is None:
+                sound = pygame.mixer.Sound(str(path))
+                if len(self.reaction_sounds) >= 128: self.reaction_sounds.pop(next(iter(self.reaction_sounds)))
+                self.reaction_sounds[str(path)] = sound
+            sound.set_volume(volume)
+            sound.play()
+            return True
+        except pygame.error: return False
 
 
 @dataclass
@@ -1365,7 +1378,11 @@ class ContentStore:
         status = allowed[decision]
         request["status"] = status
         request.setdefault("events", []).append({"status": status, "actor": actor_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
-        if status == "queued": request["queued_sim_time"] = float(self.world.get("simulation_time", 0.0))
+        if status == "queued":
+            request["queued_sim_time"] = float(self.world.get("simulation_time", 0.0))
+            request["accepted_by"] = actor_id
+            request["house_player"] = actor_id
+            request["guest_player"] = request.get("to") if actor_id == request.get("from") else request.get("from")
         self.save()
         return True
 
@@ -1414,10 +1431,12 @@ class ContentStore:
                 if character:
                     character.availability = "active"
                     character.activity = "dueling"
-            engine = DuelEngine(self, request["from"], request["to"], place_id, True)
+            house_id = request.get("house_player") or request.get("accepted_by") or request.get("to") or request.get("from")
+            guest_id = request.get("guest_player") or (request.get("to") if house_id == request.get("from") else request.get("from"))
+            engine = DuelEngine(self, house_id, guest_id, place_id, True)
             engine.match_recorded = True
             battle_id = "sim_battle_" + str(int(time.time() * 1000))
-            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "turn": engine.turn, "actions": [], "hp": {request["from"]: engine.player.hp, request["to"]: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
+            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "turn": engine.turn, "actions": [], "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
             self.world_sessions[battle_id] = engine
             self.world.setdefault("active_battles", []).append(battle)
             self.world.setdefault("simulation_events", []).append({"type": "battle_activated", "battle": battle["id"], "request": request["id"], "sim_time": float(self.world.get("simulation_time", 0.0))})
@@ -1425,7 +1444,10 @@ class ContentStore:
     def _world_session(self, battle):
         session = self.world_sessions.get(battle["id"])
         if session: return session
-        session = DuelEngine(self, battle["from"], battle["to"], battle["place"], True)
+        house_id = battle.get("house") or battle.get("accepted_by") or battle.get("to") or battle.get("from")
+        guest_id = battle.get("guest") or (battle.get("to") if house_id == battle.get("from") else battle.get("from"))
+        battle["house"], battle["guest"] = house_id, guest_id
+        session = DuelEngine(self, house_id, guest_id, battle["place"], True)
         session.match_recorded = True
         checkpoint = battle.get("engine_checkpoint")
         if checkpoint and not session.restore_state_checkpoint(checkpoint): return None
@@ -5088,18 +5110,27 @@ class PreDuelScene(Scene):
 
 
 class DuelScene(Scene):
-    def __init__(self, app, opponent_id, starter, place_id=None, reserved=False):
+    def __init__(self, app, opponent_id=None, starter="player", place_id=None, reserved=False, spectator_battle=None, spectator_engine=None):
         super().__init__(app)
         roles = app.store.role_config()
         place_id = place_id or roles["default_place"]
-        self.engine = DuelEngine(app.store, roles["player_character"], opponent_id, place_id, starter == "opponent")
+        self.spectator = bool(spectator_battle)
+        self.watched_battle = spectator_battle or {}
+        if spectator_engine:
+            self.engine = spectator_engine
+        elif self.spectator:
+            house_id = self.watched_battle.get("house") or self.watched_battle.get("accepted_by") or self.watched_battle.get("to") or self.watched_battle.get("from")
+            guest_id = self.watched_battle.get("guest") or (self.watched_battle.get("to") if house_id == self.watched_battle.get("from") else self.watched_battle.get("from"))
+            self.engine = app.store._world_session(self.watched_battle) or DuelEngine(app.store, house_id, guest_id, place_id, True)
+        else:
+            self.engine = DuelEngine(app.store, roles["player_character"], opponent_id, place_id, starter == "opponent")
         self.layout = DuelLayout()
         self.place_id = place_id
         self.place_reserved = reserved
         self.reaction_player = ReactionPlayer()
         self.reaction_seen = 0
-        self.stage = "battle"
-        self.message = "Select a card, then choose an action."
+        self.stage = "watching" if self.spectator else "battle"
+        self.message = "Live house POV: watching the duel." if self.spectator else "Select a card, then choose an action."
         self.ai_timer = 0
         self.buttons = []
         self.interactions_open = False
@@ -5125,8 +5156,15 @@ class DuelScene(Scene):
         super().enter()
         night = time.localtime().tm_hour < 6 or time.localtime().tm_hour >= 18
         self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, night)
+        if self.spectator:
+            self.reaction_seen = len(self.engine.reaction_events)
+            self.buttons = [Button((650, 530, 110, 38), "EXIT WATCH", lambda: self.app.pop(), COLORS["muted"])]
 
     def handle(self, event):
+        if self.spectator:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: self.app.pop(); return
+            super().handle(event)
+            return
         if event.type == pygame.MOUSEMOTION:
             self.update_hover(event.pos)
             if self.interactions_open:
@@ -5449,8 +5487,24 @@ class DuelScene(Scene):
     def surrender(self):
         self.engine.finish(self.engine.opponent, "surrender")
 
+    def start_reaction(self, record):
+        selection = ReactionSelection(**record["selection"])
+        self.reaction_player.start(selection)
+        enabled = bool(self.app.store.save_data.get("vocals", True) and self.app.store.save_data.get("sfx", True))
+        if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8)
+
     def update(self, dt):
         super().update(dt)
+        if self.spectator:
+            self.app.store.advance_world(dt)
+            session = self.app.store._world_session(self.watched_battle)
+            if session: self.engine = session
+            if len(self.engine.reaction_events) > self.reaction_seen:
+                record = self.engine.reaction_events[-1]
+                self.start_reaction(record)
+                self.reaction_seen = len(self.engine.reaction_events)
+            self.reaction_player.update(dt)
+            return
         if self.engine.pending_discard is self.engine.player and self.question is None:
             self.question = {"kind": "discard", "stage": "await_ok"}
         self.sync_notification()
@@ -5467,7 +5521,7 @@ class DuelScene(Scene):
                 self.engine.ai_step()
         if len(self.engine.reaction_events) > self.reaction_seen:
             record = self.engine.reaction_events[-1]
-            self.reaction_player.start(ReactionSelection(**record["selection"]))
+            self.start_reaction(record)
             self.reaction_seen = len(self.engine.reaction_events)
         self.reaction_player.update(dt)
         if self.engine.finished and self.stage == "battle":
@@ -5484,6 +5538,8 @@ class DuelScene(Scene):
         self.draw_opponent_hand(surface)
         self.draw_board(surface)
         self.draw_duel_header(surface)
+        if self.spectator:
+            draw_text(surface, "LIVE HOUSE POV  |  " + self.engine.player.character.name.upper(), (400, 74), self.app.assets.font(10, True), COLORS["gold"], "center")
         self.draw_reaction(surface)
         self.draw_hand(surface)
         self.draw_interactions(surface)
@@ -7099,46 +7155,56 @@ class WatchScene(Scene):
     def __init__(self, app):
         super().__init__(app)
         self.buttons = []
+        self.battle_rows = []
 
-    def enter(self):
-        self.buttons = [Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+    def enter(self): self.refresh()
+
+    def active_battles(self): return [entry for entry in self.app.store.world.setdefault("active_battles", []) if entry.get("status") == "active"]
+
+    def refresh(self):
+        self.battle_rows = self.active_battles()
+        self.buttons = []
+        for index, battle in enumerate(self.battle_rows[:4]):
+            self.buttons.append(Button((600, 142 + index * 76, 130, 38), "WATCH LIVE", lambda battle=battle: self.open_watch(battle), COLORS["gold"]))
+        self.buttons.extend([Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])])
 
     def advance(self, seconds):
         self.app.store.advance_world(seconds)
+        self.refresh()
         self.app.notify(f"World advanced by {seconds} real-time simulation seconds.")
 
-    def active_battles(self):
-        return self.app.store.world.setdefault("active_battles", [])
+    def battle_participant(self, battle, key):
+        identifier = battle.get(key) or battle.get("to" if key == "house" else "from", "unknown")
+        return self.app.store.characters.get(identifier)
+
+    def open_watch(self, battle):
+        session = self.app.store._world_session(battle)
+        if not session:
+            self.app.notify("This live battle has no valid engine checkpoint.")
+            return
+        house = battle.get("house") or battle.get("accepted_by") or battle.get("to") or battle.get("from")
+        guest = battle.get("guest") or (battle.get("to") if house == battle.get("from") else battle.get("from"))
+        battle["house"], battle["guest"] = house, guest
+        self.app.push(DuelScene(self.app, guest, "player", battle.get("place"), False, battle, session))
 
     def draw(self, surface):
-        watch_background = self.app.store.places[self.app.store.role_config()["default_place"]].background
-        self.draw_background(surface, watch_background)
-        overlay = ui_surface((W, H), pygame.SRCALPHA)
-        overlay.fill((247, 227, 177, 42))
-        ui_blit(surface, overlay, (0, 0))
-        draw_text(surface, "LIVE SIMULATION VIEWER", (34, 30), self.app.assets.font(27, True), COLORS["gold"])
-        draw_text(surface, "Active requests become observable battles and advance only with elapsed world time.", (36, 66), self.app.assets.font(13), COLORS["muted"])
-        battles = self.active_battles()
-        battle = next((entry for entry in battles if entry.get("status") == "active"), None)
-        if battle:
-            from_name = self.app.store.characters.get(battle.get("from"), CharacterDef("", battle.get("from", "unknown"), "", 1, 1, "", [], "")).name
-            to_name = self.app.store.characters.get(battle.get("to"), CharacterDef("", battle.get("to", "unknown"), "", 1, 1, "", [], "")).name
-            self.draw_panel(surface, (45, 115, 710, 330), from_name.upper() + " VS " + to_name.upper(), COLORS["violet"])
-            hp = battle.get("hp", {})
-            draw_text(surface, f"{from_name}: {hp.get(battle.get('from'), 8000)} HP", (80, 166), self.app.assets.font(18, True), COLORS["cyan"])
-            draw_text(surface, f"{to_name}: {hp.get(battle.get('to'), 8000)} HP", (80, 204), self.app.assets.font(18, True), COLORS["red"])
-            draw_text(surface, f"Format {battle.get('format', '1v1')}  |  phase {battle.get('phase')}  |  elapsed {float(battle.get('elapsed', 0.0)):.1f}s", (80, 246), self.app.assets.font(13, True), COLORS["gold"])
-            draw_text(surface, f"Turn {battle.get('turn', 1)}  |  actions {len(battle.get('actions', []))}  |  place {battle.get('place')}", (80, 274), self.app.assets.font(12), COLORS["muted"])
-            draw_text(surface, "Action timeline", (80, 316), self.app.assets.font(14, True), COLORS["violet"])
-            for index, action in enumerate(battle.get("actions", [])[-5:]):
-                draw_text(surface, f"{action.get('sim_time', 0):.1f}s  {action.get('attacker')} attacks for {action.get('damage')}", (90, 342 + index * 18), self.app.assets.font(10), COLORS["cream"])
-        else:
-            self.draw_panel(surface, (45, 115, 710, 330), "WORLD REQUEST QUEUE", COLORS["violet"])
-            queued = [entry for entry in self.app.store.world.setdefault("requests", []) if entry.get("status") in ["open", "queued"]]
-            draw_text(surface, f"Simulation time: {float(self.app.store.world.get('simulation_time', 0.0)):.1f}s", (80, 168), self.app.assets.font(17, True), COLORS["cyan"])
-            draw_text(surface, f"Queued requests: {len(queued)}", (80, 208), self.app.assets.font(15), COLORS["cream"])
-            for index, request in enumerate(queued[:8]): draw_text(surface, f"{request.get('status', 'open').upper()}  {request.get('from')} -> {request.get('to')}  {request.get('format', '1v1')}", (82, 250 + index * 23), self.app.assets.font(11), COLORS["muted"])
-            if not queued: draw_text(surface, "No active or queued battles. Accept a request or create one from Battle.", (400, 390), self.app.assets.font(12), COLORS["muted"], "center")
+        place = self.app.store.places.get(self.app.store.role_config()["default_place"])
+        self.draw_background(surface, place.background if place else "")
+        overlay = ui_surface((W, H), pygame.SRCALPHA); overlay.fill((247, 227, 177, 42)); ui_blit(surface, overlay, (0, 0))
+        draw_text(surface, "LIVE DUEL WATCHING", (34, 30), self.app.assets.font(27, True), COLORS["gold"])
+        draw_text(surface, "Choose an active duel to watch live from the house player’s perspective.", (36, 66), self.app.assets.font(13), COLORS["muted"])
+        self.draw_panel(surface, (38, 112, 724, 370), "ACTIVE LIVE DUELS", COLORS["violet"])
+        if not self.battle_rows:
+            draw_text(surface, "No active duels are currently available to watch.", (400, 280), self.app.assets.font(15), COLORS["muted"], "center")
+        for index, battle in enumerate(self.battle_rows[:4]):
+            y = 142 + index * 76
+            house = self.battle_participant(battle, "house")
+            guest = self.battle_participant(battle, "guest")
+            house_name = house.name if house else battle.get("house", "unknown")
+            guest_name = guest.name if guest else battle.get("guest", "unknown")
+            rounded(surface, (58, y, 520, 54), (132, 94, 73), COLORS["line"], 7, 1)
+            draw_text(surface, f"HOUSE  {house_name}  VS  {guest_name}", (74, y + 10), self.app.assets.font(13, True), COLORS["cream"])
+            draw_text(surface, f"Turn {battle.get('turn', 1)}  |  {str(battle.get('phase', 'duel')).upper()}  |  {len(battle.get('actions', []))} live engine steps", (74, y + 33), self.app.assets.font(10), COLORS["muted"])
         self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 

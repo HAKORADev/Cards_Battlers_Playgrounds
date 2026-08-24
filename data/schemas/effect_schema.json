@@ -9,7 +9,8 @@
     "relationships": {"values": ["stranger", "ally", "enemy"], "default": "stranger", "side_keys": ["player", "opponent"], "side_keys_are_social_relationships": false},
     "phases": {"canonical_values": ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"], "ui_abbreviations": {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}},
     "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to centered aspect-preserving window viewport"},
-    "rules": {"path": "data/rules.json", "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only", "fusion_source": "extra", "ritual_source": "hand", "fusion_and_ritual_are_distinct": true}
+    "rules": {"path": "data/rules.json", "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only", "fusion_source": "extra", "ritual_source": "hand", "fusion_and_ritual_are_distinct": true},
+    "watching": {"house_player": "the participant recorded in accepted_by/house_player when the request is accepted", "guest_player": "the other participant", "scene": "full DuelScene using the engine-backed live world session", "orientation": "house_player is engine.player so the board, opponent rotation, hand, LP, and reactions use the house POV", "replay": false}
   },
   "card": {
     "summon_procedure": {
