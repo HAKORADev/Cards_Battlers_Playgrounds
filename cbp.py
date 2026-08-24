@@ -13,14 +13,21 @@ from dataclasses import dataclass, field
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 
-DESIGN_W, DESIGN_H = 800, 600
-INTERNAL_W, INTERNAL_H = 1920, 1080
-W, H = DESIGN_W, DESIGN_H
+SCENE_W, SCENE_H = 800, 600
+RENDER_W, RENDER_H = 1920, 1080
+W, H = SCENE_W, SCENE_H
 FPS = 60
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
-ASSETS = DATA / "engine" / "assets"
+ASSETS = DATA / "assets"
+SCHEMAS = DATA / "schemas"
 SAVE = DATA / "save.json"
+RUNTIME_DIR = DATA / "runtime"
+RUNTIME_CHARACTERS = RUNTIME_DIR / "characters"
+RUNTIME_TEAMS = RUNTIME_DIR / "teams"
+RUNTIME_WORLD = RUNTIME_DIR / "world"
+RUNTIME_WORLD_INDEX = RUNTIME_WORLD / "index.json"
+RUNTIME_WORLD_COLLECTIONS = RUNTIME_WORLD / "collections"
 def slug(value):
     return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_") or "entity"
 
@@ -44,19 +51,15 @@ COLORS = {
     "white": (255, 255, 255)
 }
 
-DUEL_PHASE_LABELS = [("DP", "DRAW"), ("SP", "STANDBY"), ("M1", "MAIN 1"), ("BP", "BATTLE"), ("M2", "MAIN 2"), ("EP", "END")]
+DUEL_PHASES = ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"]
+DUEL_PHASE_ABBREVIATIONS = {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}
 CHARACTER_RUNTIME_FIELDS = {"mood", "allies", "enemies", "history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "behavior_weights", "learned_cards", "learned_opponents"}
 TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked"}
-STATE_DIR = DATA / "state"
-STATE_CHARACTERS = STATE_DIR / "characters"
-STATE_TEAMS = STATE_DIR / "teams"
-STATE_WORLD = STATE_DIR / "world.json"
 
 
 def ensure_dirs():
-
-    for path in [DATA, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "engine", DATA / "engine" / "assets", DATA / "engine" / "assets" / "menu", DATA / "engine" / "animations", DATA / "engine" / "audio", DATA / "engine" / "menu" / "background", DATA / "engine" / "menu" / "duelers" / "left", DATA / "engine" / "menu" / "duelers" / "center", DATA / "engine" / "menu" / "duelers" / "right", DATA / "engine" / "menu" / "ui", DATA / "engine" / "menu" / "audio", DATA / "exports", STATE_DIR, STATE_CHARACTERS, STATE_TEAMS]:
-        path.mkdir(parents=True, exist_ok=True)
+    paths = [DATA, ASSETS, SCHEMAS, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "animations", DATA / "audio", DATA / "menu" / "background", DATA / "menu" / "duelers" / "left", DATA / "menu" / "duelers" / "center", DATA / "menu" / "duelers" / "right", DATA / "menu" / "ui", DATA / "menu" / "audio", DATA / "exports", RUNTIME_DIR, RUNTIME_CHARACTERS, RUNTIME_TEAMS, RUNTIME_WORLD, RUNTIME_WORLD_COLLECTIONS]
+    for path in paths: path.mkdir(parents=True, exist_ok=True)
 
 
 def write_json(path, value):
@@ -73,6 +76,60 @@ def read_json(path, fallback):
 
 def clamp(value, low, high):
     return max(low, min(high, value))
+
+
+def render_factor(surface):
+    return (RENDER_W / SCENE_W, RENDER_H / SCENE_H) if surface.get_size() == (RENDER_W, RENDER_H) else (1.0, 1.0)
+
+
+def render_point(surface, point):
+    scale_x, scale_y = render_factor(surface)
+    return (int(point[0] * scale_x), int(point[1] * scale_y))
+
+
+def render_rect(surface, rect):
+    rect = pygame.Rect(rect)
+    scale_x, scale_y = render_factor(surface)
+    return pygame.Rect(int(rect.x * scale_x), int(rect.y * scale_y), max(1, int(rect.width * scale_x)), max(1, int(rect.height * scale_y)))
+
+
+def render_size(surface, size):
+    scale_x, scale_y = render_factor(surface)
+    return (max(1, int(size[0] * scale_x)), max(1, int(size[1] * scale_y)))
+
+
+def ui_surface(size, flags=0):
+    return pygame.Surface((RENDER_W, RENDER_H) if tuple(size) == (SCENE_W, SCENE_H) else size, flags)
+
+
+def ui_blit(surface, image, position):
+    if image is None: return None
+    scale_x, scale_y = render_factor(surface)
+    if (scale_x, scale_y) != (1.0, 1.0) and image.get_size() != (RENDER_W, RENDER_H):
+        image = pygame.transform.smoothscale(image, render_size(surface, image.get_size()))
+    return surface.blit(image, render_point(surface, position))
+
+
+def ui_draw_rect(surface, color, rect, width=0, border_radius=0):
+    scale_x, scale_y = render_factor(surface)
+    factor = min(scale_x, scale_y)
+    return pygame.draw.rect(surface, color, render_rect(surface, rect), max(0, int(width * factor)), border_radius=max(0, int(border_radius * factor)))
+
+
+def ui_draw_line(surface, color, start, end, width=1):
+    scale_x, scale_y = render_factor(surface)
+    return pygame.draw.line(surface, color, render_point(surface, start), render_point(surface, end), max(1, int(width * min(scale_x, scale_y))))
+
+
+def ui_draw_polygon(surface, color, points, width=0):
+    scale_x, scale_y = render_factor(surface)
+    return pygame.draw.polygon(surface, color, [render_point(surface, point) for point in points], max(0, int(width * min(scale_x, scale_y))))
+
+
+def ui_draw_circle(surface, color, center, radius, width=0):
+    scale_x, scale_y = render_factor(surface)
+    factor = min(scale_x, scale_y)
+    return pygame.draw.circle(surface, color, render_point(surface, center), max(1, int(radius * factor)), max(0, int(width * factor)))
 
 
 def wrap(font, text, width):
@@ -94,16 +151,17 @@ def wrap(font, text, width):
 
 def draw_text(surface, text, position, font, color=COLORS["cream"], anchor="topleft"):
     image = font.render(str(text), True, color)
+    scale_x, scale_y = render_factor(surface)
+    if (scale_x, scale_y) != (1.0, 1.0): image = pygame.transform.smoothscale(image, render_size(surface, image.get_size()))
     rect = image.get_rect()
-    setattr(rect, anchor, position)
+    setattr(rect, anchor, render_point(surface, position))
     surface.blit(image, rect)
     return rect
 
 
 def rounded(surface, rect, fill, outline=None, radius=8, width=1):
-    pygame.draw.rect(surface, fill, rect, border_radius=radius)
-    if outline:
-        pygame.draw.rect(surface, outline, rect, width, border_radius=radius)
+    ui_draw_rect(surface, fill, rect, border_radius=radius)
+    if outline: ui_draw_rect(surface, outline, rect, width, border_radius=radius)
 
 
 CARD_FRAME_COLORS = {
@@ -194,7 +252,7 @@ def cursor_pressed(buttons):
 
 
 def blit_aspect(surface, image, rect):
-    rect = pygame.Rect(rect)
+    rect = render_rect(surface, rect)
     ratio = min(rect.width / max(1, image.get_width()), rect.height / max(1, image.get_height()))
     size = (max(1, int(image.get_width() * ratio)), max(1, int(image.get_height() * ratio)))
     scaled = pygame.transform.smoothscale(image, size)
@@ -213,14 +271,15 @@ def card_art_window(rect):
 
 
 def render_engine_card(surface, rect, card, assets, registry=None, known=True, face_down=False, variant=1, compact=False, defense_position=False):
-    rect = pygame.Rect(rect)
+    layout_rect = pygame.Rect(rect)
+    rect = render_rect(surface, layout_rect)
     if face_down:
         image = assets.image("card_back")
         if image:
             if defense_position: image = pygame.transform.rotate(image, 90)
             blit_aspect(surface, image, rect)
         return
-    field_mode = not compact and rect.width <= 100 and rect.height <= 110
+    field_mode = not compact and layout_rect.width <= 100 and layout_rect.height <= 110
     template_kind = card_template_kind(card)
     template = assets.card_template(template_kind)
     if not template: return
@@ -241,7 +300,7 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     row_size = 5 if field_mode else 6 if compact else 8
     body_size = 4 if field_mode else 5 if compact else 7
     title_limit = 8 if field_mode else 12 if compact else 24
-    draw_text(surface, card.name[:title_limit], (rect.x + int(rect.width * 0.47), rect.y + int(rect.height * 0.105)), assets.display_font(title_size, True), COLORS["ink"], "center")
+    draw_text(surface, card.name[:title_limit], (layout_rect.x + int(layout_rect.width * 0.47), layout_rect.y + int(layout_rect.height * 0.105)), assets.display_font(title_size, True), COLORS["ink"], "center")
     badge_center = (rect.x + int(rect.width * 0.84), rect.y + int(rect.height * 0.145))
     badge = assets.card_badge(template_kind)
     if badge:
@@ -250,15 +309,16 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
 
     monster_kind = card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
     row_label = ("★" * max(0, min(11, int(card.stars)))) if monster_kind else ("TRAP" if card.kind == "trap" else "SPELL")
-    draw_text(surface, row_label[:11], (rect.centerx, rect.y + int(rect.height * 0.195)), assets.font(row_size, True), COLORS["ink"], "center")
+    draw_text(surface, row_label[:11], (layout_rect.centerx, layout_rect.y + int(layout_rect.height * 0.195)), assets.font(row_size, True), COLORS["ink"], "center")
+    layout_art_rect = card_art_window(layout_rect)
     subtype = card.family.upper()[:16]
-    draw_text(surface, subtype, (rect.centerx, art_rect.bottom + int(rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
+    draw_text(surface, subtype, (layout_rect.centerx, layout_art_rect.bottom + int(layout_rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
     if not compact and not field_mode:
-        lines = wrap(assets.font(body_size), card.description, max(30, rect.width - 12))[:3]
+        lines = wrap(assets.font(body_size), card.description, max(30, layout_rect.width - 12))[:3]
         for index, line in enumerate(lines):
-            draw_text(surface, line, (rect.x + 6, art_rect.bottom + int(rect.height * 0.12) + index * (body_size + 1)), assets.font(body_size), COLORS["ink"])
+            draw_text(surface, line, (layout_rect.x + 6, layout_art_rect.bottom + int(layout_rect.height * 0.12) + index * (body_size + 1)), assets.font(body_size), COLORS["ink"])
     stat = f"ATK {card.atk}  DEF {card.defense}" if monster_kind else card.kind.upper()
-    if not field_mode: draw_text(surface, stat, (rect.centerx, rect.bottom - int(rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
+    if not field_mode: draw_text(surface, stat, (layout_rect.centerx, layout_rect.bottom - int(layout_rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
 
 
 class AssetBank:
@@ -332,7 +392,7 @@ class AssetBank:
             if path and path.exists():
                 try: image = pygame.image.load(str(path)).convert_alpha()
                 except pygame.error: image = None
-            fallback_roles = {"place_ground": "duel_environment", "table_frame": "table_frame_cycle12", "duel_frame": "duel_frame_cycle12", "field_surface": "field_surface_cycle12"}
+            fallback_roles = {"place_ground": "duel_field", "duel_environment": "duel_field", "table_frame": "table_frame_cycle12", "duel_frame": "duel_frame_cycle12", "field_surface": "field_surface_cycle12"}
             if image is None: image = self.images.get(fallback_roles.get(role, role))
             self.role_images[role] = image
         if image is None: return None
@@ -659,8 +719,8 @@ class ReactionResolver:
         if entity_type == "cards" and entity_id: roots.append(self.registry.entity_path("cards", entity_id) / "interactions" / event)
         if entity_type == "places" and entity_id: roots.append(self.registry.entity_path("places", entity_id) / "presentation" / event)
         if place_id: roots.append(self.registry.entity_path("places", place_id) / "presentation" / event)
-        roots.append(DATA / "engine" / "animations" / event)
-        roots.append(DATA / "engine" / "audio" / event)
+        roots.append(DATA / "animations" / event)
+        roots.append(DATA / "audio" / event)
         return roots
 
     def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang"):
@@ -982,20 +1042,20 @@ class ContentStore:
         self.places = {}
         self.teams = {}
         self.logic = {}
-        self.save_data = read_json(SAVE, {"player_name": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "history": [], "setup_complete": False})
-        self.save_data.setdefault("resolution", "1280x720")
-        self.save_data.setdefault("setup_complete", False)
-        self.save_data.setdefault("sfx", True)
+        stored_profile = read_json(SAVE, {})
+        profile_defaults = {"active_user_id": "", "active_user_folder": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "setup_complete": False}
+        self.save_data = {key: stored_profile.get(key, default) for key, default in profile_defaults.items()}
         self.media = MediaRegistry(ROOT)
         self.clock = WorldClock()
         self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", [])]: self.world.setdefault(key, default)
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0)]: self.world.setdefault(key, default)
         self.load()
 
     def role_config(self):
         roles = self.world.get("roles", {}) if isinstance(self.world, dict) else {}
         character_ids = sorted(self.characters)
-        player_id = roles.get("player_character") if roles.get("player_character") in self.characters else next((item.id for item in self.characters.values() if item.relationship == "self"), character_ids[0] if character_ids else "")
+        active_user_id = self.save_data.get("active_user_id", "")
+        player_id = active_user_id if active_user_id in self.characters else roles.get("player_character") if roles.get("player_character") in self.characters else (character_ids[0] if character_ids else "")
         opponent_id = roles.get("default_opponent_character") if roles.get("default_opponent_character") in self.characters else next((item for item in character_ids if item != player_id), player_id)
         team_ids = sorted(self.teams)
         player_team_id = roles.get("default_player_team") if roles.get("default_player_team") in self.teams else next((item.id for item in self.teams.values() if player_id in item.members), team_ids[0] if team_ids else "")
@@ -1004,22 +1064,22 @@ class ContentStore:
         place_id = roles.get("default_place") if roles.get("default_place") in self.places else (place_ids[0] if place_ids else "")
         return {"player_character": player_id, "default_opponent_character": opponent_id, "default_player_team": player_team_id, "default_opponent_team": opponent_team_id, "default_place": place_id}
 
-    def state_path(self, category, entity_id):
-        root = STATE_CHARACTERS if category == "characters" else STATE_TEAMS
+    def runtime_path(self, category, entity_id):
+        root = RUNTIME_CHARACTERS if category == "characters" else RUNTIME_TEAMS
         return root / f"{entity_id}.json"
 
     def migrate_runtime_state(self, entries, category, fields):
         for entry in entries:
             entity_id = entry.get("id", "")
             if not entity_id: continue
-            path = self.state_path(category, entity_id)
+            path = self.runtime_path(category, entity_id)
             if path.exists(): continue
             state = {key: entry[key] for key in fields if key in entry}
             write_json(path, {"schema": 1, "id": entity_id, "category": category, "state": state})
 
     def overlay_runtime_state(self, entry, category, fields):
         result = dict(entry)
-        path = self.state_path(category, entry.get("id", ""))
+        path = self.runtime_path(category, entry.get("id", ""))
         stored = read_json(path, {}) if path.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
         for key in fields:
@@ -1027,10 +1087,15 @@ class ContentStore:
         return result
 
     def migrate_world_state(self, legacy):
-        if not STATE_WORLD.exists(): write_json(STATE_WORLD, {"schema": 1, "category": "world", "state": legacy})
-        stored = read_json(STATE_WORLD, {})
+        stored = read_json(RUNTIME_WORLD_INDEX, {}) if RUNTIME_WORLD_INDEX.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
-        if not isinstance(state, dict): return dict(legacy)
+        state = dict(state) if isinstance(state, dict) else {}
+        for key in ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]:
+            path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
+            if not path.exists(): continue
+            payload = read_json(path, {})
+            value = payload.get("value", payload.get("state", payload)) if isinstance(payload, dict) else payload
+            state[key] = value
         merged = dict(legacy)
         merged.update(state)
         authored_roles = legacy.get("roles", {}) if isinstance(legacy.get("roles", {}), dict) else {}
@@ -1060,7 +1125,8 @@ class ContentStore:
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
         legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
         self.world = self.migrate_world_state(legacy_world)
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", [])]: self.world.setdefault(key, default)
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0)]: self.world.setdefault(key, default)
+        if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
         self.logic = {}
         for path in (DATA / "logic").glob("*.json"):
             self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
@@ -1079,9 +1145,17 @@ class ContentStore:
             character.learned_cards = {str(key): int(value) for key, value in character.learned_cards.items()}
             character.learned_opponents = {str(key): int(value) for key, value in character.learned_opponents.items()}
 
+    def relationship_for(self, character_id, other_id):
+        character = self.characters.get(character_id)
+        if not character or character_id == other_id: return "stranger"
+        if other_id in character.enemies: return "enemy"
+        if other_id in character.allies: return "ally"
+        return "stranger"
+
     def _relationship_score(self, character, other):
-        if other.id in character.enemies or other.relationship == "enemy": return float(character.behavior_weights.get("enemy_bias", 6.0))
-        if other.id in character.allies or other.relationship == "ally": return float(character.behavior_weights.get("ally_bias", 4.0))
+        relation = self.relationship_for(character.id, other.id)
+        if relation == "enemy": return float(character.behavior_weights.get("enemy_bias", 6.0))
+        if relation == "ally": return float(character.behavior_weights.get("ally_bias", 4.0))
         return 5.0
 
     def choose_ai_opponent(self, character_id):
@@ -1105,7 +1179,7 @@ class ContentStore:
         if not character or not target or character.availability != "free": return None
         if any(entry.get("status") in ["open", "queued", "active"] and entry.get("from") == character_id for entry in self.world.setdefault("requests", [])): return None
         reason = "rematch study" if character.learned_opponents.get(target.id, 0) else "study duel"
-        return self.add_request(character_id, target.id, reason, kind="learning", format_name="1v1", preferred_place=self.role_config()["default_place"], relationship_intent="opponent", expires_in=10800)
+        return self.add_request(character_id, target.id, reason, kind="learning", format_name="1v1", preferred_place=self.role_config()["default_place"], relationship_intent="stranger", expires_in=10800)
 
     def _ai_request_tick(self):
         if float(self.world.get("simulation_time", 0.0)) < float(self.world.get("last_ai_request_time", 0.0)) + 10.0: return
@@ -1121,9 +1195,12 @@ class ContentStore:
         write_json(DATA / "decks.json", self.decks)
         write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
         write_json(DATA / "teams.json", [self.authored_entry(team, TEAM_RUNTIME_FIELDS) for team in self.teams.values()])
-        for char in self.characters.values(): write_json(self.state_path("characters", char.id), {"schema": 1, "id": char.id, "category": "characters", "state": self.runtime_entry(char, CHARACTER_RUNTIME_FIELDS)})
-        for team in self.teams.values(): write_json(self.state_path("teams", team.id), {"schema": 1, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
-        write_json(STATE_WORLD, {"schema": 1, "category": "world", "state": self.world})
+        for char in self.characters.values(): write_json(self.runtime_path("characters", char.id), {"schema": 2, "id": char.id, "category": "characters", "state": self.runtime_entry(char, CHARACTER_RUNTIME_FIELDS)})
+        for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
+        world_keys = ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
+        defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
+        for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
+        write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "collections": world_keys})
         write_json(SAVE, self.save_data)
         for key, graph in self.logic.items():
             write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
@@ -1144,7 +1221,7 @@ class ContentStore:
     def world_context(self):
         return {"clock": self.clock.now(), "period": self.clock.period(), "label": self.clock.label(), "simulation_time": float(self.world.get("simulation_time", 0.0)), "places": {place.id: {"current": place.current_duels, "capacity": place.capacity} for place in self.places.values()}, "characters": {character.id: {"availability": character.availability, "place": character.current_place, "destination": character.destination, "progress": character.movement_progress, "activity": character.activity} for character in self.characters.values()}, "active_battles": len([battle for battle in self.world.setdefault("active_battles", []) if battle.get("status") == "active"])}
 
-    def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="opponent", deck_id="", reward_policy="random_card", expires_in=10800):
+    def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="stranger", deck_id="", reward_policy="random_card", expires_in=10800):
         preferred_place = preferred_place or self.role_config()["default_place"]
         request_id = "request_" + str(int(time.time() * 1000))
         now = float(self.world.get("simulation_time", 0.0))
@@ -1439,8 +1516,6 @@ class ContentStore:
             if loser.library_cards:
                 transferred = loser.library_cards.pop(0)
                 winner.library_cards.append(transferred)
-            winner.relationship = "rival" if winner.relationship != "self" else winner.relationship
-            loser.relationship = "rival" if loser.relationship != "self" else loser.relationship
             loser.smartness = clamp(loser.smartness + 1, 1, 10)
             winner.history.append({"opponent": loser.id, "result": "win", "turns": turns, "reason": reason, "cards_seen": list(self.decks.get(loser.deck_id, {}).get("cards", []))[:5], "traded_card": transferred, "time": time.time()})
             loser.history.append({"opponent": winner.id, "result": "loss", "turns": turns, "reason": reason, "cards_seen": list(self.decks.get(winner.deck_id, {}).get("cards", []))[:5], "traded_card": transferred, "time": time.time()})
@@ -1576,8 +1651,8 @@ class ContentStore:
         }
         return trees.get(category, ["logic", "animations", "audio"])
 
-    def scaffold_entity(self, category, entity_id, display_name, folders=None, created=None):
-        folder_name = f"{slug(display_name)}_{int((created or time.time()) * 1000)}_{slug(entity_id)}"
+    def scaffold_entity(self, category, entity_id, display_name, folders=None, created=None, folder_name=""):
+        folder_name = folder_name or f"{slug(display_name)}_{int((created or time.time()) * 1000)}_{slug(entity_id)}"
         root = DATA / category / folder_name
         paths = sorted(set(self.entity_tree(category) + list(folders or [])))
         for folder in paths: (root / folder).mkdir(parents=True, exist_ok=True)
@@ -1669,17 +1744,33 @@ class ContentStore:
         self.save()
         return place
 
-    def create_character(self, name, stars, smartness, family, portrait="player", gender="other", origin="community", deck_id=""):
+    def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id=""):
         char_id = "character_" + str(int(time.time() * 1000))
         display_name = name or "New Character"
         if deck_id not in self.decks:
             deck_id = "deck_" + str(int(time.time() * 1000))
-            self.decks[deck_id] = {"name": display_name + " Deck", "cards": list(self.cards)[:10]}
+            self.decks[deck_id] = {"name": display_name + " Deck", "cards": list(self.cards)[:10], "media_folder": self.scaffold_entity("decks", deck_id, display_name + " Deck")}
         folder = self.scaffold_entity("characters", char_id, display_name)
         char = CharacterDef(char_id, display_name, portrait or "pfp_placeholder", clamp(int(stars), 1, 10), clamp(int(smartness), 1, 10), "stranger", [family or "warrior"], deck_id, "neutral", [], [], [], [], gender or "other", origin or "community", [], [], 1, folder)
         self.characters[char_id] = char
         self.save()
         return char
+
+    def register_user(self, name, portrait="pfp_placeholder", gender="other"):
+        timestamp = int(time.time() * 1000)
+        user_id = "user_" + str(timestamp)
+        display_name = str(name or "New User").strip() or "New User"
+        deck_id = user_id + "_deck"
+        card_ids = list(self.cards)[:10]
+        deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck", folder_name=deck_id + "_deck")
+        self.decks[deck_id] = {"name": display_name + " Deck", "cards": card_ids, "media_folder": deck_folder}
+        character_folder = self.scaffold_entity("characters", user_id, display_name, folder_name=user_id)
+        character = CharacterDef(user_id, display_name, portrait or "pfp_placeholder", 5, 5, "stranger", ["warrior"], deck_id, "neutral", [], [], [], list(card_ids), gender or "other", "user", [], [], 1, character_folder)
+        self.characters[user_id] = character
+        self.save_data.update({"active_user_id": user_id, "active_user_folder": character_folder, "setup_complete": True})
+        self.world.setdefault("roles", {})["player_character"] = user_id
+        self.save()
+        return character
 
     def export_cbp(self, kind, entity_id):
         filename = DATA / "exports" / f"{entity_id}.cbp"
@@ -1996,11 +2087,15 @@ class SelectorRuntime:
         zones = selector.get("zone", "any")
         zones = zones if isinstance(zones, list) else [zones]
         candidates = []
-        for duelist in self.sides(selector.get("side", "any")):
-            for zone in zones:
-                candidates.extend(self.zone_items(duelist, zone if zone in self.zones else "any"))
-        if selector.get("include_duelist"):
-            candidates.extend(self.sides(selector.get("side", "any")))
+        selector_keys = set(selector) - {"side", "zone", "count", "include_duelist"}
+        if selector.get("include_duelist") and not selector_keys:
+            candidates = self.sides(selector.get("side", "any"))
+        else:
+            for duelist in self.sides(selector.get("side", "any")):
+                for zone in zones:
+                    candidates.extend(self.zone_items(duelist, zone if zone in self.zones else "any"))
+            if selector.get("include_duelist"):
+                candidates.extend(self.sides(selector.get("side", "any")))
         candidates = list(dict.fromkeys(item for item in candidates if self.matches(item, selector)))
         candidates = self.proximity(candidates, selector)
         count = selector.get("count")
@@ -2010,7 +2105,7 @@ class SelectorRuntime:
 
 
 class DuelEngine:
-    phases = ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"]
+    phases = DUEL_PHASES
 
     def __init__(self, store, player_id=None, opponent_id=None, place_id=None, cpu=False, team_effect=None, opponent_team_effect=None):
         self.store = store
@@ -2218,7 +2313,8 @@ class DuelEngine:
         self.react("pfp_" + action, actor.id, target.id, "opponent")
         self.store.save()
 
-    def react(self, event, actor_id, target_id="", relation="opponent", entity_type="characters", entity_id="", mode="hang"):
+    def react(self, event, actor_id, target_id="", relation="stranger", entity_type="characters", entity_id="", mode="hang"):
+        if relation == "opponent": relation = self.store.relationship_for(actor_id, target_id)
         selection = self.reaction_resolver.resolve(event, actor_id, target_id, relation, entity_type, entity_id, self.place.id, mode)
         record = {"event": event, "actor": actor_id, "target": target_id, "relation": relation, "selection": selection.to_dict(), "time": time.time()}
         self.reaction_events.append(record)
@@ -4083,7 +4179,7 @@ class DuelEngine:
         weights = character.behavior_weights
         family_weights = weights.get("family_weights", {})
         phase_weights = weights.get("phase_weights", {})
-        state = "enemy" if self.player.character.id in character.enemies else "ally" if self.player.character.id in character.allies else character.relationship if character.relationship in ["enemy", "ally"] else "opponent"
+        state = "enemy" if self.player.character.id in character.enemies else "ally" if self.player.character.id in character.allies else character.relationship if character.relationship in ["enemy", "ally"] else "stranger"
         state_weight = float(weights.get("state_weights", {}).get(state, 1.0))
         family_weight = float(family_weights.get(card.card.family, 0.0))
         learned_weight = int(character.learned_cards.get(card.card.id, 0)) * float(weights.get("adaptation", 1.0))
@@ -4317,24 +4413,24 @@ class Scene:
         if alpha != 255:
             image = image.copy()
             image.set_alpha(alpha)
-        surface.blit(image, (0, 0))
+        ui_blit(surface, image, (0, 0))
 
     def draw_menu_composition(self, surface):
         background = self.app.assets.menu_layer("menu_background", (W, H))
         if background is None: background = self.app.assets.image("menu_anchor", (W, H))
-        surface.blit(background, (0, 0))
+        ui_blit(surface, background, (0, 0))
         layers = [("dueler_left", (0, 0, 275, 600)), ("dueler_center", (238, 0, 324, 600)), ("dueler_right", (548, 0, 252, 600))]
         for name, rect in layers:
             image = self.app.assets.menu_layer(name, (rect[2], rect[3]))
-            if image is not None: surface.blit(image, rect[:2])
+            if image is not None: ui_blit(surface, image, rect[:2])
 
     def draw_panel(self, surface, rect, title=None, accent=COLORS["gold"]):
         rect = pygame.Rect(rect)
         shadow = pygame.Surface((rect.width + 8, rect.height + 8), pygame.SRCALPHA)
         shadow.fill((58, 43, 53, 35))
-        surface.blit(shadow, (rect.x + 4, rect.y + 5))
+        ui_blit(surface, shadow, (rect.x + 4, rect.y + 5))
         rounded(surface, rect, (117, 83, 70), COLORS["line"], 12, 2)
-        pygame.draw.line(surface, COLORS["gold"], (rect.x + 18, rect.y + 45), (rect.right - 18, rect.y + 45), 2)
+        ui_draw_line(surface, COLORS["gold"], (rect.x + 18, rect.y + 45), (rect.right - 18, rect.y + 45), 2)
         if title:
             draw_text(surface, title, (rect.x + 18, rect.y + 15), self.app.assets.font(18, True), COLORS["cream"])
 
@@ -4345,9 +4441,8 @@ class Scene:
 class FirstRunScene(Scene):
     def __init__(self, app):
         super().__init__(app)
-        player_id = app.store.role_config()["player_character"]
-        self.name = TextInput((238, 208, 324, 36), app.store.save_data.get("player_name", app.store.characters[player_id].name))
-        self.portrait = TextInput((238, 278, 324, 36), self.app.store.characters[self.app.store.role_config()["player_character"]].portrait)
+        self.name = TextInput((238, 208, 324, 36), "")
+        self.portrait = TextInput((238, 278, 324, 36), "pfp_placeholder")
         self.gender = "other"
 
     def enter(self):
@@ -4357,13 +4452,7 @@ class FirstRunScene(Scene):
         self.gender = gender
 
     def complete(self):
-        character = self.app.store.characters[self.app.store.role_config()["player_character"]]
-        character.name = self.name.value.strip() or character.name
-        character.portrait = self.portrait.value.strip()
-        character.gender = self.gender
-        self.app.store.save_data["player_name"] = character.name
-        self.app.store.save_data["setup_complete"] = True
-        self.app.store.save()
+        self.app.store.register_user(self.name.value, self.portrait.value, self.gender)
         self.app.replace(MainMenuScene(self.app))
 
     def handle(self, event):
@@ -4373,8 +4462,8 @@ class FirstRunScene(Scene):
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
-        surface.blit(self.app.assets.image("splash", (W, H)), (0, 0))
-        veil = pygame.Surface((W, H), pygame.SRCALPHA); veil.fill((247, 227, 177, 48)); surface.blit(veil, (0, 0))
+        ui_blit(surface, self.app.assets.image("splash", (W, H)), (0, 0))
+        veil = ui_surface((W, H), pygame.SRCALPHA); veil.fill((247, 227, 177, 48)); ui_blit(surface, veil, (0, 0))
         self.draw_panel(surface, (170, 92, 460, 430), "WELCOME TO THE PLAYGROUND", COLORS["gold"])
         draw_text(surface, "Set your player identity. Every value can be changed later.", (400, 145), self.app.assets.font(13), COLORS["muted"], "center")
         self.name.draw(surface, self.app.assets.font(13), "Player name")
@@ -4402,13 +4491,13 @@ class SplashScene(Scene):
 
     def draw(self, surface):
         self.draw_background(surface, self.splash_name)
-        veil = pygame.Surface((W, H), pygame.SRCALPHA)
+        veil = ui_surface((W, H), pygame.SRCALPHA)
         veil.fill((247, 227, 177, 32))
-        surface.blit(veil, (0, 0))
+        ui_blit(surface, veil, (0, 0))
         alpha = clamp(int((self.elapsed - 0.4) * 160), 0, 255)
         title = self.app.assets.font(34, True).render("CARDS BATTLERS PLAYGROUNDS", True, COLORS["cream"])
         title.set_alpha(alpha)
-        surface.blit(title, title.get_rect(center=(W // 2, H - 120)))
+        ui_blit(surface, title, title.get_rect(center=(W // 2, H - 120)))
         draw_text(surface, "THE PLAYGROUND IS WAITING", (W // 2, H - 78), self.app.assets.font(15), COLORS["gold"], "center")
         draw_text(surface, "Click or press Enter to continue", (W // 2, H - 34), self.app.assets.font(12), COLORS["muted"], "center")
 
@@ -4467,9 +4556,9 @@ class MainMenuScene(Scene):
 
     def draw(self, surface):
         self.draw_menu_composition(surface)
-        veil = pygame.Surface((W, H), pygame.SRCALPHA)
+        veil = ui_surface((W, H), pygame.SRCALPHA)
         veil.fill((246, 222, 163, 28))
-        surface.blit(veil, (0, 0))
+        ui_blit(surface, veil, (0, 0))
         draw_text(surface, "CARDS BATTLERS PLAYGROUNDS", (W // 2, 48), self.app.assets.font(28, True), COLORS["cream"], "midtop")
         draw_text(surface, "A community-built card battle playground", (W // 2, 83), self.app.assets.font(14), COLORS["cream"], "midtop")
         rounded(surface, (286, 149, 228, 323), (112, 79, 68), COLORS["gold"], 14, 2)
@@ -4478,8 +4567,11 @@ class MainMenuScene(Scene):
             rounded(surface, (30, 149, 242, 323), (132, 94, 73), COLORS["gold"], 14, 2)
             draw_text(surface, self.section.upper() + " LIST", (151, 166), self.app.assets.font(13, True), COLORS["cream"], "midtop")
         self.draw_buttons(surface, 14)
-        draw_text(surface, f"{self.app.clock_text()}  |  {self.app.store.save_data.get('player_name', 'Player')}", (W - 18, 576), self.app.assets.font(11), COLORS["muted"], "bottomright")
-        draw_text(surface, "The Duelers", (W // 2, 552), self.app.assets.font(13, True), COLORS["cream"], "center")
+        active = self.app.store.characters.get(self.app.store.role_config()["player_character"])
+        draw_text(surface, f"{self.app.clock_text()}  |  {active.name if active else 'Unregistered'}", (W - 18, 576), self.app.assets.font(11), COLORS["muted"], "bottomright")
+        team_id = self.app.store.role_config()["default_player_team"]
+        team = self.app.store.teams.get(team_id)
+        draw_text(surface, team.name if team else "", (W // 2, 552), self.app.assets.font(13, True), COLORS["cream"], "center")
 
 
 class BattleScene(Scene):
@@ -4589,7 +4681,7 @@ class BattleScene(Scene):
     def add_world_entry(self):
         roles = self.app.store.role_config()
         if self.tab == "orders": self.app.store.place_order(roles["player_character"], roles["default_opponent_character"], "a card by type")
-        elif self.tab in ["free", "requests"]: self.app.store.add_request(roles["player_character"], roles["default_opponent_character"], "friendly duel", kind="duel", format_name="1v1", preferred_place=roles["default_place"], relationship_intent="opponent")
+        elif self.tab in ["free", "requests"]: self.app.store.add_request(roles["player_character"], roles["default_opponent_character"], "friendly duel", kind="duel", format_name="1v1", preferred_place=roles["default_place"], relationship_intent="stranger")
         self.refresh_content()
 
     def select_opponent(self, target, entry_id=None):
@@ -4635,7 +4727,7 @@ class PreDuelScene(Scene):
     def accept_first(self):
         self.choice = self.requested_first_side
         self.decision = "accepted"
-        self.app.store.save_data.setdefault("history", []).append({"type": "first_play_decision", "mode": "accepted", "requester": self.requester_id, "acceptor": self.acceptor_id, "first": self.choice, "time": time.time()})
+        self.app.store.world.setdefault("simulation_events", []).append({"type": "first_play_decision", "mode": "accepted", "requester": self.requester_id, "acceptor": self.acceptor_id, "first": self.choice, "time": time.time()})
         self.app.store.save()
         self.launch()
 
@@ -4652,7 +4744,7 @@ class PreDuelScene(Scene):
         self.choice = self.dice_launcher_id if self.dice_value <= 3 else self.requester_id
         self.decision = "rolled"
         self.dice_rolling = False
-        self.app.store.save_data.setdefault("history", []).append({"type": "first_play_decision", "mode": "dice", "requester": self.requester_id, "acceptor": self.acceptor_id, "launcher": self.dice_launcher_id, "value": self.dice_value, "first": self.choice, "time": time.time()})
+        self.app.store.world.setdefault("simulation_events", []).append({"type": "first_play_decision", "mode": "dice", "requester": self.requester_id, "acceptor": self.acceptor_id, "launcher": self.dice_launcher_id, "value": self.dice_value, "first": self.choice, "time": time.time()})
         self.app.store.save()
         self.app.notify(f"Dice result {self.dice_value}: {self.choice} goes first.")
         self.buttons = [Button((170, 496, 180, 44), "START DUEL", lambda: self.launch(), COLORS["cyan"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
@@ -4664,7 +4756,7 @@ class PreDuelScene(Scene):
             self.app.notify(place.name + " is full. This duel must wait or choose another place.")
             return
         if self.format_name == "1v1": self.app.push(DuelScene(self.app, self.opponent_id, self.choice or self.acceptor_id, place_id, True))
-        else: self.app.push(TeamDuelScene(self.app, self.format_name, self.opponent_id, self.choice or self.acceptor_id, place_id, True))
+        else: self.app.push(TeamDuelScene(self.app, self.format_name, self.opponent_id, self.choice or self.acceptor_id, True))
 
     def update(self, dt):
         self.elapsed += dt
@@ -4677,14 +4769,14 @@ class PreDuelScene(Scene):
         value = random.randint(1, 6) if self.dice_rolling else self.dice_value or 0
         if value:
             points = {1: [(400, 222)], 2: [(374, 196), (426, 248)], 3: [(374, 196), (400, 222), (426, 248)], 4: [(374, 196), (426, 196), (374, 248), (426, 248)], 5: [(374, 196), (426, 196), (400, 222), (374, 248), (426, 248)], 6: [(374, 190), (426, 190), (374, 222), (426, 222), (374, 254), (426, 254)]}[value]
-            for point in points: pygame.draw.circle(surface, COLORS["ink"], point, 9)
+            for point in points: ui_draw_circle(surface, COLORS["ink"], point, 9)
         else: draw_text(surface, "?", (400, 222), self.app.assets.font(48, True), COLORS["ink"], "center")
 
     def draw(self, surface):
         self.draw_background(surface, self.app.store.places[self.app.store.role_config()["default_place"]].background)
-        veil = pygame.Surface((W, H), pygame.SRCALPHA)
+        veil = ui_surface((W, H), pygame.SRCALPHA)
         veil.fill((247, 227, 177, 36))
-        surface.blit(veil, (0, 0))
+        ui_blit(surface, veil, (0, 0))
         roles = self.app.store.role_config()
         player = self.app.store.characters[roles["player_character"]]
         rival = self.app.store.characters.get(self.opponent_id, self.app.store.characters[roles["default_opponent_character"]])
@@ -4743,7 +4835,7 @@ class PreDuelScene(Scene):
         x, y = pos
         rounded(surface, (x, y, 210, 190), (12, 21, 47), accent, 2, 12)
         image = self.app.assets.image(char.portrait, (92, 92)) or self.app.assets.image("pfp_placeholder", (92, 92))
-        if image: surface.blit(image, (x + 59, y + 14))
+        if image: ui_blit(surface, image, (x + 59, y + 14))
         draw_text(surface, char.name, (x + 105, y + 123), self.app.assets.font(17, True), COLORS["cream"], "center")
         draw_text(surface, f"{char.stars} stars  |  {char.mood}", (x + 105, y + 150), self.app.assets.font(12), accent, "center")
         draw_text(surface, ", ".join(char.preferred_families), (x + 105, y + 171), self.app.assets.font(11), COLORS["muted"], "center")
@@ -4836,7 +4928,7 @@ class DuelScene(Scene):
                     self.open_card_list("GRAVEYARD", self.engine.opponent.graveyard if side == "opponent" else self.engine.player.graveyard)
                     return
         if event.button == 1:
-            for index, pair in enumerate(DUEL_PHASE_LABELS):
+            for index, phase_name in enumerate(DUEL_PHASES):
                 if self.layout.phase_rect(index).collidepoint(event.pos):
                     self.jump_to_phase(index)
                     return
@@ -5138,7 +5230,7 @@ class DuelScene(Scene):
                 self.app.store.release_place(self.place_id)
                 self.place_reserved = False
             self.stage = "post"
-            self.app.store.save_data["history"].append({"winner": self.engine.winner.name if self.engine.winner else "draw", "reason": self.engine.reason, "time": time.time()})
+            self.app.store.world.setdefault("simulation_events", []).append({"type": "duel_completed", "winner": self.engine.winner.character.id if self.engine.winner else "draw", "reason": self.engine.reason, "time": time.time()})
             self.app.store.save()
 
     def draw(self, surface):
@@ -5157,17 +5249,17 @@ class DuelScene(Scene):
 
     def draw_duel_backdrop(self, surface):
         ground = self.app.assets.role_image("place_ground", (W, H)) or self.app.assets.role_image("duel_environment", (W, H))
-        if ground: surface.blit(ground, (0, 0))
+        if ground: ui_blit(surface, ground, (0, 0))
         else:
-            place = self.app.store.places.get(self.app.store.role_config()["default_place"])
+            place = self.app.store.places.get(self.place_id)
             image = self.app.assets.image(place.background, (W, H)) if place and place.background else None
-            if image: surface.blit(image, (0, 0))
+            if image: ui_blit(surface, image, (0, 0))
         table = self.app.assets.role_image("table_frame", (646, 564)) or self.app.assets.image("table_frame_cycle12", (646, 564))
         frame = self.app.assets.role_image("duel_frame", (552, 480)) or self.app.assets.image("duel_frame_cycle12", (552, 480))
         field_surface = self.app.assets.role_image("field_surface", self.layout.field.size) or self.app.assets.image("field_surface_cycle12", self.layout.field.size)
-        surface.blit(table, self.layout.table.topleft)
-        surface.blit(frame, self.layout.duel_frame.topleft)
-        surface.blit(field_surface, self.layout.field.topleft)
+        ui_blit(surface, table, self.layout.table.topleft)
+        ui_blit(surface, frame, self.layout.duel_frame.topleft)
+        ui_blit(surface, field_surface, self.layout.field.topleft)
 
     def draw_reaction(self, surface):
         state = self.reaction_player.state()
@@ -5182,7 +5274,7 @@ class DuelScene(Scene):
             try:
                 image = pygame.image.load(image_path).convert_alpha()
                 image = pygame.transform.smoothscale(image, (52, 32))
-                surface.blit(image, (292, 82))
+                ui_blit(surface, image, (292, 82))
             except pygame.error:
                 pass
 
@@ -5197,11 +5289,11 @@ class DuelScene(Scene):
                 self.hp_delta_until[side] = self.time + 1.0
                 self.hp_display[side] = current
             rounded(surface, plaque, (53, 45, 54), (255, 255, 255), 8, 2)
-            pygame.draw.line(surface, (255, 255, 255, 255), (plaque.x + 62, plaque.y + 9), (plaque.right - 10, plaque.y + 9), 1)
+            ui_draw_line(surface, (255, 255, 255, 255), (plaque.x + 62, plaque.y + 9), (plaque.right - 10, plaque.y + 9), 1)
             source = self.app.assets.images.get(participant.character.portrait) or self.app.assets.images.get("pfp_placeholder")
             if source:
                 portrait = pygame.transform.smoothscale(source, pfp.size)
-                surface.blit(portrait, pfp.topleft)
+                ui_blit(surface, portrait, pfp.topleft)
             draw_text(surface, "LP", (plaque.x + 64, plaque.y + 15), self.app.assets.font(7, True), COLORS["gold"], "topleft")
             draw_text(surface, f"{current:04d}", (plaque.right - 10, plaque.y + 22), self.app.assets.font(19, True), COLORS["white"], "topright")
             if self.hp_delta_until[side] > self.time and self.hp_delta[side]:
@@ -5210,19 +5302,19 @@ class DuelScene(Scene):
                 draw_text(surface, f"{delta:+d}", (plaque.right - 12, plaque.bottom - 7), self.app.assets.font(9, True), color, "bottomright")
 
     def draw_phase_rail(self, surface):
-        phases = DUEL_PHASE_LABELS
+        phases = DUEL_PHASES
         x, y, width, height = self.layout.phase_x, 116, 54, 32
         phase_asset = self.app.assets.role_image("phase_rail", (width + 12, len(phases) * 38 + 6))
         if phase_asset:
-            surface.blit(phase_asset, (x - 6, y - 6))
+            ui_blit(surface, phase_asset, (x - 6, y - 6))
         else:
             rounded(surface, (x - 3, y - 6, width + 6, len(phases) * 38 + 6), (220, 207, 166), (119, 105, 72), 8, 1)
-        for index, label in enumerate(phases):
-            short_label, phase_name = label
+        for index, phase_name in enumerate(phases):
+            short_label = DUEL_PHASE_ABBREVIATIONS[phase_name]
             rect = self.layout.phase_rect(index)
             active = phase_name == self.engine.phase
             if phase_asset:
-                pygame.draw.rect(surface, (255, 245, 198) if active else (76, 62, 52), rect, 1, border_radius=5)
+                ui_draw_rect(surface, (255, 245, 198) if active else (76, 62, 52), rect, 1, border_radius=5)
                 color = (255, 248, 224) if active else (35, 31, 31)
             else:
                 rounded(surface, rect, (202, 164, 75) if active else (236, 225, 188), (125, 106, 70), 5, 1)
@@ -5250,8 +5342,8 @@ class DuelScene(Scene):
         width = max(76, text.get_width() + 22)
         rect = pygame.Rect(center_x - width // 2, bottom_y - 34, width, 28)
         rounded(surface, rect, (255, 247, 213), (118, 94, 58), 11, 2)
-        pygame.draw.polygon(surface, (255, 247, 213), [(center_x - 7, rect.bottom - 1), (center_x + 7, rect.bottom - 1), (center_x, rect.bottom + 8)])
-        pygame.draw.line(surface, (118, 94, 58), (center_x, rect.bottom + 7), (center_x, rect.bottom - 1), 1)
+        ui_draw_polygon(surface, (255, 247, 213), [(center_x - 7, rect.bottom - 1), (center_x + 7, rect.bottom - 1), (center_x, rect.bottom + 8)])
+        ui_draw_line(surface, (118, 94, 58), (center_x, rect.bottom + 7), (center_x, rect.bottom - 1), 1)
         draw_text(surface, label, rect.center, font, COLORS["ink"], "center")
 
     def draw_question(self, surface):
@@ -5297,14 +5389,14 @@ class DuelScene(Scene):
         elif kind in ["surrender", "notifier"] and stage == "confirm":
             for role, rect, label in [("prompt_yes", self.layout.question_action_rect("yes"), "YES"), ("prompt_no", self.layout.question_action_rect("no"), "NO")]:
                 image = self.app.assets.role_image(role, rect.size)
-                if image: surface.blit(image, rect.topleft)
+                if image: ui_blit(surface, image, rect.topleft)
                 else:
                     rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
                     draw_text(surface, label, rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
         elif kind in ["discard", "notifier", "chain"] and stage == "await_ok":
             rect = self.layout.question_action_rect("ok")
             image = self.app.assets.role_image("prompt_ok", rect.size)
-            if image: surface.blit(image, rect.topleft)
+            if image: ui_blit(surface, image, rect.topleft)
             else:
                 rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
                 draw_text(surface, "PASS" if kind == "chain" else "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
@@ -5341,11 +5433,11 @@ class DuelScene(Scene):
             for index in range(5):
                 for rect in [l.spell_rect(side, index), l.monster_rect(side, index)]:
                     guide = pygame.Surface(rect.size, pygame.SRCALPHA)
-                    pygame.draw.rect(guide, (255, 255, 255, 64), guide.get_rect(), 2, border_radius=5)
-                    surface.blit(guide, rect.topleft)
+                    ui_draw_rect(guide, (255, 255, 255, 64), guide.get_rect(), 2, border_radius=5)
+                    ui_blit(surface, guide, rect.topleft)
         divider = pygame.Surface((l.field.width - 12, 4), pygame.SRCALPHA)
         divider.fill((255, 255, 255, 76))
-        surface.blit(divider, (l.field.x + 6, l.field.y + 200))
+        ui_blit(surface, divider, (l.field.x + 6, l.field.y + 200))
 
     def fusion_cards(self, side):
         duelist = self.engine.opponent if side == "opponent" else self.engine.player
@@ -5385,15 +5477,15 @@ class DuelScene(Scene):
         text = font.render(f"{label[:6]} {count}", True, COLORS["white"])
         label_y = min(rect.bottom + 5, H - 9)
         target = text.get_rect(center=(rect.centerx, label_y))
-        surface.blit(text, target)
+        ui_blit(surface, text, target)
 
     def draw_banish_marker(self, surface, rect, count, opponent):
         rect = pygame.Rect(rect)
         direction = -1 if opponent else 1
         start = (rect.centerx - direction * 13, rect.centery)
         end = (rect.centerx + direction * 13, rect.centery)
-        pygame.draw.line(surface, (255, 255, 255, 180), start, end, 2)
-        pygame.draw.polygon(surface, (255, 255, 255, 210), [end, (end[0] - direction * 7, end[1] - 5), (end[0] - direction * 7, end[1] + 5)])
+        ui_draw_line(surface, (255, 255, 255, 180), start, end, 2)
+        ui_draw_polygon(surface, (255, 255, 255, 210), [end, (end[0] - direction * 7, end[1] - 5), (end[0] - direction * 7, end[1] + 5)])
         draw_text(surface, str(count), (rect.centerx, rect.bottom + 5 if not opponent else rect.y - 5), self.app.assets.font(8, True), COLORS["white"], "center")
 
     def draw_pile(self, surface, label, cards, rect, face_down, rotation=0, show_label=True):
@@ -5413,11 +5505,11 @@ class DuelScene(Scene):
                 card_surface = pygame.Surface(target.size, pygame.SRCALPHA)
                 render_engine_card(card_surface, card_surface.get_rect(), card.card, self.app.assets, self.app.store.media, True, False, card.variant, False)
                 if rotation: card_surface = pygame.transform.rotate(card_surface, rotation)
-                surface.blit(card_surface, target.topleft)
+                ui_blit(surface, card_surface, target.topleft)
             else:
                 overlay = pygame.Surface(target.size, pygame.SRCALPHA)
                 overlay.fill((54, 75, 51, 84))
-                surface.blit(overlay, target.topleft)
+                ui_blit(surface, overlay, target.topleft)
         if show_label and (cards or face_down): self.draw_pile_label(surface, label, len(cards), rect, rotation)
 
     def draw_opponent_hand(self, surface):
@@ -5450,11 +5542,11 @@ class DuelScene(Scene):
         width = attack_text.get_width() + divider.get_width() + defense_text.get_width()
         x = rect.centerx - width // 2
         y = rect.bottom + 2
-        surface.blit(attack_text, (x, y))
+        ui_blit(surface, attack_text, (x, y))
         x += attack_text.get_width()
-        surface.blit(divider, (x, y))
+        ui_blit(surface, divider, (x, y))
         x += divider.get_width()
-        surface.blit(defense_text, (x, y))
+        ui_blit(surface, defense_text, (x, y))
 
     def draw_zone_card(self, surface, card, rect, own):
         rect = pygame.Rect(rect)
@@ -5470,13 +5562,13 @@ class DuelScene(Scene):
         owner = self.engine.player if own else self.engine.opponent
         if show_stats and own: self.draw_card_stats(card_surface, card, card_rect, owner)
         if not own: card_surface = pygame.transform.rotate(card_surface, 180)
-        surface.blit(card_surface, display_rect.topleft)
+        ui_blit(surface, card_surface, display_rect.topleft)
         if show_stats and not own: self.draw_card_stats(surface, card, display_rect, owner)
         if card is self.engine.selected_monster or card is self.hover_target:
             highlight = pygame.Surface(rect.size, pygame.SRCALPHA)
             highlight.fill((255, 224, 119, 72))
-            surface.blit(highlight, rect.topleft)
-            pygame.draw.rect(surface, COLORS["gold"], rect.inflate(5, 5), 3, border_radius=7)
+            ui_blit(surface, highlight, rect.topleft)
+            ui_draw_rect(surface, COLORS["gold"], rect.inflate(5, 5), 3, border_radius=7)
 
     def monster_rect(self, card, own):
         roster = self.engine.player.monsters if own else self.engine.opponent.monsters
@@ -5492,16 +5584,16 @@ class DuelScene(Scene):
         for index, card in enumerate(hand):
             selected = card is self.engine.selected_hand
             rect = self.layout.hand_rect("player", index, len(hand), selected, card is self.hover_hand)
-            if selected: pygame.draw.rect(surface, COLORS["gold"], rect.inflate(5, 5), border_radius=7)
+            if selected: ui_draw_rect(surface, COLORS["gold"], rect.inflate(5, 5), border_radius=7)
             render_engine_card(surface, rect, card.card, self.app.assets, self.app.store.media, True, False, card.variant, True)
 
     def draw_mini_zone(self, surface, card, pos, own):
         if card: self.draw_zone_card(surface, card, pygame.Rect(pos[0], pos[1], *self.layout.spell_card_size), own)
 
     def draw_result(self, surface):
-        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+        overlay = ui_surface((W, H), pygame.SRCALPHA)
         overlay.fill((247, 227, 177, 75))
-        surface.blit(overlay, (0, 0))
+        ui_blit(surface, overlay, (0, 0))
         rounded(surface, (180, 175, 440, 205), COLORS["panel"], COLORS["gold"], 12, 2)
         title = "DRAW" if self.engine.winner is None else f"{self.engine.winner.name} WINS"
         color = COLORS["gold"] if self.engine.winner is None else COLORS["cyan"] if self.engine.winner is self.engine.player else COLORS["red"]
@@ -5705,7 +5797,7 @@ class LogicManagerScene(Scene):
         for node in self.graph.nodes:
             for target in self.graph.nodes:
                 if node.node_id in target.inputs:
-                    pygame.draw.line(surface, COLORS["line"], (node.x + 180, node.y + 47), (target.x, target.y + 47), 2)
+                    ui_draw_line(surface, COLORS["line"], (node.x + 180, node.y + 47), (target.x, target.y + 47), 2)
         for node in self.graph.nodes:
             accent = COLORS["cyan"] if node.kind == "trigger" else COLORS["gold"] if node.kind == "condition" else COLORS["green"]
             if node is self.selected: accent = COLORS["red"]
@@ -5746,7 +5838,7 @@ class CharactersScene(Scene):
             accent = COLORS["cyan"] if char.id == roles["player_character"] else COLORS["red"] if char.id == roles["default_opponent_character"] else COLORS["violet"]
             rounded(surface, (36, y, 728, 82), (14, 24, 52), accent, 8, 2)
             image = self.app.assets.image(char.portrait, (64, 64)) or self.app.assets.image("pfp_placeholder", (64, 64))
-            if image: surface.blit(image, (50, y + 9))
+            if image: ui_blit(surface, image, (50, y + 9))
             draw_text(surface, char.name, (132, y + 14), self.app.assets.font(16, True), COLORS["cream"])
             draw_text(surface, f"{char.stars} stars  |  rank {char.rank}  |  smartness {char.smartness}/10  |  mood {char.mood}", (132, y + 41), self.app.assets.font(11), accent)
             draw_text(surface, "Preferred: " + ", ".join(char.preferred_families) + "  |  best cards: " + str(len(char.best_cards)), (132, y + 62), self.app.assets.font(10), COLORS["muted"])
@@ -5780,7 +5872,7 @@ class EntityDetailScene(Scene):
         self.draw_panel(surface, (42, 112, 716, 360), "PERSISTENT STATUS", accent)
         if self.entity_type == "characters":
             image = self.app.assets.image(entity.portrait, (150, 150)) or self.app.assets.image("pfp_placeholder", (150, 150))
-            if image: surface.blit(image, (68, 165))
+            if image: ui_blit(surface, image, (68, 165))
             weights = ", ".join(f"{key}={float(value):.1f}" for key, value in sorted(entity.behavior_weights.items()) if key != "movement_duration" and isinstance(value, (int, float)))
             lines = [f"Gender: {entity.gender}", f"Origin: {entity.origin}", f"Stars: {entity.stars}", f"Rank: {entity.rank}", f"Smartness: {entity.smartness}/10", f"Mood: {entity.mood}", f"Relationship: {entity.relationship}", "Preferred: " + ", ".join(entity.preferred_families), "Best cards: " + ", ".join(entity.best_cards or ["not set"]), f"Learned opponents: {len(entity.learned_opponents)}  |  learned cards: {len(entity.learned_cards)}", "Weights: " + (weights or "default"), f"History events: {len(entity.history)}"]
         elif self.entity_type == "places":
@@ -6033,9 +6125,9 @@ class TeamDuelScene(Scene):
 
     def draw(self, surface):
         self.draw_background(surface, self.app.store.places[self.app.store.role_config()["default_place"]].background)
-        veil = pygame.Surface((W, H), pygame.SRCALPHA)
+        veil = ui_surface((W, H), pygame.SRCALPHA)
         veil.fill((247, 227, 177, 46))
-        surface.blit(veil, (0, 0))
+        ui_blit(surface, veil, (0, 0))
         draw_text(surface, self.format_name + " BATTLE", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
         draw_text(surface, f"Round {min(self.engine.round, 3)} / 3   |   ordered roster rotation   |   {self.engine.place_id}", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (34, 104, 350, 350), self.engine.player_team.name, COLORS["cyan"])
@@ -6124,7 +6216,7 @@ class PlacesScene(Scene):
             y = 124 + index * 130
             rounded(surface, (40, y, 720, 104), (13, 26, 57), COLORS["green"], 10, 2)
             image = self.app.assets.image(place.background, (160, 92)) if place.background else None
-            if image: surface.blit(image, (54, y + 6))
+            if image: ui_blit(surface, image, (54, y + 6))
             draw_text(surface, place.name, (238, y + 18), self.app.assets.font(17, True), COLORS["cream"])
             draw_text(surface, f"Active duels: {place.current_duels}/{place.capacity}", (238, y + 48), self.app.assets.font(12), COLORS["cyan"])
             draw_text(surface, "Day/night: " + ("enabled" if place.day_night else "disabled") + "  |  media: " + ("scaffolded" if place.media_folder else "legacy"), (238, y + 75), self.app.assets.font(10), COLORS["muted"])
@@ -6212,10 +6304,10 @@ class SettingsScene(Scene):
                 draw_text(surface, category, (430, y + 4), self.app.assets.font(10, True), COLORS["muted"])
                 draw_text(surface, label, (430, y + 22), self.app.assets.font(14, True), COLORS["cream"])
                 draw_text(surface, self.setting_value(label), (730, y + 14), self.app.assets.font(13, True), COLORS["gold"], "topright")
-        pygame.draw.rect(surface, COLORS["line"], (370, 124, 5, 342), border_radius=2)
+        ui_draw_rect(surface, COLORS["line"], (370, 124, 5, 342), border_radius=2)
         thumb_h = max(48, 342 * 5 / max(5, len(self.option_rows)))
         thumb_y = 124 + (342 - thumb_h) * self.scroll / max(1, len(self.option_rows) - 5)
-        pygame.draw.rect(surface, COLORS["gold"], (370, thumb_y, 5, thumb_h), border_radius=2)
+        ui_draw_rect(surface, COLORS["gold"], (370, thumb_y, 5, thumb_h), border_radius=2)
         self.draw_buttons(surface, 13)
 
 
@@ -6363,9 +6455,9 @@ class WatchScene(Scene):
     def draw(self, surface):
         watch_background = self.app.store.places[self.app.store.role_config()["default_place"]].background
         self.draw_background(surface, watch_background)
-        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+        overlay = ui_surface((W, H), pygame.SRCALPHA)
         overlay.fill((247, 227, 177, 42))
-        surface.blit(overlay, (0, 0))
+        ui_blit(surface, overlay, (0, 0))
         draw_text(surface, "LIVE SIMULATION VIEWER", (34, 30), self.app.assets.font(27, True), COLORS["gold"])
         draw_text(surface, "Active requests become observable battles and advance only with elapsed world time.", (36, 66), self.app.assets.font(13), COLORS["muted"])
         battles = self.active_battles()
@@ -6402,11 +6494,11 @@ class Application:
         pygame.display.set_caption("Cards Battlers Playgrounds")
         pygame.mouse.set_visible(False)
         self.clock = pygame.time.Clock()
-        self.assets = AssetBank()
         self.store = ContentStore()
+        self.screen = pygame.display.set_mode(self.window_size(), pygame.FULLSCREEN if self.store.save_data.get("fullscreen", False) else pygame.RESIZABLE)
+        self.assets = AssetBank()
         self.assets.load_images()
         self.assets.load_sounds()
-        self.screen = pygame.display.set_mode(self.window_size(), pygame.FULLSCREEN if self.store.save_data.get("fullscreen", False) else pygame.RESIZABLE)
         self.scenes = []
         self.running = True
         self.notice = ""
@@ -6447,7 +6539,7 @@ class Application:
         return (width, height)
 
     def internal_size(self):
-        return (INTERNAL_W, INTERNAL_H)
+        return (RENDER_W, RENDER_H)
 
     def cycle_resolution(self):
         self.store.save_data["resolution"] = "800x600" if self.store.save_data.get("resolution") == "1280x720" else "1280x720"
@@ -6489,23 +6581,24 @@ class Application:
             if self.notice_time > 0: self.notice_time -= dt
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: self.quit()
-                elif self.scenes: self.scenes[-1].handle(event)
+                elif self.scenes:
+                    if hasattr(event, "pos") and self.screen.get_width() and self.screen.get_height():
+                        event = pygame.event.Event(event.type, {**event.dict, "pos": (int(event.pos[0] * SCENE_W / self.screen.get_width()), int(event.pos[1] * SCENE_H / self.screen.get_height()))})
+                    self.scenes[-1].handle(event)
             self.simulation_accumulator += dt
             if self.simulation_accumulator >= 1.0:
                 elapsed = min(1.0, self.simulation_accumulator)
                 self.simulation_accumulator -= elapsed
                 self.store.advance_world(elapsed)
             if self.scenes: self.scenes[-1].update(dt)
-            logical = pygame.Surface((DESIGN_W, DESIGN_H))
-            if self.scenes: self.scenes[-1].draw(logical)
-            internal = pygame.transform.smoothscale(logical, (INTERNAL_W, INTERNAL_H))
+            render_surface = pygame.Surface((RENDER_W, RENDER_H))
+            if self.scenes: self.scenes[-1].draw(render_surface)
             mouse_x, mouse_y = pygame.mouse.get_pos()
             if self.screen.get_width() and self.screen.get_height():
-                logical_mouse = (int(mouse_x * DESIGN_W / self.screen.get_width()), int(mouse_y * DESIGN_H / self.screen.get_height()))
+                scene_mouse = (int(mouse_x * SCENE_W / self.screen.get_width()), int(mouse_y * SCENE_H / self.screen.get_height()))
                 cursor, hotspot = self.assets.cursor(cursor_pressed(pygame.mouse.get_pressed()))
-                if cursor: logical.blit(cursor, (logical_mouse[0] - hotspot[0], logical_mouse[1] - hotspot[1]))
-            internal = pygame.transform.smoothscale(logical, (INTERNAL_W, INTERNAL_H))
-            scaled = pygame.transform.smoothscale(internal, self.screen.get_size())
+                if cursor: ui_blit(render_surface, cursor, (scene_mouse[0] - hotspot[0], scene_mouse[1] - hotspot[1]))
+            scaled = pygame.transform.smoothscale(render_surface, self.screen.get_size())
             self.screen.blit(scaled, (0, 0))
             pygame.display.flip()
         self.store.save()

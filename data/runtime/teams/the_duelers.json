@@ -1,12 +1,12 @@
 {
-  "schema": 1,
+  "schema": 2,
   "id": "the_duelers",
   "category": "teams",
   "state": {
     "effect_locked": false,
-    "relationship": "engine",
-    "rank": 1,
     "team_effect": {},
-    "history": []
+    "rank": 1,
+    "history": [],
+    "relationship": "stranger"
   }
 }

@@ -1,40 +1,13 @@
 {
-  "requests": [
-    {
-      "id": "request_echo",
-      "title": "Rival Echo requests a rematch",
-      "from": "rival_echo",
-      "to": "player",
-      "reason": "rematch",
-      "status": "open"
-    }
-  ],
-  "orders": [
-    {
-      "id": "order_echo",
-      "title": "Open order: any opponent, Neon Playground",
-      "placer": "player",
-      "taker": "rival_echo",
-      "give": "any card",
-      "status": "open"
-    }
-  ],
-  "championships": [],
-  "trades": [],
-  "borrows": [],
-  "achievements": [],
-  "ranks": {
-    "rival_echo": 10,
-    "player": 1
-  },
-  "simulation_time": 0.0,
-  "active_battles": [],
-  "simulation_events": [],
+  "schema": 2,
   "roles": {
-    "player_character": "player",
+    "player_character": "",
     "default_opponent_character": "rival_echo",
-    "default_player_team": "the_duelers",
+    "default_player_team": "",
     "default_opponent_team": "trio_team",
     "default_place": "neon_playground"
+  },
+  "simulation": {
+    "tick_seconds": 1.0
   }
 }

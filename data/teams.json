@@ -3,11 +3,10 @@
     "id": "the_duelers",
     "name": "The Duelers",
     "members": [
-      "player",
       "rival_echo",
       "mystery_arc"
     ],
-    "leader": "player",
+    "leader": "rival_echo",
     "preferred_places": [
       "neon_playground"
     ],

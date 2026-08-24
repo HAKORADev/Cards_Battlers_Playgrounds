@@ -1,21 +1,5 @@
 [
   {
-    "id": "player",
-    "name": "Player",
-    "portrait": "player",
-    "stars": 1,
-    "smartness": 10,
-    "preferred_families": [
-      "warrior",
-      "spell"
-    ],
-    "deck_id": "player_deck",
-    "gender": "other",
-    "origin": "human",
-    "best_cards": [],
-    "media_folder": "characters/player_1787428876577_player"
-  },
-  {
     "id": "rival_echo",
     "name": "Rival Echo",
     "portrait": "rival",
@@ -52,7 +36,7 @@
     "name": "Mystery Veil",
     "portrait": "trio_mysterio",
     "stars": 9,
-    "smartness": 9,
+    "smartness": 10,
     "preferred_families": [
       "trap",
       "fiend"

@@ -36,7 +36,8 @@
     "media_folder": "cards/cinder_knight_1787428876562_cinder_knight",
     "art_folder": "cards/cinder_knight_1787428876562_cinder_knight",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "aqua_sentinel",
@@ -75,7 +76,8 @@
     "media_folder": "cards/aqua_sentinel_1787428876564_aqua_sentinel",
     "art_folder": "cards/aqua_sentinel_1787428876564_aqua_sentinel",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "iron_fridge",
@@ -108,7 +110,8 @@
     "media_folder": "cards/iron_fridge_1787428876565_iron_fridge",
     "art_folder": "cards/iron_fridge_1787428876565_iron_fridge",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "sky_archer",
@@ -147,7 +150,8 @@
     "media_folder": "cards/sky_archer_1787428876566_sky_archer",
     "art_folder": "cards/sky_archer_1787428876566_sky_archer",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "void_titan",
@@ -186,7 +190,8 @@
     "media_folder": "cards/void_titan_1787428876567_void_titan",
     "art_folder": "cards/void_titan_1787428876567_void_titan",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "solar_burst",
@@ -225,7 +230,8 @@
     "media_folder": "cards/solar_burst_1787428876568_solar_burst",
     "art_folder": "cards/solar_burst_1787428876568_solar_burst",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "repair_matrix",
@@ -269,7 +275,8 @@
     "media_folder": "cards/repair_matrix_1787428876569_repair_matrix",
     "art_folder": "cards/repair_matrix_1787428876569_repair_matrix",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "mirror_trap",
@@ -308,7 +315,8 @@
     "media_folder": "cards/mirror_trap_1787428876570_mirror_trap",
     "art_folder": "cards/mirror_trap_1787428876570_mirror_trap",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "trio_relic",
@@ -347,7 +355,8 @@
     "media_folder": "cards/trio_relic_1787428876570_trio_relic",
     "art_folder": "cards/trio_relic_1787428876570_trio_relic",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "ember_drone",
@@ -380,7 +389,8 @@
     "media_folder": "cards/ember_drone_1787428876571_ember_drone",
     "art_folder": "cards/ember_drone_1787428876571_ember_drone",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "tide_mender",
@@ -419,7 +429,8 @@
     "media_folder": "cards/tide_mender_1787428876572_tide_mender",
     "art_folder": "cards/tide_mender_1787428876572_tide_mender",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "glass_sphinx",
@@ -458,7 +469,8 @@
     "media_folder": "cards/glass_sphinx_1787428876573_glass_sphinx",
     "art_folder": "cards/glass_sphinx_1787428876573_glass_sphinx",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "echo_bolt",
@@ -497,7 +509,8 @@
     "media_folder": "cards/echo_bolt_1787428876573_echo_bolt",
     "art_folder": "cards/echo_bolt_1787428876573_echo_bolt",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "sunlit_field",
@@ -533,7 +546,8 @@
     "media_folder": "cards/sunlit_field_1787428876574_sunlit_field",
     "art_folder": "cards/sunlit_field_1787428876574_sunlit_field",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "ember_chimera",
@@ -575,7 +589,8 @@
     "media_folder": "cards/ember_chimera_1787428876575_ember_chimera",
     "art_folder": "cards/ember_chimera_1787428876575_ember_chimera",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "ritual_warden",
@@ -614,7 +629,8 @@
     "media_folder": "cards/ritual_warden_1787428876575_ritual_warden",
     "art_folder": "cards/ritual_warden_1787428876575_ritual_warden",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   },
   {
     "id": "night_lure",
@@ -653,6 +669,7 @@
     "media_folder": "cards/night_lure_1787428876576_night_lure",
     "art_folder": "cards/night_lure_1787428876576_night_lure",
     "art_variant": 1,
-    "frame_schema": "classic_card_v1"
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {}
   }
 ]

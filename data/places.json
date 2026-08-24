@@ -7,7 +7,10 @@
     "background": "duel_field",
     "day_night": true,
     "media_folder": "places/neon_playground_1787428876586_neon_playground",
-    "effects": []
+    "effects": [],
+    "event_response_policies": {},
+    "event_window_policies": {},
+    "trigger_order_policies": {}
   },
   {
     "id": "mystery_void",
@@ -17,6 +20,9 @@
     "background": "trio_mysterio",
     "day_night": false,
     "media_folder": "places/mystery_void_1787428876588_mystery_void",
-    "effects": []
+    "effects": [],
+    "event_response_policies": {},
+    "event_window_policies": {},
+    "trigger_order_policies": {}
   }
 ]

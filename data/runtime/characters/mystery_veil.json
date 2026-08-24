@@ -1,25 +1,19 @@
 {
-  "schema": 1,
-  "id": "mystery_arc",
+  "schema": 2,
+  "id": "mystery_veil",
   "category": "characters",
   "state": {
-    "cooldown_until": 0.0,
     "activity": "idle",
-    "current_place": "",
-    "rank": 1,
-    "enemies": [],
-    "availability": "free",
+    "cooldown_until": 0.0,
+    "learned_opponents": {},
+    "rank": 2,
     "library_cards": [
-      "trio_relic",
       "void_titan",
       "void_titan",
       "sky_archer",
       "solar_burst",
       "repair_matrix"
     ],
-    "learned_opponents": {},
-    "movement_progress": 0.0,
-    "destination": "",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -28,14 +22,14 @@
       "place_preference": 5.0,
       "ally_bias": 4.0,
       "enemy_bias": 6.0,
-      "adaptation": 1.0,
+      "adaptation": 1.5,
       "family_weights": {
         "warrior": 0.0,
-        "aqua": 2.0,
+        "aqua": 0.0,
         "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 2.0,
-        "trap": 0.0,
+        "fiend": 2.0,
+        "spell": 0.0,
+        "trap": 2.0,
         "god_of_cards": 0.0,
         "field": 0.0,
         "fusion": 0.0,
@@ -53,11 +47,16 @@
         "BATTLE": 1.0
       }
     },
-    "relationship": "engine team",
-    "borrowed_cards": [],
-    "mood": "curious",
-    "allies": [],
     "history": [],
-    "learned_cards": {}
+    "allies": [],
+    "mood": "watchful",
+    "movement_progress": 0.0,
+    "availability": "free",
+    "destination": "",
+    "current_place": "",
+    "borrowed_cards": [],
+    "learned_cards": {},
+    "enemies": [],
+    "relationship": "stranger"
   }
 }

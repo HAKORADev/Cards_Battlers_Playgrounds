@@ -1,14 +1,12 @@
 {
-  "schema": 1,
-  "id": "mystery_veil",
+  "schema": 2,
+  "id": "trio_mysterio",
   "category": "characters",
   "state": {
-    "cooldown_until": 0.0,
     "activity": "idle",
-    "current_place": "",
+    "cooldown_until": 0.0,
+    "learned_opponents": {},
     "rank": 1,
-    "enemies": [],
-    "availability": "free",
     "library_cards": [
       "trio_relic",
       "void_titan",
@@ -17,9 +15,6 @@
       "solar_burst",
       "repair_matrix"
     ],
-    "learned_opponents": {},
-    "movement_progress": 0.0,
-    "destination": "",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -35,8 +30,8 @@
         "machine": 0.0,
         "fiend": 2.0,
         "spell": 0.0,
-        "trap": 2.0,
-        "god_of_cards": 0.0,
+        "trap": 0.0,
+        "god_of_cards": 2.0,
         "field": 0.0,
         "fusion": 0.0,
         "ritual": 0.0
@@ -53,11 +48,16 @@
         "BATTLE": 1.0
       }
     },
-    "relationship": "engine team",
-    "borrowed_cards": [],
-    "mood": "watchful",
-    "allies": [],
     "history": [],
-    "learned_cards": {}
+    "allies": [],
+    "mood": "mysterious",
+    "movement_progress": 0.0,
+    "availability": "free",
+    "destination": "",
+    "current_place": "",
+    "borrowed_cards": [],
+    "learned_cards": {},
+    "enemies": [],
+    "relationship": "stranger"
   }
 }

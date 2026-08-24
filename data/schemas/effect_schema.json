@@ -1,6 +1,15 @@
 {
   "schema": "cbp.effect.v1",
   "description": "Declarative effect definitions normalized by the CBP rules runtime.",
+  "architecture": {
+    "content_roots": {"authored": "data/", "assets": "data/assets/", "schemas": "data/schemas/", "runtime": "data/runtime/"},
+    "profile": {"path": "data/save.json", "purpose": "small active-user marker and preferences only", "identity_fields": ["active_user_id", "active_user_folder", "setup_complete"], "excluded_content": ["character_definition", "world_state", "duel_history"]},
+    "registration": {"first_run": ["name", "portrait", "gender"], "character_id": "generated user_<timestamp>", "character_root": "data/characters/<user_id>/", "required_folders": ["logic", "weights", "decks", "pfp", "animations", "audio", "duel"]},
+    "runtime_layout": {"character_state": "data/runtime/characters/<id>.json", "team_state": "data/runtime/teams/<id>.json", "world_index": "data/runtime/world/index.json", "world_collections": "data/runtime/world/collections/<collection>.json"},
+    "relationships": {"values": ["stranger", "ally", "enemy"], "default": "stranger", "side_keys": ["player", "opponent"], "side_keys_are_social_relationships": false},
+    "phases": {"canonical_values": ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"], "ui_abbreviations": {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}},
+    "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to window"}
+  },
   "card": {
     "summon_procedure": {
       "optional": true,
@@ -224,7 +233,7 @@
       "interactive_pending": ["discard", "target", "summon", "trap", "effect"],
       "unsupported_pending": ["cost", "procedure", "response", "trigger_order"],
       "record_and_rewatch": false,
-      "purpose": "current live-duel viewer projections and diagnostics only"
+      "purpose": "current live-duel viewer projections and diagnostics only; no record-and-rewatch playback"
     },
     "knowledge": {
       "card_ids": "observed authored card IDs",
@@ -334,9 +343,9 @@
           "payload": "structured data for the renderer and resolver; procedure_materials payloads include procedure, card, candidate_ids, required, min_stars, locations, exact, material_destination, selected_ids, and selected_stars; chain_response payloads include chain ID, priority, and legal response card IDs"
 
   },
-  "legacy_compatibility": {
-    "supported": true,
+  "data_migration": {
+    "normalize_imported_records": true,
     "accepted_fields": ["trigger", "action", "amount", "targets", "target_count", "timing", "field_effect"],
-    "rule": "Legacy records are normalized to this schema at load time and never require card-name branches."
+    "rule": "Imported effect records are normalized at load time into the canonical schema; this is a data migration boundary, not an engine compatibility promise."
   }
 }

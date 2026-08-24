@@ -1,11 +1,11 @@
 {
-  "player_name": "Player",
+  "active_user_id": "",
+  "active_user_folder": "",
   "fullscreen": false,
   "resolution": "1280x720",
   "music": true,
   "sfx": true,
   "vocals": true,
   "difficulty": "normal",
-  "history": [],
   "setup_complete": false
 }
