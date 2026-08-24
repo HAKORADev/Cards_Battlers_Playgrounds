@@ -356,8 +356,24 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
         surface.blit(scaled_image(badge, (badge_size, badge_size)), (badge_center[0] - badge_size // 2, badge_center[1] - badge_size // 2))
 
     monster_kind = card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
-    row_label = ("★" * max(0, min(11, int(card.stars)))) if monster_kind else ("TRAP" if card.kind == "trap" else "SPELL")
-    draw_text(surface, row_label[:11], (layout_rect.centerx, layout_rect.y + int(layout_rect.height * 0.195)), assets.font(row_size, True), COLORS["ink"], "center")
+    row_y = layout_rect.y + int(layout_rect.height * 0.195)
+    if monster_kind:
+        star_count = max(0, min(11, int(card.stars)))
+        star_size = max(5, min(14, int(layout_rect.width * 0.12)))
+        star_gap = max(1, star_size // 8)
+        while star_count and star_count * star_size + max(0, star_count - 1) * star_gap > layout_rect.width - 8: star_size = max(5, star_size - 1)
+        native_star_size = render_size(surface, (star_size, star_size))
+        star_image = assets.image("star_level", native_star_size)
+        if star_image and star_count:
+            total_width = star_count * star_size + max(0, star_count - 1) * star_gap
+            start_x = layout_rect.centerx - total_width // 2
+            for star_index in range(star_count):
+                star_point = render_point(surface, (start_x + star_index * (star_size + star_gap), row_y - star_size // 2))
+                surface.blit(star_image, star_point)
+        else: draw_text(surface, "★" * star_count, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
+    else:
+        row_label = "TRAP CARD" if card.kind == "trap" else "SPELL CARD"
+        draw_text(surface, row_label, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
     layout_art_rect = card_art_window(layout_rect)
     subtype = card.family.upper()[:16]
     draw_text(surface, subtype, (layout_rect.centerx, layout_art_rect.bottom + int(layout_rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
