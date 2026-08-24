@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "summoning": {
+    "normal_tribute": {
+      "tiers": [
+        {"min_stars": 1, "max_stars": 4, "required_count": 0},
+        {"min_stars": 5, "max_stars": 6, "required_count": 1},
+        {"min_stars": 7, "max_stars": 7, "required_count": 2},
+        {"min_stars": 8, "max_stars": 9, "required_count": 3},
+        {"min_stars": 10, "max_stars": 99, "special": true}
+      ],
+      "overlap_resolution": "The source wording lists both 7-8 as two tributes and 8-9 as three tributes. The more specific later 8-9 tier takes precedence at exactly eight stars; the seven-star value remains two tributes.",
+      "special_requirement": "A ten-star-or-higher monster cannot use the ordinary normal-tribute path and requires an authored special summon procedure."
+    }
+  }
+}

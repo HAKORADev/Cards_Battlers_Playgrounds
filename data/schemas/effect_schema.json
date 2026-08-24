@@ -8,7 +8,8 @@
     "runtime_layout": {"character_state": "data/runtime/characters/<id>.json", "team_state": "data/runtime/teams/<id>.json", "world_index": "data/runtime/world/index.json", "world_collections": "data/runtime/world/collections/<collection>.json"},
     "relationships": {"values": ["stranger", "ally", "enemy"], "default": "stranger", "side_keys": ["player", "opponent"], "side_keys_are_social_relationships": false},
     "phases": {"canonical_values": ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"], "ui_abbreviations": {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}},
-    "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to window"}
+    "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to centered aspect-preserving window viewport"},
+    "rules": {"path": "data/rules.json", "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only", "fusion_source": "extra", "ritual_source": "hand", "fusion_and_ritual_are_distinct": true}
   },
   "card": {
     "summon_procedure": {
@@ -17,12 +18,12 @@
       "material_selector": "selector predicate for eligible materials; Fusion and Ritual default to monster kinds",
       "required_card_ids": "ordered or repeated authored card IDs; exact matching uses instance-safe multisets",
       "min_stars": "minimum total stars for threshold procedures such as Ritual",
-      "locations": ["hand", "monster"],
+      "locations": ["hand", "monster", "graveyard", "banished"],
       "exact": "boolean; exact Fusion procedures compare the selected card-ID multiset",
       "material_destination": ["graveyard", "banished"],
-      "source_selector": "optional selector for the summon card's source state",
+      "source_selector": "optional selector for the summon card's source state; Fusion defaults to Extra Deck and Ritual defaults to hand",
       "source_method": "provenance method recorded for the summoned card",
-      "required_count": "exact material count for tribute procedures; normal level rules derive 0, 1, or 2",
+      "required_count": "exact material count for authored tribute procedures; normal tribute tiers are loaded from data/rules.json",
       "costs": "ordered reusable cost objects; discard costs can pause and resume before material selection"
     }
   },

@@ -17,6 +17,14 @@ SCENE_W, SCENE_H = 800, 600
 RENDER_W, RENDER_H = 1920, 1080
 W, H = SCENE_W, SCENE_H
 FPS = 60
+RENDER_SCALE = min(RENDER_W / SCENE_W, RENDER_H / SCENE_H)
+RENDER_VIEW_W = int(SCENE_W * RENDER_SCALE)
+RENDER_VIEW_H = int(SCENE_H * RENDER_SCALE)
+RENDER_VIEW_X = (RENDER_W - RENDER_VIEW_W) // 2
+RENDER_VIEW_Y = (RENDER_H - RENDER_VIEW_H) // 2
+IMAGE_SCALE_CACHE = {}
+TEXT_SCALE_CACHE = {}
+FILE_IMAGE_CACHE = {}
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 ASSETS = DATA / "assets"
@@ -79,23 +87,62 @@ def clamp(value, low, high):
 
 
 def render_factor(surface):
-    return (RENDER_W / SCENE_W, RENDER_H / SCENE_H) if surface.get_size() == (RENDER_W, RENDER_H) else (1.0, 1.0)
+    return (RENDER_SCALE, RENDER_SCALE) if surface.get_size() == (RENDER_W, RENDER_H) else (1.0, 1.0)
+
+
+def render_offset(surface):
+    return (RENDER_VIEW_X, RENDER_VIEW_Y) if surface.get_size() == (RENDER_W, RENDER_H) else (0, 0)
 
 
 def render_point(surface, point):
     scale_x, scale_y = render_factor(surface)
-    return (int(point[0] * scale_x), int(point[1] * scale_y))
+    offset_x, offset_y = render_offset(surface)
+    return (int(offset_x + point[0] * scale_x), int(offset_y + point[1] * scale_y))
 
 
 def render_rect(surface, rect):
     rect = pygame.Rect(rect)
     scale_x, scale_y = render_factor(surface)
-    return pygame.Rect(int(rect.x * scale_x), int(rect.y * scale_y), max(1, int(rect.width * scale_x)), max(1, int(rect.height * scale_y)))
+    offset_x, offset_y = render_offset(surface)
+    return pygame.Rect(int(offset_x + rect.x * scale_x), int(offset_y + rect.y * scale_y), max(1, int(rect.width * scale_x)), max(1, int(rect.height * scale_y)))
 
 
 def render_size(surface, size):
     scale_x, scale_y = render_factor(surface)
     return (max(1, int(size[0] * scale_x)), max(1, int(size[1] * scale_y)))
+
+
+def scaled_image(image, size):
+    size = (max(1, int(size[0])), max(1, int(size[1])))
+    if image is None or image.get_size() == size: return image
+    key = (id(image), image.get_size(), size)
+    cached = IMAGE_SCALE_CACHE.get(key)
+    if cached is None:
+        cached = pygame.transform.smoothscale(image, size)
+        if len(IMAGE_SCALE_CACHE) >= 512: IMAGE_SCALE_CACHE.clear()
+        IMAGE_SCALE_CACHE[key] = cached
+    return cached
+
+
+def cached_file_image(path):
+    key = str(path)
+    image = FILE_IMAGE_CACHE.get(key)
+    if image is None:
+        try: image = pygame.image.load(key).convert_alpha()
+        except pygame.error: return None
+        if len(FILE_IMAGE_CACHE) >= 256: FILE_IMAGE_CACHE.clear()
+        FILE_IMAGE_CACHE[key] = image
+    return image
+
+
+def scaled_text(font, text, color, size):
+    key = (id(font), str(text), tuple(color), tuple(size))
+    image = TEXT_SCALE_CACHE.get(key)
+    if image is None:
+        image = scaled_image(font.render(str(text), True, color), size)
+        if len(TEXT_SCALE_CACHE) >= 2048: TEXT_SCALE_CACHE.clear()
+        TEXT_SCALE_CACHE[key] = image
+    return image
 
 
 def ui_surface(size, flags=0):
@@ -106,7 +153,8 @@ def ui_blit(surface, image, position):
     if image is None: return None
     scale_x, scale_y = render_factor(surface)
     if (scale_x, scale_y) != (1.0, 1.0) and image.get_size() != (RENDER_W, RENDER_H):
-        image = pygame.transform.smoothscale(image, render_size(surface, image.get_size()))
+        image = scaled_image(image, render_size(surface, image.get_size()))
+    if surface.get_size() == (RENDER_W, RENDER_H) and image.get_size() == (RENDER_W, RENDER_H) and tuple(position) == (0, 0): return surface.blit(image, (0, 0))
     return surface.blit(image, render_point(surface, position))
 
 
@@ -150,9 +198,8 @@ def wrap(font, text, width):
 
 
 def draw_text(surface, text, position, font, color=COLORS["cream"], anchor="topleft"):
-    image = font.render(str(text), True, color)
     scale_x, scale_y = render_factor(surface)
-    if (scale_x, scale_y) != (1.0, 1.0): image = pygame.transform.smoothscale(image, render_size(surface, image.get_size()))
+    image = scaled_text(font, text, color, render_size(surface, font.size(str(text)))) if (scale_x, scale_y) != (1.0, 1.0) else font.render(str(text), True, color)
     rect = image.get_rect()
     setattr(rect, anchor, render_point(surface, position))
     surface.blit(image, rect)
@@ -255,7 +302,7 @@ def blit_aspect(surface, image, rect):
     rect = render_rect(surface, rect)
     ratio = min(rect.width / max(1, image.get_width()), rect.height / max(1, image.get_height()))
     size = (max(1, int(image.get_width() * ratio)), max(1, int(image.get_height() * ratio)))
-    scaled = pygame.transform.smoothscale(image, size)
+    scaled = scaled_image(image, size)
     surface.blit(scaled, scaled.get_rect(center=rect.center).topleft)
 
 
@@ -277,7 +324,7 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
         image = assets.image("card_back")
         if image:
             if defense_position: image = pygame.transform.rotate(image, 90)
-            blit_aspect(surface, image, rect)
+            blit_aspect(surface, image, layout_rect)
         return
     field_mode = not compact and layout_rect.width <= 100 and layout_rect.height <= 110
     template_kind = card_template_kind(card)
@@ -287,14 +334,15 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     art_path = registry.card_art(card, variant or card.art_variant) if registry else ""
     if art_path:
         try:
-            art = pygame.image.load(art_path).convert_alpha()
-            surface.blit(pygame.transform.smoothscale(art, art_rect.size), art_rect.topleft)
+            art = cached_file_image(art_path)
+            if art is None: raise pygame.error("card art unavailable")
+            surface.blit(scaled_image(art, art_rect.size), art_rect.topleft)
         except pygame.error:
             art_path = ""
     if not art_path:
         art = assets.image("missing_card_art", art_rect.size)
         if art: surface.blit(art, art_rect.topleft)
-    surface.blit(pygame.transform.smoothscale(template, rect.size), rect.topleft)
+    surface.blit(scaled_image(template, rect.size), rect.topleft)
 
     title_size = 5 if field_mode else 6 if compact else 9
     row_size = 5 if field_mode else 6 if compact else 8
@@ -305,7 +353,7 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     badge = assets.card_badge(template_kind)
     if badge:
         badge_size = max(8, int(rect.width * 0.16))
-        surface.blit(pygame.transform.smoothscale(badge, (badge_size, badge_size)), (badge_center[0] - badge_size // 2, badge_center[1] - badge_size // 2))
+        surface.blit(scaled_image(badge, (badge_size, badge_size)), (badge_center[0] - badge_size // 2, badge_center[1] - badge_size // 2))
 
     monster_kind = card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
     row_label = ("★" * max(0, min(11, int(card.stars)))) if monster_kind else ("TRAP" if card.kind == "trap" else "SPELL")
@@ -327,6 +375,9 @@ class AssetBank:
         self.sounds = {}
         self.fonts = {}
         self.role_images = {}
+        self.sized_images = {}
+        self.menu_layers = {}
+        self.cursor_cache = {}
         self.card_templates = {}
         self.card_badges = {}
         self.splash_names = []
@@ -336,19 +387,25 @@ class AssetBank:
         self.load_sounds()
 
     def cursor(self, pressed=False):
-        image = self.images.get("cursor_click" if pressed else "cursor_normal")
+        key = "cursor_click" if pressed else "cursor_normal"
+        image = self.images.get(key)
         if image is None: return None, (0, 0)
+        cached = self.cursor_cache.get(key)
+        if cached: return cached
         ratio = min(30 / max(1, image.get_width()), 52 / max(1, image.get_height()))
         size = (max(1, int(image.get_width() * ratio)), max(1, int(image.get_height() * ratio)))
-        cursor = pygame.transform.smoothscale(image, size)
+        cursor = scaled_image(image, size)
         hotspot = (int(cursor.get_width() * 0.32), int(cursor.get_height() * 0.045))
+        self.cursor_cache[key] = (cursor, hotspot)
         return cursor, hotspot
 
     def image(self, name, size=None):
         image = self.images.get(name)
         if image is None: return None
         if size and image.get_size() != size:
-            return pygame.transform.smoothscale(image, size)
+            key = (name, tuple(size))
+            if key not in self.sized_images: self.sized_images[key] = scaled_image(image, size)
+            return self.sized_images[key]
         return image
 
     def load_external_manifest(self):
@@ -396,7 +453,10 @@ class AssetBank:
             if image is None: image = self.images.get(fallback_roles.get(role, role))
             self.role_images[role] = image
         if image is None: return None
-        if size and image.get_size() != size: return pygame.transform.smoothscale(image, size)
+        if size and image.get_size() != size:
+            key = (role, tuple(size))
+            if key not in self.sized_images: self.sized_images[key] = scaled_image(image, size)
+            return self.sized_images[key]
         return image
 
     def load_card_templates(self):
@@ -433,14 +493,17 @@ class AssetBank:
         self.splash_names = sorted(set(self.splash_names))
 
     def menu_layer(self, name, size=None):
+        key = (name, tuple(size) if size else None)
+        if key in self.menu_layers: return self.menu_layers[key]
         candidates = [base / "menu" / f"{name}.png" for base in self.asset_roots()] + [base / f"{name}.png" for base in self.asset_roots()]
         for path in candidates:
             if path.exists():
-                try:
-                    image = pygame.image.load(str(path)).convert_alpha()
-                    return pygame.transform.smoothscale(image, size) if size and image.get_size() != size else image
-                except pygame.error:
-                    pass
+                image = cached_file_image(path)
+                if image is not None:
+                    image = scaled_image(image, size) if size and image.get_size() != size else image
+                    self.menu_layers[key] = image
+                    return image
+        self.menu_layers[key] = None
         return None
 
     def sound_candidates(self, name):
@@ -915,11 +978,21 @@ class ProcedureSpec:
     source_method: str = ""
     required_count: int = 0
     costs: list = field(default_factory=list)
+    special: bool = False
 
     @classmethod
-    def normal_tribute(cls, card):
-        count = 0 if int(card.card.stars) <= 4 else 1 if int(card.card.stars) <= 6 else 2
-        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count, [])
+    def normal_tribute(cls, card, rules=None):
+        stars = int(card.card.stars)
+        policy = dict((rules or {}).get("summoning", {}).get("normal_tribute", {}) or {})
+        selected = None
+        for tier in policy.get("tiers", []):
+            if int(tier.get("min_stars", 0)) <= stars <= int(tier.get("max_stars", 99)):
+                selected = tier
+                break
+        selected = selected or {"required_count": 0 if stars <= 4 else 1 if stars <= 6 else 2}
+        special = bool(selected.get("special", False))
+        count = int(selected.get("required_count", 0) or 0)
+        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count, [], special)
 
     @classmethod
     def from_card(cls, card):
@@ -932,13 +1005,14 @@ class ProcedureSpec:
         locations = list(raw.get("locations", ["hand", "monster"]) or ["hand", "monster"])
         exact = bool(raw.get("exact", kind == "fusion" and bool(required)))
         destination = str(raw.get("material_destination", "graveyard") or "graveyard")
-        source_selector = dict(raw.get("source_selector", {}) or {})
+        default_source = {"zone": "extra"} if kind == "fusion" else {"zone": "hand"}
+        source_selector = dict(raw.get("source_selector", default_source) or default_source)
         source_method = str(raw.get("source_method", kind) or kind)
         derived_count = 0 if int(getattr(card.card, "stars", 0)) <= 4 else 1 if int(getattr(card.card, "stars", 0)) <= 6 else 2
         required_count = int(raw.get("required_count", raw.get("count", derived_count if kind == "tribute" else 0)) or 0)
         costs = raw.get("costs", raw.get("cost", [])) or []
         if isinstance(costs, dict): costs = [costs]
-        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs))
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)))
 
 
 class LogicRuntime:
@@ -1047,6 +1121,12 @@ class ContentStore:
         self.save_data = {key: stored_profile.get(key, default) for key, default in profile_defaults.items()}
         self.media = MediaRegistry(ROOT)
         self.clock = WorldClock()
+        self.dirty_domains = set()
+        self.world_tick_active = False
+        self.world_checkpoint_elapsed = 0.0
+        self.world_checkpoint_interval = 15.0
+        self.world_sessions = {}
+        self.rules = read_json(DATA / "rules.json", {})
         self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": []})
         for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0)]: self.world.setdefault(key, default)
         self.load()
@@ -1127,12 +1207,16 @@ class ContentStore:
         self.world = self.migrate_world_state(legacy_world)
         for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0)]: self.world.setdefault(key, default)
         if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
+        self.rules = read_json(DATA / "rules.json", self.rules if isinstance(self.rules, dict) else {})
         self.logic = {}
         for path in (DATA / "logic").glob("*.json"):
             self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
         self.ensure_behavior_weights()
         self.ensure_entity_scaffolds()
         self.media.scan()
+        self.world_sessions = {}
+        self.dirty_domains.clear()
+        self.world_checkpoint_elapsed = 0.0
 
     def ensure_behavior_weights(self):
         defaults = {"risk_tolerance": 3.0, "learning_value": 5.0, "rematch_desire": 4.0, "reward_value": 5.0, "place_preference": 5.0, "ally_bias": 4.0, "enemy_bias": 6.0, "adaptation": 1.0}
@@ -1188,22 +1272,34 @@ class ContentStore:
             if character.id != self.role_config()["player_character"] and character.availability == "free": self.schedule_ai_request(character.id)
 
 
-    def save(self):
-        self.media.scan()
-        write_json(DATA / "cards.json", [card.__dict__ for card in self.cards.values()])
-        write_json(DATA / "characters.json", [self.authored_entry(char, CHARACTER_RUNTIME_FIELDS) for char in self.characters.values()])
-        write_json(DATA / "decks.json", self.decks)
-        write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
-        write_json(DATA / "teams.json", [self.authored_entry(team, TEAM_RUNTIME_FIELDS) for team in self.teams.values()])
-        for char in self.characters.values(): write_json(self.runtime_path("characters", char.id), {"schema": 2, "id": char.id, "category": "characters", "state": self.runtime_entry(char, CHARACTER_RUNTIME_FIELDS)})
-        for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
-        world_keys = ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
-        defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
-        for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
-        write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "collections": world_keys})
-        write_json(SAVE, self.save_data)
-        for key, graph in self.logic.items():
-            write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
+    def save(self, domains=None):
+        all_domains = {"authored", "runtime_characters", "runtime_teams", "runtime_world", "profile", "logic"}
+        default_domains = {"runtime_characters", "runtime_teams", "runtime_world"} if self.world_tick_active else set(self.dirty_domains or all_domains)
+        requested = set(domains) if domains is not None else default_domains
+        if self.world_tick_active:
+            self.dirty_domains.update(requested)
+            return False
+        if "authored" in requested:
+            write_json(DATA / "cards.json", [card.__dict__ for card in self.cards.values()])
+            write_json(DATA / "characters.json", [self.authored_entry(char, CHARACTER_RUNTIME_FIELDS) for char in self.characters.values()])
+            write_json(DATA / "decks.json", self.decks)
+            write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
+            write_json(DATA / "teams.json", [self.authored_entry(team, TEAM_RUNTIME_FIELDS) for team in self.teams.values()])
+        if "runtime_characters" in requested:
+            for char in self.characters.values(): write_json(self.runtime_path("characters", char.id), {"schema": 2, "id": char.id, "category": "characters", "state": self.runtime_entry(char, CHARACTER_RUNTIME_FIELDS)})
+        if "runtime_teams" in requested:
+            for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
+        if "runtime_world" in requested:
+            write_json(DATA / "places.json", [place.__dict__ for place in self.places.values()])
+            world_keys = ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
+            defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
+            for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
+            write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "collections": world_keys})
+        if "profile" in requested: write_json(SAVE, self.save_data)
+        if "logic" in requested:
+            for key, graph in self.logic.items(): write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
+        self.dirty_domains.difference_update(requested)
+        return True
 
     def reserve_place(self, place_id):
         place = self.places.get(place_id)
@@ -1289,44 +1385,59 @@ class ContentStore:
                 if character:
                     character.availability = "active"
                     character.activity = "dueling"
-            battle = {"id": "sim_battle_" + str(int(time.time() * 1000)), "request_id": request["id"], "from": request["from"], "to": request["to"], "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "turn": 1, "actions": [], "hp": {request["from"]: 8000, request["to"]: 8000}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": ""}
+            engine = DuelEngine(self, request["from"], request["to"], place_id, True)
+            engine.match_recorded = True
+            battle_id = "sim_battle_" + str(int(time.time() * 1000))
+            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "turn": engine.turn, "actions": [], "hp": {request["from"]: engine.player.hp, request["to"]: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
+            self.world_sessions[battle_id] = engine
             self.world.setdefault("active_battles", []).append(battle)
             self.world.setdefault("simulation_events", []).append({"type": "battle_activated", "battle": battle["id"], "request": request["id"], "sim_time": float(self.world.get("simulation_time", 0.0))})
 
+    def _world_session(self, battle):
+        session = self.world_sessions.get(battle["id"])
+        if session: return session
+        session = DuelEngine(self, battle["from"], battle["to"], battle["place"], True)
+        session.match_recorded = True
+        checkpoint = battle.get("engine_checkpoint")
+        if checkpoint and not session.restore_state_checkpoint(checkpoint): return None
+        self.world_sessions[battle["id"]] = session
+        return session
+
+    def _complete_world_battle(self, battle, session):
+        winner_id = session.winner.character.id if session.winner else ""
+        loser_id = session.other(session.winner).character.id if session.winner else ""
+        battle["status"] = "completed"
+        battle["phase"] = "post_duel"
+        battle["result"] = winner_id
+        battle["turn"] = session.turn
+        battle["hp"] = {battle["from"]: session.player.hp, battle["to"]: session.opponent.hp}
+        request = self.request_by_id(battle["request_id"])
+        if request:
+            request["status"] = "completed"
+            request.setdefault("events", []).append({"status": "completed", "actor": winner_id or "world", "sim_time": float(self.world.get("simulation_time", 0.0))})
+        self.record_duel(winner_id, loser_id, session.turn, "engine_simulation")
+        self.release_place(battle["place"])
+        for character_id in [battle["from"], battle["to"]]:
+            character = self.characters.get(character_id)
+            if character:
+                character.availability = "free"
+                character.activity = "idle"
+                character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
+        self.world_sessions.pop(battle["id"], None)
+        self.world.setdefault("simulation_events", []).append({"type": "battle_completed", "battle": battle["id"], "winner": winner_id or "draw", "loser": loser_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
+
     def _simulation_action(self, battle):
-        attacker_id = battle["from"] if battle["turn"] % 2 else battle["to"]
-        defender_id = battle["to"] if attacker_id == battle["from"] else battle["from"]
-        attacker = self.characters.get(attacker_id)
-        defender = self.characters.get(defender_id)
-        if not attacker or not defender: return
-        families = list(attacker.preferred_families or ["unknown"])
-        family_index = (battle["turn"] + int(attacker.behavior_weights.get("learning_value", 0))) % len(families)
-        preferred = families[family_index]
-        bonus = int(attacker.behavior_weights.get("risk_tolerance", 0)) * 15
-        learned = int(attacker.learned_opponents.get(defender_id, 0))
-        damage = 280 + attacker.smartness * 22 + bonus + learned * int(attacker.behavior_weights.get("adaptation", 1))
-        battle["hp"][defender_id] = max(0, int(battle["hp"].get(defender_id, 8000)) - damage)
-        battle["actions"].append({"turn": battle["turn"], "attacker": attacker_id, "defender": defender_id, "action": "attack", "family": preferred, "damage": damage, "sim_time": float(self.world.get("simulation_time", 0.0))})
-        self.world.setdefault("simulation_events", []).append({"type": "battle_action", "battle": battle["id"], "attacker": attacker_id, "damage": damage, "sim_time": float(self.world.get("simulation_time", 0.0))})
-        battle["turn"] += 1
-        if battle["hp"][defender_id] <= 0:
-            winner_id, loser_id = attacker_id, defender_id
-            battle["result"] = winner_id
-            battle["status"] = "completed"
-            battle["phase"] = "post_duel"
-            request = self.request_by_id(battle["request_id"])
-            if request:
-                request["status"] = "completed"
-                request.setdefault("events", []).append({"status": "completed", "actor": winner_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
-            self.record_duel(winner_id, loser_id, battle["turn"], "real_time_simulation")
-            self.release_place(battle["place"])
-            for character_id in [battle["from"], battle["to"]]:
-                character = self.characters.get(character_id)
-                if character:
-                    character.availability = "free"
-                    character.activity = "idle"
-                    character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
-            self.world.setdefault("simulation_events", []).append({"type": "battle_completed", "battle": battle["id"], "winner": winner_id, "loser": loser_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
+        session = self._world_session(battle)
+        if not session: return
+        active_before = session.active
+        result = session.autonomous_step(active_before)
+        battle["turn"] = session.turn
+        battle["phase"] = "post_duel" if session.finished else session.phase.lower()
+        battle["hp"] = {battle["from"]: session.player.hp, battle["to"]: session.opponent.hp}
+        battle["engine_checkpoint"] = session.state_checkpoint()
+        battle["actions"].append({"turn": session.turn, "actor": active_before.character.id, "phase": session.phase, "result": str(result[1] if isinstance(result, tuple) and len(result) > 1 else result), "sim_time": float(self.world.get("simulation_time", 0.0))})
+        self.world.setdefault("simulation_events", []).append({"type": "battle_engine_step", "battle": battle["id"], "actor": active_before.character.id, "phase": session.phase, "sim_time": float(self.world.get("simulation_time", 0.0))})
+        if session.finished: self._complete_world_battle(battle, session)
 
     def _advance_battles(self, seconds):
         for battle in list(self.world.setdefault("active_battles", [])):
@@ -1334,24 +1445,34 @@ class ContentStore:
             battle["elapsed"] = float(battle.get("elapsed", 0.0)) + seconds
             if battle["phase"] == "pre_duel" and battle["elapsed"] >= 3.0: battle["phase"] = "duel"
             actions = 0
-            while battle["phase"] == "duel" and battle["elapsed"] >= battle.get("next_action", 3.0) and actions < 3 and battle.get("status") == "active":
+            while battle["elapsed"] >= battle.get("next_action", 3.0) and actions < 3 and battle.get("status") == "active":
                 self._simulation_action(battle)
                 battle["next_action"] = float(battle.get("next_action", 3.0)) + 2.0
                 actions += 1
 
     def advance_world(self, seconds):
         seconds = max(0.0, min(30.0, float(seconds)))
-        self.world["simulation_time"] = float(self.world.get("simulation_time", 0.0)) + seconds
-        self._advance_movement(seconds)
-        for request in self.world.setdefault("requests", []):
-            if request.get("status") in ["open", "queued"] and self.world["simulation_time"] >= float(request.get("expires_sim_time", 0.0)):
-                request["status"] = "expired"
-                request.setdefault("events", []).append({"status": "expired", "actor": "world", "sim_time": self.world["simulation_time"]})
-        self._advance_battles(seconds)
-        self._activate_queued_requests()
-        self._ai_request_tick()
-        self.world["simulation_events"] = self.world.setdefault("simulation_events", [])[-200:]
-        self.save()
+        checkpoint = False
+        self.world_tick_active = True
+        try:
+            self.world["simulation_time"] = float(self.world.get("simulation_time", 0.0)) + seconds
+            self._advance_movement(seconds)
+            for request in self.world.setdefault("requests", []):
+                if request.get("status") in ["open", "queued"] and self.world["simulation_time"] >= float(request.get("expires_sim_time", 0.0)):
+                    request["status"] = "expired"
+                    request.setdefault("events", []).append({"status": "expired", "actor": "world", "sim_time": self.world["simulation_time"]})
+            self._advance_battles(seconds)
+            self._activate_queued_requests()
+            self._ai_request_tick()
+            self.world["simulation_events"] = self.world.setdefault("simulation_events", [])[-200:]
+            self.dirty_domains.update({"runtime_characters", "runtime_teams", "runtime_world"})
+            self.world_checkpoint_elapsed += seconds
+            checkpoint = self.world_checkpoint_elapsed >= self.world_checkpoint_interval
+        finally:
+            self.world_tick_active = False
+        if checkpoint:
+            self.world_checkpoint_elapsed = 0.0
+            self.save({"runtime_characters", "runtime_teams", "runtime_world"})
         return self.world_context()
 
     def place_order(self, placer, taker, give):
@@ -1744,6 +1865,21 @@ class ContentStore:
         self.save()
         return place
 
+    def update_card(self, card_id, values):
+        card = self.cards.get(card_id)
+        if not card: return None
+        allowed = {"name", "kind", "stars", "atk", "defense", "family", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method"}
+        merged = {key: getattr(card, key) for key in allowed}
+        merged.update({key: value for key, value in values.items() if key in allowed})
+        errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], card.effects)
+        if errors: return None
+        for key, value in merged.items(): setattr(card, key, value)
+        card.frame = "yellow" if card.kind == "normal" else "orange" if card.kind == "effect" else "sky" if card.kind in ["spell", "field"] else "pink" if card.kind == "trap" else "violet" if card.kind == "fusion" else "blue" if card.kind == "ritual" else "red"
+        card.legendary = card.kind == "legendary"
+        card.limit = 1 if card.legendary else 3
+        self.save()
+        return card
+
     def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id=""):
         char_id = "character_" + str(int(time.time() * 1000))
         display_name = name or "New Character"
@@ -1849,34 +1985,47 @@ class DeckRules:
     copies = 3
 
     @classmethod
+    def partition(cls, card_ids, available):
+        main = []
+        extra = []
+        for card_id in card_ids:
+            card = available.get(card_id)
+            if not card: continue
+            if card.kind == "fusion": extra.append(card_id)
+            else: main.append(card_id)
+        return main, extra
+
+    @classmethod
     def normalized(cls, card_ids, available):
         result = []
         counts = {}
+        main_count = 0
         for card_id in card_ids:
-            limit = 1 if available.get(card_id) and available[card_id].legendary else cls.copies
-            if card_id in available and counts.get(card_id, 0) < limit:
-                result.append(card_id)
-                counts[card_id] = counts.get(card_id, 0) + 1
-        pool = list(available)
-        while len(result) < cls.minimum and pool:
-            candidates = [card_id for card_id in pool if counts.get(card_id, 0) < (1 if available[card_id].legendary else cls.copies)]
-            if not candidates: break
-            card_id = candidates[len(result) % len(candidates)]
+            card = available.get(card_id)
+            if not card: continue
+            limit = 1 if card.legendary else cls.copies
+            if counts.get(card_id, 0) >= limit: continue
+            if card.kind != "fusion" and main_count >= cls.maximum: continue
             result.append(card_id)
             counts[card_id] = counts.get(card_id, 0) + 1
-        return result[:cls.maximum]
+            if card.kind != "fusion": main_count += 1
+        return result
 
     @classmethod
     def validate(cls, card_ids, available):
         errors = []
-        if len(card_ids) < cls.minimum: errors.append(f"minimum {cls.minimum} cards")
-        if len(card_ids) > cls.maximum: errors.append(f"maximum {cls.maximum} cards")
+        main, extra = cls.partition(card_ids, available)
+        if len(main) < cls.minimum: errors.append(f"minimum {cls.minimum} main-deck cards")
+        if len(main) > cls.maximum: errors.append(f"maximum {cls.maximum} main-deck cards")
         counts = {}
         for card_id in card_ids:
-            counts[card_id] = counts.get(card_id, 0) + 1
             card = available.get(card_id)
-            if card and counts[card_id] > (1 if card.legendary else cls.copies): errors.append(f"{card.name} exceeds its copy limit")
-        return errors
+            if not card:
+                errors.append(f"unknown card {card_id}")
+                continue
+            counts[card_id] = counts.get(card_id, 0) + 1
+            if counts[card_id] > (1 if card.legendary else cls.copies): errors.append(f"{card.name} exceeds its copy limit")
+        return list(dict.fromkeys(errors))
 
     @classmethod
     def summary(cls, card_ids, available):
@@ -1975,19 +2124,24 @@ class Duelist:
         self.name = character.name
         self.hp = 8000
         self.deck = []
-        deck_ids = DeckRules.normalized(store.decks.get(character.deck_id, {}).get("cards", []), store.cards)
-        for card_id in deck_ids:
-            self.deck.append(CardInstance(store.cards[card_id], self.name))
-        while len(self.deck) < 40:
-            card = random.choice(list(store.cards.values()))
-            self.deck.append(CardInstance(card, self.name))
-        random.shuffle(self.deck)
         self.hand = []
         self.monsters = [None] * 5
         self.spells = [None] * 5
         self.graveyard = []
         self.banished = []
         self.extra = []
+        deck_ids = DeckRules.normalized(store.decks.get(character.deck_id, {}).get("cards", []), store.cards)
+        for card_id in deck_ids:
+            instance = CardInstance(store.cards[card_id], self.name)
+            if instance.card.kind == "fusion":
+                instance.position = "extra"
+                instance.last_zone = "extra"
+                self.extra.append(instance)
+            else:
+                instance.position = "deck"
+                instance.last_zone = "deck"
+                self.deck.append(instance)
+        random.shuffle(self.deck)
 
     def draw(self, count=1):
         result = []
@@ -2681,6 +2835,7 @@ class DuelEngine:
         zone = next((index for index, value in enumerate(actor.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
         if card in actor.hand: actor.hand.remove(card)
+        if card in actor.extra: actor.extra.remove(card)
         card.last_zone = source_zone
         card.position = "field"
         card.face_up = True
@@ -2745,10 +2900,13 @@ class DuelEngine:
 
     def begin_summon_procedure(self, card, actor, procedure=None):
         procedure = procedure or ProcedureSpec.from_card(card)
-        if card not in actor.hand: return False, "Select a summon card in your hand."
+        source_zone = "extra" if procedure.kind == "fusion" else "hand"
+        source_cards = actor.extra if procedure.kind == "fusion" else actor.hand
+        if card not in source_cards: return False, "Select a summon card from its legal source zone."
         if procedure.source_selector and not SelectorRuntime(self, actor, card).matches(card, procedure.source_selector): return False, "The summon card is not in its allowed source state."
         if procedure.source_selector.get("zone") and str(procedure.source_selector.get("zone")) not in [str(card.position), "hand"]: return False, "The summon card is not in its allowed source zone."
         if procedure.kind not in ["fusion", "ritual", "tribute"]: return False, "This summon procedure is not implemented."
+        if procedure.special: return False, "This monster requires an authored special summon procedure."
         if procedure.kind == "tribute" and self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         if not any(value is None for value in actor.monsters): return False, "All five monster zones are occupied."
         if procedure.costs:
@@ -2829,7 +2987,7 @@ class DuelEngine:
 
     def fusion_summon(self, card, materials=None):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
-        if card.card.summon_method != "fusion" or card not in self.player.hand: return False, "Select a fusion card in your hand."
+        if card.card.summon_method != "fusion" or card not in self.player.extra: return False, "Select a Fusion monster from the Extra Deck."
         if materials is None: return self.begin_summon_procedure(card, self.player, ProcedureSpec.from_card(card))
         procedure = ProcedureSpec.from_card(card)
         valid, reason = self.validate_procedure_materials(card, materials, self.player, procedure)
@@ -2847,7 +3005,7 @@ class DuelEngine:
 
     def ritual_summon(self, card, tributes=None):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Ritual summoning is only available during your main phase."
-        if card.card.summon_method != "ritual" or card not in self.player.hand: return False, "Select a ritual card in your hand."
+        if card.card.summon_method != "ritual" or card not in self.player.hand: return False, "Select a Ritual monster from your hand."
         if tributes is None: return self.begin_summon_procedure(card, self.player, ProcedureSpec.from_card(card))
         procedure = ProcedureSpec.from_card(card)
         valid, reason = self.validate_procedure_materials(card, tributes, self.player, procedure)
@@ -2872,8 +3030,9 @@ class DuelEngine:
         if self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         zone = next((index for index, value in enumerate(actor.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
-        tribute = 0 if card.card.stars <= 4 else 1 if card.card.stars <= 6 else 2
-        if tribute: return self.begin_summon_procedure(card, actor, ProcedureSpec.normal_tribute(card))
+        procedure = ProcedureSpec.normal_tribute(card, self.store.rules)
+        if procedure.special: return False, "This monster requires its authored special summon procedure."
+        if procedure.required_count: return self.begin_summon_procedure(card, actor, procedure)
         permission, reason = self.consume_normal_summon(actor)
         if not permission: return False, reason
         source_zone = card.position
@@ -4047,46 +4206,59 @@ class DuelEngine:
             if self.execute_effect_spec(card, spec, actor, target): self.mark_effect_used(card, spec)
         self.active_rule_context = previous_context
 
+    def battle_value(self, card, side):
+        return self.effective_atk(card, side) if card.battle_position == "attack" else self.effective_defense(card, side)
+
+    def resolve_battle(self, attacker_side, attacker, target=None):
+        defender_side = self.other(attacker_side)
+        targets = [item for item in defender_side.monsters if item]
+        if target is not None and target not in targets: return False, "That target is not on the opponent field."
+        target = target or (min(targets, key=lambda item: (self.battle_value(item, defender_side), item.card.id)) if targets else None)
+        attacker.attacked = True
+        self.emit_event("attack", attacker_side, source=attacker, target=target, metadata={"attacker": attacker.card.id, "target": self.entity_id(target) if target else "", "direct": not bool(targets)})
+        self.emit_event("attacked", defender_side, source=None, target=target or defender_side, metadata={"attacker": attacker.card.id, "target": self.entity_id(target) if target else defender_side.character.id, "direct": not bool(targets)})
+        if not target:
+            damage = self.effective_atk(attacker, attacker_side)
+            defender_side.hp = max(0, defender_side.hp - damage)
+            self.emit_event("damage", attacker_side, source=attacker, target=defender_side, metadata={"amount": damage, "source": "battle", "direct": True})
+            self.log(f"{attacker.card.name} attacks directly for {damage}.")
+            self.react("attack", attacker_side.character.id, defender_side.character.id, "opponent")
+            self.check_end()
+            return True, ""
+        if not target.face_up:
+            target.face_up = True
+            self.log(f"{target.card.name} flips face-up.")
+        attack_value = self.effective_atk(attacker, attacker_side)
+        target_in_attack = target.battle_position == "attack"
+        target_value = self.battle_value(target, defender_side)
+        if attack_value > target_value:
+            self.destroy(defender_side, target)
+            damage = attack_value - target_value if target_in_attack else 0
+            if damage:
+                defender_side.hp = max(0, defender_side.hp - damage)
+                self.emit_event("damage", attacker_side, source=attacker, target=defender_side, metadata={"amount": damage, "source": "battle", "direct": False, "defeated": target.card.id})
+            self.log(f"{attacker.card.name} defeats {target.card.name}" + (f" for {damage} damage." if damage else "."))
+            self.react("damage", attacker_side.character.id, defender_side.character.id, "opponent")
+        elif attack_value < target_value:
+            damage = target_value - attack_value
+            self.destroy(attacker_side, attacker)
+            attacker_side.hp = max(0, attacker_side.hp - damage)
+            self.emit_event("damage", defender_side, source=target, target=attacker_side, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": attacker.card.id})
+            self.log(f"{attacker.card.name} loses the battle and {attacker_side.name} takes {damage} damage.")
+        elif target_in_attack:
+            self.destroy(attacker_side, attacker)
+            self.destroy(defender_side, target)
+            self.log("Both monsters are destroyed.")
+        else:
+            self.log(f"{attacker.card.name} is stopped by {target.card.name}.")
+        self.check_end()
+        return True, ""
+
     def attack(self, card, target=None):
         if self.finished or self.active is not self.player or self.phase != "BATTLE": return False, "Attacks are only available during Battle."
         if card not in self.player.monsters or card is None: return False, "Select a face-up monster."
         if card.attacked or not card.face_up or card.battle_position != "attack": return False, "That monster cannot attack now."
-        card.attacked = True
-        targets = [item for item in self.opponent.monsters if item]
-        if target is not None and target not in targets: return False, "That target is not on the opponent field."
-        target = target or (min(targets, key=lambda item: item.defense) if targets else None)
-        self.emit_event("attack", self.player, source=card, target=target, metadata={"attacker": card.card.id, "target": self.entity_id(target) if target else "", "direct": not bool(targets)})
-        self.emit_event("attacked", self.opponent, source=None, target=target or self.opponent, metadata={"attacker": card.card.id, "target": self.entity_id(target) if target else self.opponent.character.id, "direct": not bool(targets)})
-        if not targets:
-            damage = self.effective_atk(card, self.player)
-            self.opponent.hp = max(0, self.opponent.hp - damage)
-            self.emit_event("damage", self.player, source=card, target=self.opponent, metadata={"amount": damage, "source": "battle", "direct": True})
-            self.log(f"{card.card.name} attacks directly for {damage}.")
-            self.react("attack", self.player.character.id, self.opponent.character.id, "opponent")
-        else:
-            if not target.face_up:
-                target.face_up = True
-                self.log(f"{target.card.name} flips face-up.")
-            attack_value = self.effective_atk(card, self.player)
-            defense_value = self.effective_defense(target, self.opponent)
-            if attack_value > defense_value:
-                damage = attack_value - defense_value
-                self.opponent.hp = max(0, self.opponent.hp - damage)
-                self.emit_event("damage", self.player, source=card, target=self.opponent, metadata={"amount": damage, "source": "battle", "direct": False, "defeated": target.card.id})
-                self.destroy(self.opponent, target)
-                self.log(f"{card.card.name} defeats {target.card.name} for {damage} damage.")
-                self.react("damage", self.player.character.id, self.opponent.character.id, "opponent")
-            elif attack_value < defense_value:
-                damage = defense_value - attack_value
-                self.player.hp = max(0, self.player.hp - damage)
-                self.emit_event("damage", self.opponent, source=target, target=self.player, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": card.card.id})
-                self.log(f"{card.card.name} is stopped. You take {damage} damage.")
-            else:
-                self.destroy(self.player, card)
-                self.destroy(self.opponent, target)
-                self.log("Both monsters are destroyed.")
-        self.check_end()
-        return True, ""
+        return self.resolve_battle(self.player, card, target)
 
     def destroy(self, duelist, card):
         from_zone = card.position
@@ -4122,7 +4294,7 @@ class DuelEngine:
         self.resolve(card, trigger, actor, target)
 
     def ai_can_summon(self, card, actor):
-        if self.normal_summon_remaining(actor) <= 0 or not any(value is None for value in actor.monsters): return False
+        if not any(value is None for value in actor.monsters): return False
         if card.card.summon_method in ["fusion", "ritual"]:
             procedure = ProcedureSpec.from_card(card)
             if procedure.costs:
@@ -4130,8 +4302,10 @@ class DuelEngine:
                 if not self.preflight_costs(cost_spec, card, actor)[0]: return False
             selected = self.ai_procedure_selection(card, actor, procedure)
             return bool(selected) and self.validate_procedure_materials(card, selected, actor, procedure)[0]
+        if self.normal_summon_remaining(actor) <= 0: return False
         if card.card.stars <= 4: return True
-        procedure = ProcedureSpec.normal_tribute(card)
+        procedure = ProcedureSpec.normal_tribute(card, self.store.rules)
+        if procedure.special: return False
         candidates = self.procedure_material_candidates(card, actor, procedure)
         return len(candidates) >= procedure.required_count
 
@@ -4172,7 +4346,7 @@ class DuelEngine:
 
     def ai_defense_estimate(self, card):
         if not card.face_up: return 0
-        return self.effective_defense(card, self.player)
+        return self.effective_atk(card, self.player) if card.battle_position == "attack" else self.effective_defense(card, self.player)
 
     def ai_card_score(self, card, mode):
         character = self.opponent.character
@@ -4196,13 +4370,83 @@ class DuelEngine:
     def ai_main_plan(self):
         actions = []
         if any(value is None for value in self.opponent.monsters):
-            for card in self.opponent.hand:
+            for card in self.opponent.hand + self.opponent.extra:
                 if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, self.opponent): actions.append({"kind": "summon", "card": card, "score": self.ai_card_score(card, "monster") + 120})
         for card in self.opponent.hand:
             if card.card.kind in ["spell", "field"]:
                 score = self.ai_card_score(card, "spell")
                 if score > -50000: actions.append({"kind": "activate", "card": card, "score": score})
         return max(actions, key=lambda item: (item["score"], item["card"].card.id, item["kind"])) if actions else None
+
+    def autonomous_step(self, actor):
+        if self.finished: return "finished"
+        if self.chain_window:
+            if self.chain_priority is actor:
+                notification = self.pending_notification("chain_response")
+                if notification: return self.pass_chain_priority(actor)
+            return "waiting"
+        if self.pending_discard:
+            if self.pending_discard is actor and actor.hand: return self.discard(actor.hand[-1])
+            return "waiting"
+        if self.pending_trigger_order:
+            pending = self.pending_trigger_order
+            if pending.get("chooser") is not actor: return "waiting"
+            selected = [item["effect_id"] for item in pending["members"]]
+            return self.resolve_trigger_order(selected)
+        if self.pending_cost:
+            if self.pending_cost.get("actor") is not actor: return "waiting"
+            required = int(self.pending_cost.get("required", 0))
+            return self.resolve_pending_cost(list(self.pending_cost.get("candidates", [])[:required]))
+        if self.pending_procedure:
+            if self.pending_procedure.get("actor") is not actor: return "waiting"
+            procedure = self.pending_procedure["procedure"]
+            selected = self.ai_procedure_selection(self.pending_procedure["card"], actor, procedure)
+            if not selected: return self.abort_procedure("No legal autonomous procedure selection exists.")
+            return self.resolve_pending_procedure(selected)
+        if self.pending_response:
+            if self.pending_response.get("actor") is not actor: return "waiting"
+            notification = self.pending_notification("choose_target")
+            candidates = self.pending_response.get("candidates", [])
+            if notification and candidates: return self.respond_notification(notification.notification_id, "ok", candidates[0])
+            return "waiting"
+        if self.pending_target:
+            if self.pending_target.get("actor") is not actor: return "waiting"
+            notification = self.pending_notification("choose_target")
+            candidates = self.pending_target.get("candidates", [])
+            if notification and candidates: return self.respond_notification(notification.notification_id, "ok", candidates[0])
+            return "waiting"
+        if self.pending_summon:
+            if self.pending_summon.get("actor") is not actor: return "waiting"
+            notification = self.pending_notification("choose_target")
+            candidates = self.pending_summon.get("candidates", [])
+            if notification and candidates: return self.respond_notification(notification.notification_id, "ok", candidates[0])
+            return "waiting"
+        if self.pending_effect:
+            if self.pending_effect.get("actor") is not actor: return "waiting"
+            notification = self.pending_notification("yes_no")
+            if notification:
+                answer = "no" if "no" in notification.options else notification.options[0]
+                return self.respond_notification(notification.notification_id, answer)
+            return "waiting"
+        if self.pending_trap:
+            notification = self.pending_notification("question")
+            if notification and "no" in notification.options: return self.respond_notification(notification.notification_id, "no")
+            return "waiting"
+        if self.active is not actor: return "waiting"
+        if self.phase in ["MAIN 1", "MAIN 2"]:
+            candidates = [item for item in actor.hand + actor.extra if item.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(item, actor)]
+            if candidates:
+                card = max(candidates, key=lambda item: (item.atk, item.card.stars, item.card.id))
+                if card.card.summon_method in ["fusion", "ritual"]: return self.begin_summon_procedure(card, actor, ProcedureSpec.from_card(card))
+                return self.summon(card, actor)
+        if self.phase == "BATTLE":
+            attacker = next((item for item in actor.monsters if item and item.face_up and item.battle_position == "attack" and not item.attacked), None)
+            if attacker:
+                targets = [item for item in self.other(actor).monsters if item]
+                target = min(targets, key=lambda item: (self.battle_value(item, self.other(actor)), item.card.id)) if targets else None
+                return self.resolve_battle(actor, attacker, target)
+        self.advance()
+        return "phase_advanced"
 
     def ai_step(self):
         if self.finished: return
@@ -4243,23 +4487,9 @@ class DuelEngine:
                 return
             for card in [item for item in self.opponent.monsters if item]:
                 if card.attacked: continue
-                card.attacked = True
                 targets = [item for item in self.player.monsters if item]
-                if not targets:
-                    damage = self.effective_atk(card, self.opponent)
-                    self.player.hp = max(0, self.player.hp - damage)
-                    self.log(f"{self.opponent.name} attacks directly for {damage}.")
-                else:
-                    target = min(targets, key=lambda item: (self.ai_defense_estimate(item), item.card.id))
-                    target_defense = self.ai_defense_estimate(target)
-                    if self.effective_atk(card, self.opponent) > target_defense:
-                        self.destroy(self.player, target)
-                        self.player.hp = max(0, self.player.hp - max(0, self.effective_atk(card, self.opponent) - target_defense))
-                        self.log(f"{self.opponent.name} defeats {target.card.name}.")
-                    elif self.effective_atk(card, self.opponent) < target_defense:
-                        self.opponent.hp = max(0, self.opponent.hp - (target_defense - self.effective_atk(card, self.opponent)))
-                        self.log(f"{target.card.name} stops the attack.")
-                self.check_end()
+                target = min(targets, key=lambda item: (self.battle_value(item, self.player), item.card.id)) if targets else None
+                self.resolve_battle(self.opponent, card, target)
                 return
         self.advance()
 
@@ -5319,7 +5549,7 @@ class DuelScene(Scene):
             else:
                 rounded(surface, rect, (202, 164, 75) if active else (236, 225, 188), (125, 106, 70), 5, 1)
                 color = COLORS["ink"]
-            draw_text(surface, short_label, rect.center, self.app.assets.font(8, True), color, "center")
+            draw_text(surface, short_label, rect.center, self.app.assets.font(10, True), color, "center")
 
     def draw_hover_cloud(self, surface):
         if self.question: return
@@ -5697,7 +5927,7 @@ class CardDetailScene(Scene):
         self.known = self.card.id in set(player.library_cards) | set(deck.get("cards", []))
 
     def enter(self):
-        self.buttons = [Button((70, 470, 230, 46), "ASSIGN LOGIC", lambda: self.app.push(LogicManagerScene(self.app))), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop())]
+        self.buttons = [Button((70, 470, 230, 46), "RUN EFFECT EXAMPLE", lambda: self.app.push(CardSimulationScene(self.app, self.card.id))), Button((315, 470, 170, 46), "MODIFY CARD", lambda: self.app.push(CardMakerScene(self.app, self.card.id))), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop())]
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
@@ -5719,6 +5949,270 @@ class CardDetailScene(Scene):
         draw_text(surface, "Assigned graph: " + (self.card.logic_graph or "none"), (375, 310), self.app.assets.font(13), COLORS["violet"])
         draw_text(surface, self.card.description, (375, 350), self.app.assets.font(12), COLORS["muted"])
         self.draw_buttons(surface, 12)
+
+
+class CardSimulationScene(Scene):
+    def __init__(self, app, card_id):
+        super().__init__(app)
+        self.card_id = card_id
+        self.card = app.store.cards[card_id]
+        roles = app.store.role_config()
+        self.engine = DuelEngine(app.store, roles["player_character"], roles["default_opponent_character"], roles["default_place"], False)
+        self.engine.match_recorded = True
+        self.demo_card = CardInstance(self.card, "example")
+        self.engine.player.hand.insert(0, self.demo_card)
+        self.elapsed = 0.0
+        self.steps = 0
+
+    def enter(self):
+        self.buttons = [Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def update(self, dt):
+        self.elapsed += dt
+        if self.elapsed < 0.55 or self.engine.finished: return
+        self.elapsed = 0.0
+        self.steps += 1
+        if self.engine.active is self.engine.player:
+            if self.engine.phase in ["MAIN 1", "MAIN 2"] and self.demo_card in self.engine.player.hand:
+                if self.card.kind in ["normal", "effect", "legendary"]: self.engine.summon(self.demo_card)
+                elif self.card.kind in ["spell", "field"]: self.engine.activate(self.demo_card)
+                else: self.engine.set_card(self.demo_card)
+            self.engine.advance()
+        else:
+            self.engine.ai_step()
+        if self.steps >= 30 and not self.engine.finished: self.engine.finish(None, "example complete")
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        self.draw_background(surface, "duel_field", 155)
+        draw_text(surface, "CARD EFFECT EXAMPLE", (34, 28), self.app.assets.font(28, True), COLORS["gold"])
+        draw_text(surface, f"Two CPU duel walkthrough: {self.card.name}", (36, 65), self.app.assets.font(13), COLORS["cream"])
+        self.draw_panel(surface, (42, 104, 716, 382), "LIVE EFFECT OBSERVATION", COLORS["gold"])
+        draw_text(surface, f"{self.engine.player.name}: {self.engine.player.hp} HP", (72, 158), self.app.assets.font(17, True), COLORS["cyan"])
+        draw_text(surface, f"{self.engine.opponent.name}: {self.engine.opponent.hp} HP", (520, 158), self.app.assets.font(17, True), COLORS["red"])
+        draw_text(surface, f"TURN {self.engine.turn}  |  {self.engine.phase}", (400, 198), self.app.assets.font(15, True), COLORS["gold"], "center")
+        render_engine_card(surface, (72, 238, 190, 278), self.card, self.app.assets, self.app.store.media, True, False, self.card.art_variant, False)
+        draw_text(surface, EffectDescriber.describe(self.card), (292, 252), self.app.assets.font(12), COLORS["cream"])
+        for index, event in enumerate(self.engine.events[-8:]): draw_text(surface, event, (292, 292 + index * 24), self.app.assets.font(11), COLORS["muted"])
+        draw_text(surface, "This is a player-facing example feature, not a developer test or replay.", (400, 505), self.app.assets.font(11), COLORS["gold"], "center")
+        self.draw_buttons(surface, 12)
+        self.app.draw_notice(surface)
+
+
+class DeckScene(Scene):
+    def enter(self):
+        self.deck_rects = []
+        self.buttons = [Button((430, 530, 190, 38), "CREATE PRESET", lambda: self.create_preset(), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def handle(self, event):
+        super().handle(event)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for rect, deck_id in self.deck_rects:
+                if rect.collidepoint(event.pos): self.app.push(DeckEditorScene(self.app, deck_id)); return
+
+    def create_preset(self):
+        if len(self.app.store.decks) >= 10: self.app.notify("The ten preset-deck limit has been reached."); return
+        deck_id = "deck_" + str(int(time.time() * 1000))
+        name = "Preset Deck " + str(len(self.app.store.decks) + 1)
+        cards = DeckRules.normalized(list(self.app.store.cards), self.app.store.cards)
+        self.app.store.decks[deck_id] = {"name": name, "cards": cards, "media_folder": self.app.store.scaffold_entity("decks", deck_id, name)}
+        self.app.store.save()
+        self.app.notify("Preset deck created with a legal card pool.")
+        self.enter()
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        draw_text(surface, "DECK WORKSHOP", (34, 28), self.app.assets.font(28, True), COLORS["gold"])
+        draw_text(surface, "Create, inspect, and modify up to ten named decks with the shared legality rules.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        self.draw_panel(surface, (36, 112, 728, 370), "DECKS", COLORS["gold"])
+        self.deck_rects = []
+        for index, (deck_id, deck) in enumerate(self.app.store.decks.items()):
+            y = 165 + index * 54
+            if y > 452: break
+            rect = pygame.Rect(60, y, 680, 42)
+            self.deck_rects.append((rect, deck_id))
+            rounded(surface, rect, (16, 28, 58), COLORS["gold"], 6, 1)
+            draw_text(surface, deck.get("name", deck_id), (78, y + 13), self.app.assets.font(14, True), COLORS["cream"])
+            draw_text(surface, f"{len(deck.get('cards', []))} cards | {DeckRules.summary(deck.get('cards', []), self.app.store.cards)} | click to edit", (340, y + 13), self.app.assets.font(10), COLORS["muted"])
+        self.draw_buttons(surface, 12)
+        self.app.draw_notice(surface)
+
+
+class DeckEditorScene(Scene):
+    def __init__(self, app, deck_id):
+        super().__init__(app)
+        self.deck_id = deck_id
+        self.card_buttons = []
+        self.name = None
+
+    def enter(self):
+        deck = self.app.store.decks.get(self.deck_id, {})
+        self.name = TextInput((40, 76, 300, 32), deck.get("name", self.deck_id))
+        self.card_buttons = []
+        self.buttons = [Button((360, 76, 130, 32), "SAVE NAME", lambda: self.save_name(), COLORS["cyan"]), Button((500, 530, 120, 38), "NORMALIZE", lambda: self.normalize(), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def save_name(self):
+        if self.name.value.strip(): self.app.store.decks[self.deck_id]["name"] = self.name.value.strip(); self.app.store.save(); self.app.notify("Deck name saved.")
+
+    def normalize(self):
+        deck = self.app.store.decks[self.deck_id]
+        deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.app.store.cards)
+        self.app.store.save()
+        self.app.notify("Deck normalized with authored cards and copy limits; no runtime padding was added.")
+        self.enter()
+
+    def add_card(self, card_id):
+        deck = self.app.store.decks[self.deck_id]
+        candidate = list(deck.get("cards", [])) + [card_id]
+        errors = DeckRules.validate(candidate, self.app.store.cards)
+        main_count = len(DeckRules.partition(candidate, self.app.store.cards)[0])
+        if main_count > DeckRules.maximum or any("exceeds" in error for error in errors): self.app.notify("That card cannot be added under the deck copy or size rules."); return
+        deck["cards"] = candidate; self.app.store.save(); self.enter()
+
+    def remove_card(self, card_id):
+        deck = self.app.store.decks[self.deck_id]
+        if card_id in deck.get("cards", []): deck["cards"].remove(card_id); self.app.store.save(); self.enter()
+
+    def handle(self, event):
+        self.name.handle(event)
+        super().handle(event)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for rect, action, card_id in self.card_buttons:
+                if rect.collidepoint(event.pos): action(card_id); return
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        deck = self.app.store.decks[self.deck_id]
+        draw_text(surface, "DECK EDITOR", (34, 28), self.app.assets.font(28, True), COLORS["gold"])
+        self.name.draw(surface, self.app.assets.font(12), "Deck name")
+        draw_text(surface, f"{len(deck.get('cards', []))}/80 cards | {DeckRules.summary(deck.get('cards', []), self.app.store.cards)}", (370, 92), self.app.assets.font(12), COLORS["muted"])
+        self.draw_panel(surface, (32, 128, 360, 370), "CURRENT CARDS", COLORS["gold"])
+        self.draw_panel(surface, (410, 128, 358, 370), "ADD CARD", COLORS["cyan"])
+        self.card_buttons = []
+        counts = {}
+        for card_id in deck.get("cards", []): counts[card_id] = counts.get(card_id, 0) + 1
+        for index, (card_id, count) in enumerate(counts.items()):
+            if index >= 11: break
+            card = self.app.store.cards.get(card_id)
+            if not card: continue
+            y = 178 + index * 26
+            draw_text(surface, f"{card.name[:18]} x{count}", (52, y), self.app.assets.font(10), COLORS["cream"])
+            rect = pygame.Rect(320, y - 5, 48, 22)
+            rounded(surface, rect, (22, 38, 77), COLORS["red"], 5, 1)
+            draw_text(surface, "-1", rect.center, self.app.assets.font(10, True), COLORS["cream"], "center")
+            self.card_buttons.append((rect, self.remove_card, card.id))
+        for index, card in enumerate(list(self.app.store.cards.values())[:12]):
+            x = 430 + (index % 2) * 166
+            y = 178 + (index // 2) * 50
+            rect = pygame.Rect(x, y, 152, 36)
+            rounded(surface, rect, tuple(card.art_color), COLORS["line"], 5, 1)
+            draw_text(surface, "+ " + card.name[:16], rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+            self.card_buttons.append((rect, self.add_card, card.id))
+        self.draw_buttons(surface, 10)
+        self.app.draw_notice(surface)
+
+
+class CardMakerScene(Scene):
+    def __init__(self, app, card_id=None):
+        super().__init__(app)
+        self.card_id = card_id
+
+    def enter(self):
+        card = self.app.store.cards.get(self.card_id) if self.card_id else None
+        self.name = TextInput((80, 150, 290, 34), card.name if card else "New Card")
+        self.art_path = TextInput((80, 210, 290, 34), "")
+        self.description = TextInput((80, 270, 640, 34), card.description if card else "A community-created card.")
+        self.kind = card.kind if card else "effect"
+        self.family = card.family if card else "warrior"
+        self.stars = int(card.stars) if card else 4
+        self.atk = int(card.atk) if card else 1500
+        self.defense = int(card.defense) if card else 1200
+        self.logic_graph = card.logic_graph if card else ""
+        self.targets = list(card.targets) if card else ["none"]
+        self.target_count = int(card.target_count) if card else 0
+        self.timing = card.timing if card else "main"
+        self.summon_method = card.summon_method if card else "normal"
+        self.materials = list(card.materials) if card else []
+        self.materials_text = TextInput((80, 365, 640, 34), ", ".join(self.materials))
+        self.ritual_cost = int(card.ritual_cost) if card else 0
+        self.refresh_buttons()
+
+    def refresh_buttons(self):
+        self.buttons = [Button((420, 150, 150, 34), "TYPE: " + self.kind.upper(), lambda: self.cycle_kind(), COLORS["violet"]), Button((590, 150, 150, 34), "FAMILY: " + self.family.upper(), lambda: self.cycle_family(), COLORS["cyan"]), Button((420, 200, 150, 34), "LOGIC: " + (self.logic_graph or "NONE").upper(), lambda: self.cycle_logic(), COLORS["gold"]), Button((590, 200, 150, 34), "TARGET: " + self.targets[0].upper(), lambda: self.cycle_target(), COLORS["green"]), Button((80, 340, 110, 34), "STAR +", lambda: self.change("stars", 1)), Button((200, 340, 110, 34), "ATK +", lambda: self.change("atk", 100)), Button((320, 340, 110, 34), "DEF +", lambda: self.change("defense", 100)), Button((440, 340, 150, 34), "TIMING", lambda: self.cycle_timing()), Button((80, 410, 180, 34), "SUMMON MODE", lambda: self.cycle_summon()), Button((280, 410, 180, 34), "TARGET COUNT", lambda: self.cycle_target_count()), Button((80, 470, 240, 38), "SAVE MODIFIED" if self.card_id else "CREATE CARD", lambda: self.save_card(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def cycle_kind(self):
+        values = ["normal", "effect", "spell", "trap", "field", "fusion", "ritual", "legendary"]
+        self.kind = values[(values.index(self.kind) + 1) % len(values)]
+        if self.kind == "fusion": self.summon_method, self.materials, self.ritual_cost = "fusion", [], 0
+        elif self.kind == "ritual": self.summon_method, self.materials, self.ritual_cost = "ritual", [], 7
+        else: self.summon_method, self.materials, self.ritual_cost = "normal", [], 0
+        self.materials_text.value = ", ".join(self.materials)
+        self.refresh_buttons()
+
+    def cycle_family(self):
+        values = ["warrior", "aqua", "machine", "fiend", "spell", "dragon", "beast"]
+        self.family = values[(values.index(self.family) + 1) % len(values)]
+        self.refresh_buttons()
+
+    def cycle_logic(self):
+        values = [""] + sorted(self.app.store.logic)
+        self.logic_graph = values[(values.index(self.logic_graph) + 1) % len(values)] if self.logic_graph in values else ""
+        self.refresh_buttons()
+
+    def cycle_target(self):
+        values = [["none"], ["opponent"], ["player"], ["any_monster"]]
+        self.targets = values[(values.index(self.targets) + 1) % len(values)] if self.targets in values else ["none"]
+        self.target_count = 0 if self.targets == ["none"] else max(1, self.target_count)
+        self.refresh_buttons()
+
+    def cycle_timing(self):
+        values = ["main", "opponent_attack", "any"]
+        self.timing = values[(values.index(self.timing) + 1) % len(values)]
+        self.refresh_buttons()
+
+    def cycle_summon(self):
+        values = ["normal", "fusion", "ritual"]
+        self.summon_method = values[(values.index(self.summon_method) + 1) % len(values)]
+        if self.summon_method == "fusion": self.materials, self.ritual_cost = [], 0
+        elif self.summon_method == "ritual": self.materials, self.ritual_cost = [], 7
+        else: self.materials, self.ritual_cost = [], 0
+        self.materials_text.value = ", ".join(self.materials)
+        self.refresh_buttons()
+
+    def cycle_target_count(self):
+        self.target_count = 0 if self.targets == ["none"] else (self.target_count % 3) + 1
+        self.refresh_buttons()
+
+    def change(self, field_name, amount): setattr(self, field_name, clamp(getattr(self, field_name) + amount, 0, 10000)); self.refresh_buttons()
+
+    def save_card(self):
+        graph = self.logic_graph
+        self.materials = [value.strip() for value in self.materials_text.value.split(",") if value.strip()]
+        values = {"name": self.name.value, "kind": self.kind, "stars": self.stars if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": self.ritual_cost, "summon_method": self.summon_method}
+        errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"])
+        if errors: self.app.notify("Card rejected: " + "; ".join(errors[:2])); return
+        if self.card_id:
+            if not self.app.store.update_card(self.card_id, values): self.app.notify("Card update failed."); return
+        else: self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value)
+        self.app.store.load()
+        self.app.notify("Card saved with its authored data and editable folder structure.")
+
+    def handle(self, event):
+        self.name.handle(event); self.art_path.handle(event); self.description.handle(event); self.materials_text.handle(event); super().handle(event)
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        draw_text(surface, "CARD MAKER", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
+        draw_text(surface, "Create or modify a card definition; engine frame and metadata remain separate from user art.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        self.draw_panel(surface, (42, 112, 720, 390), "CARD DEFINITION", COLORS["violet"])
+        self.name.draw(surface, self.app.assets.font(12), "Card name")
+        self.art_path.draw(surface, self.app.assets.font(12), "User art path, optional")
+        self.description.draw(surface, self.app.assets.font(12), "Description")
+        draw_text(surface, f"STARS {self.stars} | ATK {self.atk} | DEF {self.defense} | RITUAL COST {self.ritual_cost}", (80, 325), self.app.assets.font(13, True), COLORS["cream"])
+        self.materials_text.draw(surface, self.app.assets.font(12), "Fusion material IDs, comma-separated")
+        draw_text(surface, "Effects and logic are authored through the card definition and assigned logic graphs.", (80, 445), self.app.assets.font(10), COLORS["gold"])
+        self.draw_buttons(surface, 10)
+        self.app.draw_notice(surface)
 
 
 class LogicManagerScene(Scene):
@@ -6496,6 +6990,7 @@ class Application:
         self.clock = pygame.time.Clock()
         self.store = ContentStore()
         self.screen = pygame.display.set_mode(self.window_size(), pygame.FULLSCREEN if self.store.save_data.get("fullscreen", False) else pygame.RESIZABLE)
+        self.render_surface = pygame.Surface((RENDER_W, RENDER_H))
         self.assets = AssetBank()
         self.assets.load_images()
         self.assets.load_sounds()
@@ -6540,6 +7035,17 @@ class Application:
 
     def internal_size(self):
         return (RENDER_W, RENDER_H)
+    def presentation_view(self):
+        width, height = self.screen.get_size()
+        scale = min(width / RENDER_W, height / RENDER_H)
+        view_size = (max(1, int(RENDER_W * scale)), max(1, int(RENDER_H * scale)))
+        view_position = ((width - view_size[0]) // 2, (height - view_size[1]) // 2)
+        return view_position, view_size
+    def window_to_scene(self, position):
+        view_position, view_size = self.presentation_view()
+        x, y = position
+        if x < view_position[0] or y < view_position[1] or x >= view_position[0] + view_size[0] or y >= view_position[1] + view_size[1]: return (-1, -1)
+        return (int((x - view_position[0]) * SCENE_W / view_size[0]), int((y - view_position[1]) * SCENE_H / view_size[1]))
 
     def cycle_resolution(self):
         self.store.save_data["resolution"] = "800x600" if self.store.save_data.get("resolution") == "1280x720" else "1280x720"
@@ -6583,7 +7089,7 @@ class Application:
                 if event.type == pygame.QUIT: self.quit()
                 elif self.scenes:
                     if hasattr(event, "pos") and self.screen.get_width() and self.screen.get_height():
-                        event = pygame.event.Event(event.type, {**event.dict, "pos": (int(event.pos[0] * SCENE_W / self.screen.get_width()), int(event.pos[1] * SCENE_H / self.screen.get_height()))})
+                        event = pygame.event.Event(event.type, {**event.dict, "pos": self.window_to_scene(event.pos)})
                     self.scenes[-1].handle(event)
             self.simulation_accumulator += dt
             if self.simulation_accumulator >= 1.0:
@@ -6591,15 +7097,17 @@ class Application:
                 self.simulation_accumulator -= elapsed
                 self.store.advance_world(elapsed)
             if self.scenes: self.scenes[-1].update(dt)
-            render_surface = pygame.Surface((RENDER_W, RENDER_H))
+            render_surface = self.render_surface
+            render_surface.fill((0, 0, 0))
             if self.scenes: self.scenes[-1].draw(render_surface)
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            if self.screen.get_width() and self.screen.get_height():
-                scene_mouse = (int(mouse_x * SCENE_W / self.screen.get_width()), int(mouse_y * SCENE_H / self.screen.get_height()))
+            scene_mouse = self.window_to_scene(pygame.mouse.get_pos())
+            if scene_mouse != (-1, -1):
                 cursor, hotspot = self.assets.cursor(cursor_pressed(pygame.mouse.get_pressed()))
                 if cursor: ui_blit(render_surface, cursor, (scene_mouse[0] - hotspot[0], scene_mouse[1] - hotspot[1]))
-            scaled = pygame.transform.smoothscale(render_surface, self.screen.get_size())
-            self.screen.blit(scaled, (0, 0))
+            view_position, view_size = self.presentation_view()
+            scaled = pygame.transform.smoothscale(render_surface, view_size)
+            self.screen.fill((0, 0, 0))
+            self.screen.blit(scaled, view_position)
             pygame.display.flip()
         self.store.save()
         pygame.quit()
