@@ -38,6 +38,7 @@
     "out_of_game",
     "dice_sequence",
     "duel_sequence",
+    "distribution_sequence",
     "request_sequence",
     "order_sequence",
     "team_request_sequence",
