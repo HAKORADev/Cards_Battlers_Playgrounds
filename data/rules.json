@@ -1,16 +1,86 @@
 {
-  "schema": 1,
+  "schema": 2,
+  "deck": {
+    "main": {
+      "minimum": 40,
+      "maximum": 80,
+      "copy_limit": 3,
+      "legendary_copy_limit": 1,
+      "reconciliation": "GDD clause 11 defines the Main Deck as 40-80 cards. The later phrase up to 40 is recorded as a request for a 40-card target, not a replacement of the explicit 40-80 GDD range; legality therefore keeps the authoritative 40-80 range."
+    },
+    "fusion_extra": {
+      "minimum": 0,
+      "maximum": 15,
+      "allowed_kinds": [
+        "fusion"
+      ],
+      "collection_label": "Fusion/Extra",
+      "draws": false,
+      "research_basis": "The official contemporary rulebook reference used for this project specifies an Extra Deck maximum of 15 and treats Fusion Monsters as a separate collection. This is a researched project choice, not a claim that the historic Power of Chaos executable enforced this exact cap."
+    }
+  },
+  "legendary": {
+    "registry_type": "legendary",
+    "required_stars": 11,
+    "copy_limit": 1,
+    "minimum_effects": 1,
+    "maximum_effects": 5,
+    "unique_registry_ids": true,
+    "requires_special_procedure": true,
+    "non_removable_default": false,
+    "allowed_deck_collections": [
+      "main_cards"
+    ],
+    "no_other_legendary_deck_rule": false
+  },
+  "narrator": {
+    "idle_seconds": {"character": 30.0, "duel": 45.0},
+    "cadence": "repeat after each threshold while no meaningful action observation occurs",
+    "background_rendering": false
+  },
   "summoning": {
     "normal_tribute": {
       "tiers": [
-        {"min_stars": 1, "max_stars": 4, "required_count": 0},
-        {"min_stars": 5, "max_stars": 6, "required_count": 1},
-        {"min_stars": 7, "max_stars": 7, "required_count": 2},
-        {"min_stars": 8, "max_stars": 9, "required_count": 3},
-        {"min_stars": 10, "max_stars": 99, "special": true}
+        {
+          "min_stars": 1,
+          "max_stars": 4,
+          "required_count": 0
+        },
+        {
+          "min_stars": 5,
+          "max_stars": 6,
+          "required_count": 1
+        },
+        {
+          "min_stars": 7,
+          "max_stars": 7,
+          "required_count": 2
+        },
+        {
+          "min_stars": 8,
+          "max_stars": 9,
+          "required_count": 3
+        },
+        {
+          "min_stars": 10,
+          "max_stars": 99,
+          "special": true
+        }
       ],
       "overlap_resolution": "The source wording lists both 7-8 as two tributes and 8-9 as three tributes. The more specific later 8-9 tier takes precedence at exactly eight stars; the seven-star value remains two tributes.",
       "special_requirement": "A ten-star-or-higher monster cannot use the ordinary normal-tribute path and requires an authored special summon procedure."
     }
+  },
+  "trio_distribution": {
+    "enabled": true,
+    "opportunity": 0.6,
+    "pool_field": "distribution.pool",
+    "unowned_field": "distribution.unowned_at_start",
+    "trigger_events": [
+      "duel_completed",
+      "team_win"
+    ],
+    "max_grants_per_opportunity": 1,
+    "rng": "sha256(world distribution sequence, team id, member id, card id)"
   }
 }

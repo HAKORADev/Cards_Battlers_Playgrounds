@@ -233,11 +233,13 @@
     },
     "deck_foundation": {
       "fields": [
+        "schema",
         "name",
         "portrait",
         "description",
         "owner_id",
-        "cards",
+        "main_cards",
+        "fusion_cards",
         "best_cards",
         "preferred_families",
         "preferred_card_kinds",
@@ -247,9 +249,44 @@
         40,
         80
       ],
+      "fusion_extra_size": [
+        0,
+        15
+      ],
       "copy_limit": 3,
       "legendary_copy_limit": 1,
-      "extra_deck_separate": true
+      "fusion_extra_allowed_kinds": ["fusion"],
+      "collections": "main_cards are drawn; fusion_cards are face-down Fusion/Extra cards and are never drawn",
+      "wording_reconciliation": "The authoritative GDD range 40-80 is retained; a later up-to-40 phrase is treated as a 40-card target rather than an override."
+    },
+    "legendary_card_contract": {
+      "fields": ["legendary_type", "non_removable"],
+      "required_stars": 11,
+      "copy_limit": 1,
+      "effect_count": [1, 5],
+      "requires_special_procedure": true,
+      "source_zones": ["hand", "graveyard"],
+      "requires_authored_enabler": true,
+      "registry_rule": "legendary_type is unique across Legendary cards; Legendary metadata is forbidden on other kinds",
+      "removal_rule": "non_removable Legendary cards reject movement to graveyard, banished, hand, or deck while on the field"
+    },
+    "trio_distribution": {
+      "source": "team distribution contract plus card distribution metadata",
+      "opportunity": 0.6,
+      "selection": "only cards marked eligible, pool-matching, unowned_at_start, and currently unowned",
+      "trigger": ["duel_completed", "team_win"],
+      "recipient_rule": "one grant per opportunity to the lowest-population eligible recipient; duplicate ownership is rejected",
+      "persistence": "distribution_sequence, simulation_events, card_discoveries, character libraries, and histories use modular runtime collections"
+    },
+    "narrator_idle": {
+      "character_seconds": 30.0,
+      "duel_seconds": 45.0,
+      "cadence": "repeat after each threshold without a meaningful observation",
+      "rendering": "cue state is emitted to the data tree; background simulation does not render audio"
+    },
+    "performance_measurement": {
+      "benchmark": "external dummy-driver steady-state update, 1920x1080 draw, final window scale",
+      "target_frame_budget_ms": 16.6667
     },
     "packages": {
       "format": "zip",
@@ -633,33 +670,28 @@
       "journal": "candidate creation and permanent selection are recorded for team and place"
     }
   },
-  "card": {
-    "summon_procedure": {
-      "optional": true,
-      "kind": [
-        "tribute",
-        "fusion",
-        "ritual",
-        "authored procedure key"
-      ],
-      "material_selector": "selector predicate for eligible materials; Fusion and Ritual default to monster kinds",
-      "required_card_ids": "ordered or repeated authored card IDs; exact matching uses instance-safe multisets",
-      "min_stars": "minimum total stars for threshold procedures such as Ritual",
-      "locations": [
-        "hand",
-        "monster",
-        "graveyard",
-        "banished"
-      ],
-      "exact": "boolean; exact Fusion procedures compare the selected card-ID multiset",
-      "material_destination": [
-        "graveyard",
-        "banished"
-      ],
-      "source_selector": "optional selector for the summon card's source state; Fusion defaults to Extra Deck and Ritual defaults to hand",
+      "card": {
+      "authored_fields": ["legendary_type", "non_removable", "distribution"],
+      "summon_procedure": {
+
+      "required": true,
+      "kind": ["tribute", "fusion", "ritual", "legendary", "authored procedure key"],
+      "material_selector": "canonical selector predicate for eligible materials",
+      "required_card_ids": "ordered or repeated authored card IDs; exact Fusion matching compares instance-safe multisets",
+      "min_stars": "exact total material Level for Ritual procedures",
+      "locations": ["hand", "monster", "graveyard", "banished"],
+      "exact": "Fusion recipe exactness; Ritual uses the separate exact Level rule",
+      "material_destination": ["graveyard", "banished"],
+      "source_zones": "explicit source collection list; Fusion uses extra, Ritual uses hand, Legendary may use hand and graveyard",
+      "source_selector": "selector for the summon card source state",
       "source_method": "provenance method recorded for the summoned card",
+      "enabler": {
+        "card_ids": "optional exact authored enabler IDs",
+        "card_kinds": "optional allowed enabler card kinds",
+        "effect_ids": "optional exact authored enabler effect IDs"
+      },
       "required_count": "exact material count for authored tribute procedures; normal tribute tiers are loaded from data/rules.json",
-      "costs": "ordered reusable cost objects; discard costs can pause and resume before material selection"
+      "costs": "ordered reusable cost objects applied before material selection"
     }
   },
   "place": {
@@ -872,8 +904,7 @@
       ],
       "count": 1,
       "distinct": true,
-      "optional": false,
-      "may_skip": "legacy alias for optional"
+      "optional": false
     },
     "targets": [
       {
@@ -945,11 +976,9 @@
       "any"
     ],
     "card_kind": "string or array of strings",
-    "card_type": "alias for card_kind",
     "card_id": "exact authored card ID or array",
     "name": "exact authored card name or array",
     "family": "monster family/type",
-    "monster_type": "alias for family",
     "origin": "card origin",
     "gender": "character gender predicate",
     "face_up": "boolean",
@@ -1035,12 +1064,11 @@
       "control",
       "special_summon",
       "negate_chain",
-      "shuffle"
-    ],
-    "declared_but_unsupported": [
+      "shuffle",
       "fusion_summon",
       "ritual_summon"
     ],
+    "declared_but_unsupported": [],
     "name": [
       "boost_attack",
       "boost_defense",
@@ -1070,10 +1098,10 @@
       "count": "number of cards to summon"
     },
     "summon_procedure": {
-      "kind": "tribute, fusion, ritual, or authored procedure key",
+      "kind": "tribute, fusion, ritual, legendary, or authored procedure key",
       "material_selector": "shared selector predicate for eligible materials",
       "required_card_ids": "exact material IDs when exact is true",
-      "min_stars": "minimum material-star total",
+      "min_stars": "exact material-Level total for Ritual procedures",
       "locations": "allowed source zones such as hand and monster",
       "exact": "whether the selected IDs must equal required_card_ids",
       "material_destination": "graveyard or banished; unsupported destinations are blocked explicitly",
@@ -1109,8 +1137,9 @@
     },
     "amount": "number, expression, or object",
     "target": "selector id, source, actor, or explicit target",
-    "target_policy": {
-      "revalidate": "boolean; declarative effects default true, legacy effects preserve prior behavior",
+          "target_policy": {
+      "revalidate": "boolean; canonical effects default true",
+
       "snapshot": "captured legal target IDs at selection-window creation"
     },
     "duration": "instant, until_end_of_turn, per_turn, while_face_up, while_source_on_field, while_source_face_up, permanent, or phase window",
@@ -1180,17 +1209,10 @@
     "default": "answer used only when an automatic policy is explicitly allowed",
     "payload": "structured data for the renderer and resolver; procedure_materials payloads include procedure, card, candidate_ids, required, min_stars, locations, exact, material_destination, selected_ids, and selected_stars; chain_response payloads include chain ID, priority, and legal response card IDs"
   },
-  "data_migration": {
-    "normalize_imported_records": true,
-    "accepted_fields": [
-      "trigger",
-      "action",
-      "amount",
-      "targets",
-      "target_count",
-      "timing",
-      "field_effect"
-    ],
-    "rule": "Imported effect records are normalized at load time into the canonical schema; this is a data migration boundary, not an engine compatibility promise."
+  "data_contract": {
+    "normalize_imported_records": false,
+    "required_effect_fields": ["id", "trigger", "window", "conditions", "cost", "selector", "targets", "actions", "modifier", "once", "priority", "notify", "media", "target_policy", "speed", "response", "optional"],
+    "required_deck_fields": ["schema", "main_cards", "fusion_cards"],
+    "rule": "Imported effect and deck records must already use the canonical schema; malformed records are rejected rather than normalized."
   }
 }

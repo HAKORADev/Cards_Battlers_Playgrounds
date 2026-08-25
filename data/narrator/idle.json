@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "states": {
+    "duel_idle": {
+      "texts": [
+        "The field is quiet, but every card still carries a possibility.",
+        "A careful duelist watches the board before committing to a line.",
+        "The next decision may shape the entire duel.",
+        "Even silence reveals what the visible field is asking for.",
+        "The duel waits for a choice grounded in the cards already shown.",
+        "A patient hand can turn uncertainty into an opening.",
+        "The field remembers every resolved action.",
+        "Look closely: defense and attack are both forms of intent.",
+        "No hidden card is known until the duel reveals it.",
+        "The next move belongs to the duelist who reads the moment."
+      ],
+      "audio_root": "audio/idle"
+    }
+  }
+}

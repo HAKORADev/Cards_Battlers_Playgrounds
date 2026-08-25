@@ -1,7 +1,18 @@
 {
   "rival_deck": {
     "name": "Echo Defense",
-    "cards": [
+    "description": "An original authored cohort deck for CBP simulation.",
+    "portrait": "deck_placeholder",
+    "owner_id": "rival_echo",
+    "best_cards": [
+      "aqua_sentinel",
+      "tide_oracle",
+      "mirror_trap"
+    ],
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "experience": {},
+    "main_cards": [
       "aqua_sentinel",
       "tide_oracle",
       "mirror_trap",
@@ -19,7 +30,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -53,21 +63,21 @@
       "iron_fridge",
       "sky_archer"
     ],
-    "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
-    "owner_id": "rival_echo",
-    "best_cards": [
-      "aqua_sentinel",
-      "tide_oracle",
-      "mirror_trap"
+    "fusion_cards": [
+      "ember_chimera"
     ],
-    "preferred_families": [],
-    "preferred_card_kinds": [],
-    "experience": {}
+    "schema": 2
   },
   "trio_deck": {
     "name": "The Unwritten Deck",
-    "cards": [
+    "description": "",
+    "portrait": "deck_placeholder",
+    "owner_id": "",
+    "best_cards": [],
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "experience": {},
+    "main_cards": [
       "trio_relic",
       "void_titan",
       "void_titan",
@@ -81,7 +91,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "cinder_knight",
@@ -95,7 +104,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "cinder_knight",
@@ -109,68 +117,14 @@
       "sky_archer",
       "ritual_warden"
     ],
-    "description": "",
-    "portrait": "deck_placeholder",
-    "owner_id": "",
-    "best_cards": [],
-    "preferred_families": [],
-    "preferred_card_kinds": [],
-    "experience": {}
+    "fusion_cards": [
+      "ember_chimera",
+      "ember_chimera"
+    ],
+    "schema": 2
   },
   "rival_control_deck": {
     "name": "Echo Control",
-    "cards": [
-      "mirror_trap",
-      "archive_signal",
-      "tide_oracle",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "echo_bolt",
-      "sunlit_field",
-      "ember_chimera",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "mystical_space_typhoon",
-      "summoned_skull",
-      "dark_magician",
-      "mirror_force",
-      "man_eater_bug",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard",
-      "briar_runner",
-      "veil_hound",
-      "skyglass_owl",
-      "basalt_keeper",
-      "mirror_trap",
-      "archive_signal",
-      "tide_oracle",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge"
-    ],
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "rival_echo",
@@ -181,11 +135,77 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
+    "experience": {},
+    "main_cards": [
+      "mirror_trap",
+      "archive_signal",
+      "tide_oracle",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "echo_bolt",
+      "sunlit_field",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard",
+      "briar_runner",
+      "veil_hound",
+      "skyglass_owl",
+      "basalt_keeper",
+      "mirror_trap",
+      "archive_signal",
+      "tide_oracle",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge"
+    ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
   },
   "rival_storm_deck": {
     "name": "Echo Storm",
-    "cards": [
+    "description": "An original authored cohort deck for CBP simulation.",
+    "portrait": "deck_placeholder",
+    "owner_id": "rival_echo",
+    "best_cards": [
+      "storm_lancer",
+      "sky_archer",
+      "solar_burst"
+    ],
+    "preferred_families": [],
+    "preferred_card_kinds": [],
+    "experience": {},
+    "main_cards": [
       "storm_lancer",
       "sky_archer",
       "solar_burst",
@@ -203,7 +223,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -237,21 +256,25 @@
       "aqua_sentinel",
       "iron_fridge"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "rival_oath_deck": {
+    "name": "Echo Oath",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "rival_echo",
     "best_cards": [
-      "storm_lancer",
-      "sky_archer",
-      "solar_burst"
+      "iron_oath",
+      "repair_matrix",
+      "cinder_knight"
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "rival_oath_deck": {
-    "name": "Echo Oath",
-    "cards": [
+    "experience": {},
+    "main_cards": [
       "iron_oath",
       "repair_matrix",
       "cinder_knight",
@@ -269,7 +292,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -303,21 +325,25 @@
       "iron_fridge",
       "sky_archer"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "rival_bridge_deck": {
+    "name": "Echo Bridge",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "rival_echo",
     "best_cards": [
-      "iron_oath",
-      "repair_matrix",
-      "cinder_knight"
+      "aurora_bridge",
+      "garden_sentinel",
+      "archive_signal"
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "rival_bridge_deck": {
-    "name": "Echo Bridge",
-    "cards": [
+    "experience": {},
+    "main_cards": [
       "aurora_bridge",
       "garden_sentinel",
       "archive_signal",
@@ -335,7 +361,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -369,62 +394,13 @@
       "aqua_sentinel",
       "iron_fridge"
     ],
-    "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
-    "owner_id": "rival_echo",
-    "best_cards": [
-      "aurora_bridge",
-      "garden_sentinel",
-      "archive_signal"
+    "fusion_cards": [
+      "ember_chimera"
     ],
-    "preferred_families": [],
-    "preferred_card_kinds": [],
-    "experience": {}
+    "schema": 2
   },
   "ember_deck": {
     "name": "Ember Circuit",
-    "cards": [
-      "storm_lancer",
-      "ember_chimera",
-      "ember_drone",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "echo_bolt",
-      "sunlit_field",
-      "ember_chimera",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "mystical_space_typhoon",
-      "summoned_skull",
-      "dark_magician",
-      "mirror_force",
-      "man_eater_bug",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard"
-    ],
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "ember_sage",
@@ -435,14 +411,10 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "tide_deck": {
-    "name": "Tide Archive",
-    "cards": [
-      "tide_oracle",
-      "aqua_sentinel",
-      "archive_signal",
+    "experience": {},
+    "main_cards": [
+      "storm_lancer",
+      "ember_drone",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -457,7 +429,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -481,6 +452,14 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera",
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "tide_deck": {
+    "name": "Tide Archive",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "tide_courier",
@@ -491,14 +470,11 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "iron_deck": {
-    "name": "Iron Garden",
-    "cards": [
-      "iron_oath",
-      "garden_sentinel",
-      "iron_fridge",
+    "experience": {},
+    "main_cards": [
+      "tide_oracle",
+      "aqua_sentinel",
+      "archive_signal",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -513,7 +489,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -537,6 +512,13 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "iron_deck": {
+    "name": "Iron Garden",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "iron_mason",
@@ -547,14 +529,11 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "moss_deck": {
-    "name": "Moss Current",
-    "cards": [
+    "experience": {},
+    "main_cards": [
+      "iron_oath",
       "garden_sentinel",
-      "tide_oracle",
-      "repair_matrix",
+      "iron_fridge",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -569,7 +548,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -593,6 +571,13 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "moss_deck": {
+    "name": "Moss Current",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "moss_keeper",
@@ -603,14 +588,11 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "forge_deck": {
-    "name": "Forge Horizon",
-    "cards": [
-      "cinder_knight",
-      "storm_lancer",
-      "solar_burst",
+    "experience": {},
+    "main_cards": [
+      "garden_sentinel",
+      "tide_oracle",
+      "repair_matrix",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -625,7 +607,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -649,6 +630,13 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "forge_deck": {
+    "name": "Forge Horizon",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "forge_watcher",
@@ -659,14 +647,11 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "aqua_deck": {
-    "name": "Aqua Ledger",
-    "cards": [
-      "tide_oracle",
-      "aqua_sentinel",
-      "archive_signal",
+    "experience": {},
+    "main_cards": [
+      "cinder_knight",
+      "storm_lancer",
+      "solar_burst",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -681,7 +666,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -705,6 +689,13 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "aqua_deck": {
+    "name": "Aqua Ledger",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "aqua_scribe",
@@ -715,14 +706,11 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "pearl_deck": {
-    "name": "Pearl Oath",
-    "cards": [
-      "iron_oath",
-      "mirror_trap",
-      "glass_sphinx",
+    "experience": {},
+    "main_cards": [
+      "tide_oracle",
+      "aqua_sentinel",
+      "archive_signal",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -737,7 +725,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -761,6 +748,13 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "pearl_deck": {
+    "name": "Pearl Oath",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "pearl_guard",
@@ -771,14 +765,11 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
-  },
-  "coral_deck": {
-    "name": "Coral Bridge",
-    "cards": [
-      "aurora_bridge",
-      "garden_sentinel",
-      "tide_oracle",
+    "experience": {},
+    "main_cards": [
+      "iron_oath",
+      "mirror_trap",
+      "glass_sphinx",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -793,7 +784,6 @@
       "glass_sphinx",
       "echo_bolt",
       "sunlit_field",
-      "ember_chimera",
       "ritual_warden",
       "night_lure",
       "dark_hole",
@@ -817,6 +807,13 @@
       "river_colossus",
       "sunforge_guard"
     ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
+  },
+  "coral_deck": {
+    "name": "Coral Bridge",
     "description": "An original authored cohort deck for CBP simulation.",
     "portrait": "deck_placeholder",
     "owner_id": "coral_scout",
@@ -827,6 +824,51 @@
     ],
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "experience": {}
+    "experience": {},
+    "main_cards": [
+      "aurora_bridge",
+      "garden_sentinel",
+      "tide_oracle",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "echo_bolt",
+      "sunlit_field",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard"
+    ],
+    "fusion_cards": [
+      "ember_chimera"
+    ],
+    "schema": 2
   }
 }

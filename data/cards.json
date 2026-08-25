@@ -11,9 +11,34 @@
     "description": "When summoned, this knight gains a burning edge.",
     "effects": [
       {
+        "id": "cinder_knight_effect_0",
         "trigger": "summon",
-        "action": "boost",
-        "amount": 200
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "boost_attack",
+            "amount": 200,
+            "target": "source"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -40,7 +65,10 @@
     "summon_procedure": {},
     "subtypes": [
       "warrior"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "aqua_sentinel",
@@ -54,9 +82,34 @@
     "description": "When summoned, restore 300 health.",
     "effects": [
       {
+        "id": "aqua_sentinel_effect_0",
         "trigger": "summon",
-        "action": "heal",
-        "amount": 300
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "heal",
+            "amount": 300,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -83,7 +136,10 @@
     "summon_procedure": {},
     "subtypes": [
       "aqua"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "iron_fridge",
@@ -120,7 +176,10 @@
     "summon_procedure": {},
     "subtypes": [
       "machine"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "sky_archer",
@@ -134,9 +193,34 @@
     "description": "When summoned, draw a card.",
     "effects": [
       {
+        "id": "sky_archer_effect_0",
         "trigger": "summon",
-        "action": "draw",
-        "amount": 1
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "draw",
+            "amount": 1,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -163,7 +247,10 @@
     "summon_procedure": {},
     "subtypes": [
       "warrior"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "void_titan",
@@ -177,9 +264,34 @@
     "description": "When summoned, deal 400 damage.",
     "effects": [
       {
+        "id": "void_titan_effect_0",
         "trigger": "summon",
-        "action": "damage",
-        "amount": 400
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 400,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -206,7 +318,10 @@
     "summon_procedure": {},
     "subtypes": [
       "fiend"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "solar_burst",
@@ -220,9 +335,39 @@
     "description": "Deal 700 damage to the opponent.",
     "effects": [
       {
+        "id": "solar_burst_effect_0",
         "trigger": "activate",
-        "action": "damage",
-        "amount": 700
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {
+          "count": 1,
+          "side": "opponent",
+          "zone": "any",
+          "include_duelist": true
+        },
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 700,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -247,7 +392,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "repair_matrix",
@@ -261,14 +409,64 @@
     "description": "Restore 800 health and draw one card.",
     "effects": [
       {
+        "id": "repair_matrix_effect_0",
         "trigger": "activate",
-        "action": "heal",
-        "amount": 800
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "heal",
+            "amount": 800,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       },
       {
+        "id": "repair_matrix_effect_1",
         "trigger": "activate",
-        "action": "draw",
-        "amount": 1
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "draw",
+            "amount": 1,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -293,7 +491,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "mirror_trap",
@@ -307,9 +508,39 @@
     "description": "A trap that answers an attack with 900 damage.",
     "effects": [
       {
+        "id": "mirror_trap_effect_0",
         "trigger": "battle",
-        "action": "damage",
-        "amount": 900
+        "window": {
+          "phase": "battle",
+          "event": "battle"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {
+          "count": 1,
+          "side": "opponent",
+          "zone": "any",
+          "include_duelist": true
+        },
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 900,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -334,7 +565,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "trio_relic",
@@ -345,12 +579,97 @@
     "atk": 3000,
     "defense": 2600,
     "family": "god_of_cards",
-    "description": "A legendary card whose arrival changes the duel.",
+    "description": "A Legendary god-card that cannot be normal summoned; its authored awakening may call it from the hand or graveyard and its arrival can end a duel.",
     "effects": [
       {
+        "id": "trio_relic_effect_0",
         "trigger": "summon",
-        "action": "damage",
-        "amount": 1000
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 1000,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      },
+      {
+        "id": "trio_relic_effect_1",
+        "trigger": "summon",
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "boost_attack",
+            "amount": 500,
+            "target": "source"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      },
+      {
+        "id": "trio_relic_effect_2",
+        "trigger": "summon",
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "draw",
+            "amount": 1,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -369,15 +688,45 @@
     "field_effect": {},
     "materials": [],
     "ritual_cost": 0,
-    "summon_method": "normal",
+    "summon_method": "legendary",
     "media_folder": "cards/trio_relic_1787428876570_trio_relic",
     "art_folder": "cards/trio_relic_1787428876570_trio_relic",
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
-    "summon_procedure": {},
+    "summon_procedure": {
+      "kind": "legendary",
+      "source_zones": [
+        "hand",
+        "graveyard"
+      ],
+      "source_selector": {
+        "zone": [
+          "hand",
+          "graveyard"
+        ],
+        "card_kind": "legendary",
+        "card_id": "trio_relic"
+      },
+      "source_method": "legendary_special",
+      "special": true,
+      "enabler": {
+        "card_ids": [
+          "relic_awakening"
+        ],
+        "card_kinds": [
+          "spell"
+        ],
+        "effect_ids": [
+          "relic_awakening_effect_0"
+        ]
+      }
+    },
     "subtypes": [
       "divine-beast"
-    ]
+    ],
+    "legendary_type": "god_of_cards",
+    "non_removable": true,
+    "distribution": {}
   },
   {
     "id": "ember_drone",
@@ -414,7 +763,10 @@
     "summon_procedure": {},
     "subtypes": [
       "machine"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "tide_mender",
@@ -428,9 +780,34 @@
     "description": "When summoned, restore 200 health.",
     "effects": [
       {
+        "id": "tide_mender_effect_0",
         "trigger": "summon",
-        "action": "heal",
-        "amount": 200
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "heal",
+            "amount": 200,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -457,7 +834,10 @@
     "summon_procedure": {},
     "subtypes": [
       "aqua"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "glass_sphinx",
@@ -471,9 +851,34 @@
     "description": "When summoned, draw one card.",
     "effects": [
       {
+        "id": "glass_sphinx_effect_0",
         "trigger": "summon",
-        "action": "draw",
-        "amount": 1
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "draw",
+            "amount": 1,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -500,7 +905,10 @@
     "summon_procedure": {},
     "subtypes": [
       "beast"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "echo_bolt",
@@ -514,9 +922,34 @@
     "description": "Deal 500 damage to the opponent.",
     "effects": [
       {
+        "id": "echo_bolt_effect_0",
         "trigger": "activate",
-        "action": "damage",
-        "amount": 500
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 500,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -541,7 +974,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "sunlit_field",
@@ -553,7 +989,38 @@
     "defense": 0,
     "family": "field",
     "description": "Warrior monsters on this field gain 300 ATK.",
-    "effects": [],
+    "effects": [
+      {
+        "id": "sunlit_field_continuous",
+        "trigger": "continuous",
+        "window": {
+          "phase": "any",
+          "event": "continuous"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [],
+        "modifier": {
+          "family": "warrior",
+          "stat": "attack",
+          "operation": "add",
+          "amount": 300,
+          "scope": "field"
+        },
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
     "art_color": [
       68,
       156,
@@ -567,10 +1034,7 @@
     ],
     "target_count": 0,
     "timing": "main",
-    "field_effect": {
-      "family": "warrior",
-      "atk": 300
-    },
+    "field_effect": {},
     "materials": [],
     "ritual_cost": 0,
     "summon_method": "normal",
@@ -579,7 +1043,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "ember_chimera",
@@ -590,12 +1057,37 @@
     "atk": 2600,
     "defense": 2100,
     "family": "fusion",
-    "description": "Fusion summon with Ember Drone and Sky Archer.",
+    "description": "A Fusion Monster summoned only by an authored Fusion Spell or effect using Ember Drone and Sky Archer from the hand or field.",
     "effects": [
       {
+        "id": "ember_chimera_effect_0",
         "trigger": "summon",
-        "action": "damage",
-        "amount": 500
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 500,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -622,24 +1114,88 @@
     "art_folder": "cards/ember_chimera_1787428876575_ember_chimera",
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
-    "summon_procedure": {},
-    "subtypes": []
+    "summon_procedure": {
+      "kind": "fusion",
+      "required_card_ids": [
+        "ember_drone",
+        "sky_archer"
+      ],
+      "material_selector": {
+        "side": "self",
+        "zone": [
+          "hand",
+          "monster"
+        ]
+      },
+      "locations": [
+        "hand",
+        "monster"
+      ],
+      "exact": true,
+      "material_destination": "graveyard",
+      "source_selector": {
+        "zone": "extra",
+        "card_kind": "fusion",
+        "card_id": "ember_chimera"
+      },
+      "source_method": "fusion",
+      "enabler": {
+        "card_ids": [
+          "fusion_catalyst"
+        ],
+        "card_kinds": [
+          "spell"
+        ],
+        "effect_ids": [
+          "fusion_catalyst_effect_0"
+        ]
+      }
+    },
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "ritual_warden",
     "name": "Ritual Warden",
     "kind": "ritual",
     "frame": "blue",
-    "stars": 8,
+    "stars": 7,
     "atk": 2500,
     "defense": 2000,
     "family": "ritual",
-    "description": "Ritual summon requiring seven tribute stars.",
+    "description": "A Ritual Monster summoned only by Ritual Convergence by offering monsters from the hand or field whose Levels total exactly seven.",
     "effects": [
       {
+        "id": "ritual_warden_effect_0",
         "trigger": "summon",
-        "action": "heal",
-        "amount": 400
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "heal",
+            "amount": 400,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -663,8 +1219,44 @@
     "art_folder": "cards/ritual_warden_1787428876575_ritual_warden",
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
-    "summon_procedure": {},
-    "subtypes": []
+    "summon_procedure": {
+      "kind": "ritual",
+      "min_stars": 7,
+      "material_selector": {
+        "side": "self",
+        "zone": [
+          "hand",
+          "monster"
+        ]
+      },
+      "locations": [
+        "hand",
+        "monster"
+      ],
+      "exact": false,
+      "material_destination": "graveyard",
+      "source_selector": {
+        "zone": "hand",
+        "card_kind": "ritual",
+        "card_id": "ritual_warden"
+      },
+      "source_method": "ritual",
+      "enabler": {
+        "card_ids": [
+          "ritual_convergence"
+        ],
+        "card_kinds": [
+          "spell"
+        ],
+        "effect_ids": [
+          "ritual_convergence_effect_0"
+        ]
+      }
+    },
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "night_lure",
@@ -678,9 +1270,39 @@
     "description": "A prepared answer waiting for battle.",
     "effects": [
       {
+        "id": "night_lure_effect_0",
         "trigger": "battle",
-        "action": "damage",
-        "amount": 600
+        "window": {
+          "phase": "battle",
+          "event": "battle"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {
+          "count": 1,
+          "side": "opponent",
+          "zone": "any",
+          "include_duelist": true
+        },
+        "targets": [],
+        "actions": [
+          {
+            "name": "damage",
+            "amount": 600,
+            "target": "opponent"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -705,7 +1327,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "dark_hole",
@@ -738,7 +1363,18 @@
         ],
         "target_policy": {
           "revalidate": true
-        }
+        },
+        "conditions": [],
+        "cost": [],
+        "targets": [],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -763,7 +1399,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "mystical_space_typhoon",
@@ -796,7 +1435,18 @@
         ],
         "target_policy": {
           "revalidate": true
-        }
+        },
+        "conditions": [],
+        "cost": [],
+        "targets": [],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -821,7 +1471,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "summoned_skull",
@@ -858,7 +1511,10 @@
     "summon_procedure": {},
     "subtypes": [
       "fiend"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "dark_magician",
@@ -895,7 +1551,10 @@
     "summon_procedure": {},
     "subtypes": [
       "spellcaster"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "mirror_force",
@@ -930,7 +1589,17 @@
         "target_policy": {
           "revalidate": true
         },
-        "speed": 2
+        "speed": 2,
+        "conditions": [],
+        "cost": [],
+        "targets": [],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -955,7 +1624,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "man_eater_bug",
@@ -988,7 +1660,18 @@
         ],
         "target_policy": {
           "revalidate": true
-        }
+        },
+        "conditions": [],
+        "cost": [],
+        "targets": [],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -1015,7 +1698,10 @@
     "summon_procedure": {},
     "subtypes": [
       "insect"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "storm_lancer",
@@ -1029,9 +1715,34 @@
     "description": "When summoned, this lancer gains 150 attack until the end of the turn.",
     "effects": [
       {
+        "id": "storm_lancer_effect_0",
         "trigger": "summon",
-        "action": "boost",
-        "amount": 150
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "boost_attack",
+            "amount": 150,
+            "target": "source"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -1058,7 +1769,10 @@
     "summon_procedure": {},
     "subtypes": [
       "warrior"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "tide_oracle",
@@ -1072,9 +1786,34 @@
     "description": "When summoned, restore 200 life points to its controller.",
     "effects": [
       {
+        "id": "tide_oracle_effect_0",
         "trigger": "summon",
-        "action": "heal",
-        "amount": 200
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "heal",
+            "amount": 200,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -1101,7 +1840,10 @@
     "summon_procedure": {},
     "subtypes": [
       "aqua"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "garden_sentinel",
@@ -1138,7 +1880,10 @@
     "summon_procedure": {},
     "subtypes": [
       "plant"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "archive_signal",
@@ -1152,9 +1897,34 @@
     "description": "Draw one card and reveal the next strategic possibility.",
     "effects": [
       {
+        "id": "archive_signal_effect_0",
         "trigger": "activate",
-        "action": "draw",
-        "amount": 1
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "draw",
+            "amount": 1,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -1179,7 +1949,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "iron_oath",
@@ -1193,9 +1966,34 @@
     "description": "When an opposing monster attacks, weaken that attacker by 300.",
     "effects": [
       {
+        "id": "iron_oath_effect_0",
         "trigger": "attack",
-        "action": "boost",
-        "amount": -300
+        "window": {
+          "phase": "any",
+          "event": "attack"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "boost_attack",
+            "amount": -300,
+            "target": "source"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -1220,7 +2018,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "aurora_bridge",
@@ -1234,9 +2035,63 @@
     "description": "A shared field that rewards careful transitions between battle phases.",
     "effects": [
       {
+        "id": "aurora_bridge_effect_0",
         "trigger": "activate",
-        "action": "boost",
-        "amount": 100
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "boost_attack",
+            "amount": 100,
+            "target": "source"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      },
+      {
+        "id": "aurora_bridge_continuous",
+        "trigger": "continuous",
+        "window": {
+          "phase": "any",
+          "event": "continuous"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [],
+        "modifier": {
+          "stat": "attack",
+          "operation": "add",
+          "amount": 100,
+          "scope": "field"
+        },
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
       }
     ],
     "art_color": [
@@ -1252,9 +2107,7 @@
     ],
     "target_count": 0,
     "timing": "main",
-    "field_effect": {
-      "atk": 100
-    },
+    "field_effect": {},
     "materials": [],
     "ritual_cost": 0,
     "summon_method": "normal",
@@ -1263,7 +2116,10 @@
     "art_variant": 1,
     "frame_schema": "classic_card_v1",
     "summon_procedure": {},
-    "subtypes": []
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "copper_gryphon",
@@ -1300,7 +2156,10 @@
     "summon_procedure": {},
     "subtypes": [
       "beast"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "moonlit_drake",
@@ -1337,7 +2196,10 @@
     "summon_procedure": {},
     "subtypes": [
       "dragon"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "quiet_alchemist",
@@ -1374,7 +2236,10 @@
     "summon_procedure": {},
     "subtypes": [
       "spellcaster"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "grave_bloom",
@@ -1411,7 +2276,10 @@
     "summon_procedure": {},
     "subtypes": [
       "zombie"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "clockwork_mite",
@@ -1448,7 +2316,10 @@
     "summon_procedure": {},
     "subtypes": [
       "machine"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "thunder_kite",
@@ -1485,7 +2356,10 @@
     "summon_procedure": {},
     "subtypes": [
       "thunder"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "river_colossus",
@@ -1522,7 +2396,10 @@
     "summon_procedure": {},
     "subtypes": [
       "aqua"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "sunforge_guard",
@@ -1559,7 +2436,10 @@
     "summon_procedure": {},
     "subtypes": [
       "warrior"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "briar_runner",
@@ -1596,7 +2476,10 @@
     "summon_procedure": {},
     "subtypes": [
       "plant"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "veil_hound",
@@ -1633,7 +2516,10 @@
     "summon_procedure": {},
     "subtypes": [
       "fiend"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "skyglass_owl",
@@ -1670,7 +2556,10 @@
     "summon_procedure": {},
     "subtypes": [
       "winged_beast"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
   },
   {
     "id": "basalt_keeper",
@@ -1707,6 +2596,591 @@
     "summon_procedure": {},
     "subtypes": [
       "rock"
-    ]
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
+  },
+  {
+    "id": "fusion_catalyst",
+    "name": "Fusion Catalyst",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "fusion",
+    "description": "An original Fusion Spell that selects a Fusion Monster in the Fusion/Extra collection, then sends its listed materials from the hand or field to the graveyard.",
+    "effects": [
+      {
+        "id": "fusion_catalyst_effect_0",
+        "trigger": "activate",
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {
+          "side": "self",
+          "zone": "extra",
+          "card_kind": "fusion",
+          "count": 1
+        },
+        "targets": [],
+        "actions": [
+          {
+            "name": "fusion_summon",
+            "amount": 1,
+            "target": "target"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
+    "art_color": [
+      132,
+      93,
+      52
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "self"
+    ],
+    "target_count": 1,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/fusion_catalyst_1787682087329_fusion_catalyst",
+    "art_folder": "cards/fusion_catalyst",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
+  },
+  {
+    "id": "ritual_convergence",
+    "name": "Ritual Convergence",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "ritual",
+    "description": "An original Ritual Spell that selects a Ritual Monster in the hand, then offers hand or field monsters whose Levels total exactly the Ritual Monster requirement.",
+    "effects": [
+      {
+        "id": "ritual_convergence_effect_0",
+        "trigger": "activate",
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {
+          "side": "self",
+          "zone": "hand",
+          "card_kind": "ritual",
+          "count": 1
+        },
+        "targets": [],
+        "actions": [
+          {
+            "name": "ritual_summon",
+            "amount": 1,
+            "target": "target"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
+    "art_color": [
+      78,
+      130,
+      196
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "self"
+    ],
+    "target_count": 1,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/ritual_convergence_1787682087401_ritual_convergence",
+    "art_folder": "cards/ritual_convergence",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
+  },
+  {
+    "id": "relic_awakening",
+    "name": "Relic Awakening",
+    "kind": "spell",
+    "frame": "sky",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "god_of_cards",
+    "description": "An original Legendary Spell that special summons the authored Legendary card from the hand or graveyard under its own awakening rule.",
+    "effects": [
+      {
+        "id": "relic_awakening_effect_0",
+        "trigger": "activate",
+        "window": {
+          "phase": "main",
+          "event": "activate"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {
+          "side": "self",
+          "zone": [
+            "hand",
+            "graveyard"
+          ],
+          "card_kind": "legendary",
+          "count": 1
+        },
+        "targets": [],
+        "actions": [
+          {
+            "name": "special_summon",
+            "amount": 1,
+            "target": "target"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
+    "art_color": [
+      175,
+      58,
+      58
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "self"
+    ],
+    "target_count": 1,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/relic_awakening_1787682087457_relic_awakening",
+    "art_folder": "cards/relic_awakening",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {}
+  },
+  {
+    "id": "trio_mysterio_card_01",
+    "name": "Lantern of the Hidden Path",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1700,
+    "defense": 1400,
+    "family": "spellcaster",
+    "description": "A patient guide that reveals a route no opponent can predict.",
+    "effects": [],
+    "art_color": [
+      196,
+      170,
+      74
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/lantern_of_the_hidden_path_1787682782750_trio_mysterio_card_01",
+    "art_folder": "cards/trio_mysterio_card_01",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "trio-born"
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {
+      "pool": "trio_mysterio",
+      "eligible": true,
+      "unowned_at_start": true
+    }
+  },
+  {
+    "id": "trio_mysterio_card_02",
+    "name": "Veilbound Scout",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 3,
+    "atk": 1200,
+    "defense": 1600,
+    "family": "spellcaster",
+    "description": "When summoned, its veil steadies the summoner.",
+    "effects": [
+      {
+        "id": "trio_mysterio_card_02_effect_0",
+        "trigger": "summon",
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "heal",
+            "amount": 300,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
+    "art_color": [
+      108,
+      166,
+      92
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/veilbound_scout_1787682782779_trio_mysterio_card_02",
+    "art_folder": "cards/trio_mysterio_card_02",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "trio-born"
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {
+      "pool": "trio_mysterio",
+      "eligible": true,
+      "unowned_at_start": true
+    }
+  },
+  {
+    "id": "trio_mysterio_card_03",
+    "name": "Arc of Returning Fire",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 5,
+    "atk": 2100,
+    "defense": 1500,
+    "family": "pyro",
+    "description": "A watcher that turns a narrow opening into a decisive strike.",
+    "effects": [
+      {
+        "id": "trio_mysterio_card_03_effect_0",
+        "trigger": "summon",
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "boost_attack",
+            "amount": 300,
+            "target": "source"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
+    "art_color": [
+      108,
+      166,
+      92
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/arc_of_returning_fire_1787682782808_trio_mysterio_card_03",
+    "art_folder": "cards/trio_mysterio_card_03",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "trio-born"
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {
+      "pool": "trio_mysterio",
+      "eligible": true,
+      "unowned_at_start": true
+    }
+  },
+  {
+    "id": "trio_mysterio_card_04",
+    "name": "Mysterious Compass",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 2,
+    "atk": 800,
+    "defense": 1900,
+    "family": "machine",
+    "description": "A compass that points toward cards not yet known to the world.",
+    "effects": [],
+    "art_color": [
+      196,
+      170,
+      74
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/mysterious_compass_1787682782836_trio_mysterio_card_04",
+    "art_folder": "cards/trio_mysterio_card_04",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "trio-born"
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {
+      "pool": "trio_mysterio",
+      "eligible": true,
+      "unowned_at_start": true
+    }
+  },
+  {
+    "id": "trio_mysterio_card_05",
+    "name": "Threefold Oathkeeper",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 6,
+    "atk": 2300,
+    "defense": 1800,
+    "family": "warrior",
+    "description": "A guardian whose strength is born from three separate witnesses.",
+    "effects": [
+      {
+        "id": "trio_mysterio_card_05_effect_0",
+        "trigger": "summon",
+        "window": {
+          "phase": "main",
+          "event": "summon"
+        },
+        "conditions": [],
+        "cost": [],
+        "selector": {},
+        "targets": [],
+        "actions": [
+          {
+            "name": "draw",
+            "amount": 1,
+            "target": "actor"
+          }
+        ],
+        "modifier": {},
+        "once": "",
+        "priority": 0,
+        "notify": {},
+        "media": {},
+        "target_policy": {
+          "revalidate": true
+        },
+        "speed": 1,
+        "response": {},
+        "optional": false
+      }
+    ],
+    "art_color": [
+      108,
+      166,
+      92
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/threefold_oathkeeper_1787682782864_trio_mysterio_card_05",
+    "art_folder": "cards/trio_mysterio_card_05",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "trio-born"
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {
+      "pool": "trio_mysterio",
+      "eligible": true,
+      "unowned_at_start": true
+    }
+  },
+  {
+    "id": "trio_mysterio_card_06",
+    "name": "Quiet Door of Chance",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1500,
+    "defense": 1700,
+    "family": "fiend",
+    "description": "A sealed door that opens only when a new owner is chosen.",
+    "effects": [],
+    "art_color": [
+      196,
+      170,
+      74
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/quiet_door_of_chance_1787682782892_trio_mysterio_card_06",
+    "art_folder": "cards/trio_mysterio_card_06",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "trio-born"
+    ],
+    "legendary_type": "",
+    "non_removable": false,
+    "distribution": {
+      "pool": "trio_mysterio",
+      "eligible": true,
+      "unowned_at_start": true
+    }
   }
 ]

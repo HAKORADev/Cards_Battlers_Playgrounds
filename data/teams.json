@@ -20,7 +20,8 @@
     ],
     "preferred_card_kinds": [],
     "preferred_cards": [],
-    "logic_graph": ""
+    "logic_graph": "",
+    "distribution": {}
   },
   {
     "id": "trio_team",
@@ -43,7 +44,17 @@
     ],
     "preferred_card_kinds": [],
     "preferred_cards": [],
-    "logic_graph": ""
+    "logic_graph": "",
+    "distribution": {
+      "enabled": true,
+      "pool": "trio_mysterio",
+      "opportunity": 0.6,
+      "triggers": [
+        "duel_completed",
+        "team_win"
+      ],
+      "one_grant_per_character_per_card": true
+    }
   },
   {
     "id": "iron_garden",
@@ -66,7 +77,8 @@
     ],
     "preferred_card_kinds": [],
     "preferred_cards": [],
-    "logic_graph": ""
+    "logic_graph": "",
+    "distribution": {}
   },
   {
     "id": "aqua_archives",
@@ -88,6 +100,7 @@
     ],
     "preferred_card_kinds": [],
     "preferred_cards": [],
-    "logic_graph": ""
+    "logic_graph": "",
+    "distribution": {}
   }
 ]

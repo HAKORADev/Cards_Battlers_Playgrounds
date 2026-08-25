@@ -66,7 +66,7 @@ DUEL_PHASES = ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"]
 DUEL_PHASE_ABBREVIATIONS = {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}
 DUEL_MODES = ["current", "timed", "gamble"]
 DUEL_MODE_FORMATS = {"current": ["1v1", "1vTEAM", "TEAMv1", "TEAMvTEAM"], "timed": ["1v1"], "gamble": ["1v1"]}
-CHARACTER_RUNTIME_FIELDS = {"mood", "mood_state", "allies", "enemies", "history", "relationship_history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "out_of_game_until", "world_status", "behavior_weights", "learned_cards", "learned_opponents", "knowledge_state", "learning_state", "experience", "goals", "memories", "persona_state"}
+CHARACTER_RUNTIME_FIELDS = {"mood", "mood_state", "allies", "enemies", "history", "relationship_history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "out_of_game_until", "world_status", "behavior_weights", "learned_cards", "learned_opponents", "knowledge_state", "learning_state", "experience", "goals", "memories", "persona_state", "idle_elapsed", "idle_cue_count"}
 TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked", "behavior_weights", "knowledge_state", "learning_state", "experience", "formation_state", "formation_requests"}
 
 
@@ -587,21 +587,25 @@ class AssetBank:
         return self.fonts[key]
 
     def loop_music(self, path, enabled, volume):
-        if not enabled:
-            pygame.mixer.music.stop()
+        if not pygame.mixer.get_init():
             self.current_music_path = ""
             return False
-        if not path or not path.exists(): return False
-        if pygame.mixer.music.get_busy() and self.current_music_path == str(path):
-            pygame.mixer.music.set_volume(volume)
-            return True
         try:
+            if not enabled:
+                pygame.mixer.music.stop()
+                self.current_music_path = ""
+                return False
+            if not path or not path.exists(): return False
+            if pygame.mixer.music.get_busy() and self.current_music_path == str(path):
+                pygame.mixer.music.set_volume(volume)
+                return True
             pygame.mixer.music.load(str(path))
             pygame.mixer.music.set_volume(volume)
             pygame.mixer.music.play(-1)
             self.current_music_path = str(path)
             return True
         except pygame.error:
+            self.current_music_path = ""
             return False
     def play_music(self, enabled, volume):
         candidates = self.sound_candidates("menu_music")
@@ -755,6 +759,9 @@ class CardDef:
     frame_schema: str = "classic_card_v1"
     summon_procedure: dict = field(default_factory=dict)
     subtypes: list = field(default_factory=list)
+    legendary_type: str = ""
+    non_removable: bool = False
+    distribution: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -807,6 +814,8 @@ class CharacterDef:
     goals: list = field(default_factory=list)
     memories: list = field(default_factory=list)
     persona_state: dict = field(default_factory=dict)
+    idle_elapsed: float = 0.0
+    idle_cue_count: int = 0
 
 
 @dataclass
@@ -860,6 +869,7 @@ class TeamDef:
     logic_graph: str = ""
     formation_state: str = "complete"
     formation_requests: list = field(default_factory=list)
+    distribution: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1285,61 +1295,31 @@ class EffectSpec:
     target_policy: dict = field(default_factory=dict)
     speed: int = 1
     response: dict = field(default_factory=dict)
-    legacy: bool = False
     optional: bool = False
 
     action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "negate_chain", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
     once_policies = {"", "once", "once_per_duel", "once_per_turn", "per_turn"}
 
     @classmethod
-    def canonical_action(cls, value):
-        text = str(value or "").strip().lower().replace("-", "_")
-        text = {"special summon": "special_summon", "fusion summon": "fusion_summon", "ritual summon": "ritual_summon"}.get(text, text)
-        match = re.fullmatch(r"([a-z_]+)(?:\s+([-+]?\d+))?", text)
-        if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
-        name, amount = match.groups()
-        name = {"boost": "boost_attack", "increase_attack": "boost_attack", "increase_defense": "boost_defense", "graveyard": "send_to_graveyard", "negate": "negate_chain", "negate_link": "negate_chain", "negate_chain_link": "negate_chain"}.get(name, name)
-        return {"name": name, "amount": int(amount or 0), "raw": text, "valid": name in cls.action_names}
-
-    @classmethod
     def from_dict(cls, data, fallback_id="effect"):
         raw = dict(data or {})
-        legacy = any(key in raw for key in ["action", "amount", "field_effect", "target_count", "timing"]) and not raw.get("actions")
-        trigger = str(raw.get("trigger", raw.get("event", "manual")))
+        trigger = str(raw.get("trigger", ""))
         window = dict(raw.get("window") or {})
-        if raw.get("timing") and "event" not in window: window["event"] = raw.get("timing")
-        if raw.get("phase") and "phase" not in window: window["phase"] = raw.get("phase")
-        if not window: window = {"phase": "any", "event": trigger}
         actions = []
-        if raw.get("actions"):
-            for action in raw.get("actions", []):
-                if isinstance(action, str): actions.append(cls.canonical_action(action))
-                else:
-                    item = dict(action)
-                    parsed = cls.canonical_action(item.get("name", item.get("action", "")))
-                    item["name"] = parsed["name"]
-                    if "amount" not in item: item["amount"] = parsed["amount"]
-                    item["valid"] = parsed["valid"]
-                    actions.append(item)
-        elif "action" in raw or "amount" in raw:
-            parsed = cls.canonical_action(raw.get("action", ""))
-            actions.append({"name": parsed["name"], "amount": raw.get("amount", parsed["amount"]), "target": raw.get("target", "source"), "valid": parsed["valid"]})
-        selector = dict(raw.get("select") or raw.get("selector") or {})
-        if raw.get("targets") and not selector:
-            selector = {"target_groups": list(raw.get("targets", [])), "count": raw.get("target_count", 0)}
+        for action in raw.get("actions", []) or []:
+            item = dict(action) if isinstance(action, dict) else {"name": ""}
+            item["name"] = str(item.get("name", "")).strip().lower()
+            item["valid"] = item["name"] in cls.action_names
+            actions.append(item)
+        selector = dict(raw.get("selector") or {})
         targets = list(raw.get("targets") or [])
-        if raw.get("target_count") and not targets: selector["count"] = raw.get("target_count")
-        target_policy = dict(raw.get("target_policy") or raw.get("target_resolution") or {})
-        if "revalidate" not in target_policy: target_policy["revalidate"] = not legacy
-        response = dict(raw.get("response") or raw.get("chain") or {})
-        speed = max(1, int(raw.get("speed", response.get("speed", 1)) or 1))
-        modifier = dict(raw.get("modifier") or raw.get("field_effect") or {})
-        if raw.get("field_effect") and not modifier.get("scope"): modifier["scope"] = "field"
-        if raw.get("field_effect") and modifier.get("atk") is not None:
-            modifier["stat"], modifier["operation"], modifier["amount"] = "attack", "add", modifier.pop("atk")
-        return cls(str(raw.get("id", raw.get("effect_id", fallback_id))), trigger, window, list(raw.get("when", raw.get("conditions", [])) or []), list(raw.get("cost", raw.get("costs", [])) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, speed, response, legacy, bool(raw.get("optional", raw.get("may_skip", False))))
+        target_policy = dict(raw.get("target_policy") or {})
+        response = dict(raw.get("response") or {})
+        speed = int(raw.get("speed", 1) or 0)
+        modifier = dict(raw.get("modifier") or {})
+        return cls(str(raw.get("id", "")), trigger, window, list(raw.get("conditions", []) or []), list(raw.get("cost", []) or []), selector, targets, actions, modifier, str(raw.get("once", "")), int(raw.get("priority", 0) or 0), dict(raw.get("notify") or {}), dict(raw.get("media") or {}), target_policy, speed, response, bool(raw.get("optional", False)))
 
     def capability_report(self):
         actions = []
@@ -1375,7 +1355,7 @@ class EffectSpec:
         return list(dict.fromkeys(errors))
 
     def to_dict(self):
-        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "when": self.conditions, "cost": self.costs, "select": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "optional": self.optional, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy, "speed": self.speed, "response": self.response}
+        return {"id": self.effect_id, "trigger": self.trigger, "window": self.window, "conditions": self.conditions, "cost": self.costs, "selector": self.selector, "targets": self.targets, "actions": self.actions, "modifier": self.modifier, "optional": self.optional, "once": self.once, "priority": self.priority, "notify": self.notify, "media": self.media, "target_policy": self.target_policy, "speed": self.speed, "response": self.response}
 
 
 @dataclass
@@ -1392,6 +1372,8 @@ class ProcedureSpec:
     required_count: int = 0
     costs: list = field(default_factory=list)
     special: bool = False
+    enabler: dict = field(default_factory=dict)
+    source_zones: list = field(default_factory=list)
 
     @classmethod
     def normal_tribute(cls, card, rules=None):
@@ -1425,7 +1407,9 @@ class ProcedureSpec:
         required_count = int(raw.get("required_count", raw.get("count", derived_count if kind == "tribute" else 0)) or 0)
         costs = raw.get("costs", raw.get("cost", [])) or []
         if isinstance(costs, dict): costs = [costs]
-        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)))
+        source_zones = list(raw.get("source_zones", ["extra"] if kind == "fusion" else ["hand"]) or [])
+        enabler = dict(raw.get("enabler") or {})
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)), enabler, source_zones)
 
 
 class LogicRuntime:
@@ -1437,7 +1421,11 @@ class LogicRuntime:
 
     @classmethod
     def normalize_action(cls, value):
-        return EffectSpec.canonical_action(value)
+        text = str(value or "").strip().lower()
+        match = re.fullmatch(r"([a-z_]+)\s*([+-]?\d+)?", text)
+        if not match: return {"name": "", "amount": 0, "raw": text, "valid": False}
+        name, amount = match.groups()
+        return {"name": name, "amount": int(amount or 0), "raw": text, "valid": name in cls.action_names}
 
     @classmethod
     def validate_graph(cls, graph):
@@ -1550,8 +1538,8 @@ class ContentStore:
         self.world_sessions = {}
         self.world_team_sessions = {}
         self.rules = read_json(DATA / "rules.json", {})
-        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "place_occupancy": {}, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": 0.0, "clock_mode": "wall_clock"})
-        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0)]: self.world.setdefault(key, default)
+        DeckRules.configure(self.rules)
+        self.world = {}
         self.load()
 
     def spin_dice_result(self, launcher_id, requester_id):
@@ -1616,22 +1604,18 @@ class ContentStore:
             if key in state: result[key] = state[key]
         return result
 
-    def migrate_world_state(self, legacy):
+    def load_world_state(self):
         stored = read_json(RUNTIME_WORLD_INDEX, {}) if RUNTIME_WORLD_INDEX.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
         state = dict(state) if isinstance(state, dict) else {}
-        for key in ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]:
+        for key in ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "distribution_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]:
             path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
             if not path.exists(): continue
             payload = read_json(path, {})
             value = payload.get("value", payload.get("state", payload)) if isinstance(payload, dict) else payload
             state[key] = value
-        merged = dict(legacy)
-        merged.update(state)
-        authored_roles = legacy.get("roles", {}) if isinstance(legacy.get("roles", {}), dict) else {}
-        runtime_roles = state.get("roles", {}) if isinstance(state.get("roles", {}), dict) else {}
-        merged["roles"] = {**runtime_roles, **authored_roles}
-        return merged
+        state["roles"] = dict(state.get("roles", {}) or {})
+        return state
 
     def authored_entry(self, entity, runtime_fields):
         return {key: value for key, value in entity.__dict__.items() if key not in runtime_fields}
@@ -1660,9 +1644,9 @@ class ContentStore:
         self.characters = {entry["id"]: CharacterDef(**self.overlay_runtime_state({**entry, "relationship": entry.get("relationship", "stranger")}, "characters", CHARACTER_RUNTIME_FIELDS)) for entry in character_data}
         self.decks = read_json(DATA / "decks.json", {})
         for character in self.characters.values():
-            owned_deck_cards = [card_id for deck in self.decks.values() if deck.get("owner_id") == character.id for card_id in list(deck.get("cards", []))]
+            owned_deck_cards = [card_id for deck in self.decks.values() if deck.get("owner_id") == character.id for card_id in DeckRules.all_cards(deck)]
             if character.id in fresh_character_ids and owned_deck_cards: character.library_cards = owned_deck_cards
-            elif not character.library_cards: character.library_cards = list(self.decks.get(character.deck_id, {}).get("cards", []))
+            elif not character.library_cards: character.library_cards = DeckRules.all_cards(self.decks.get(character.deck_id, {}))
         for deck_id, deck in self.decks.items():
             deck = dict(deck or {})
             deck.setdefault("name", str(deck_id))
@@ -1673,13 +1657,14 @@ class ContentStore:
             deck.setdefault("preferred_families", [])
             deck.setdefault("preferred_card_kinds", [])
             deck.setdefault("experience", {})
-            deck["cards"] = DeckRules.normalized(deck.get("cards", []), self.cards)
+            deck.setdefault("schema", 2)
+            deck["main_cards"] = DeckRules.normalized(deck.get("main_cards", []), self.cards)
+            deck["fusion_cards"] = DeckRules.normalized_fusion(deck.get("fusion_cards", []), self.cards)
             self.decks[deck_id] = deck
         self.places = {entry["id"]: self.place_from_entry(entry) for entry in read_json(DATA / "places.json", [])}
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
         self.ensure_behavior_weights()
-        legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "team_requests": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "place_occupancy": {}, "out_of_game": [], "last_wall_time": 0.0, "clock_mode": "wall_clock"})
-        self.world = self.migrate_world_state(legacy_world)
+        self.world = self.load_world_state()
         self.world.setdefault("clock_epoch", int(time.time()))
         try: self.clock.epoch = float(self.world.get("clock_epoch", time.time()))
         except (TypeError, ValueError): self.clock.epoch = time.time(); self.world["clock_epoch"] = int(self.clock.epoch)
@@ -1687,12 +1672,15 @@ class ContentStore:
         except (TypeError, ValueError): self.world["last_wall_time"] = 0.0
         if self.world["last_wall_time"] <= 0.0: self.world["last_wall_time"] = time.time()
         self.world["clock_mode"] = "wall_clock"
-        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0), ("last_wall_time", 0.0), ("clock_mode", "wall_clock")]: self.world.setdefault(key, default)
+        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("distribution_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0), ("last_wall_time", 0.0), ("clock_mode", "wall_clock")]: self.world.setdefault(key, default)
         occupancy = self.world.get("place_occupancy", {}) if isinstance(self.world, dict) else {}
         for place in self.places.values(): place.current_duels = int(occupancy.get(place.id, place.current_duels) or 0)
         self.sync_place_runtime()
         if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
         self.rules = read_json(DATA / "rules.json", self.rules if isinstance(self.rules, dict) else {})
+        DeckRules.configure(self.rules)
+        self.card_registry_errors = self.validate_card_registry()
+        if self.card_registry_errors: raise ValueError("Card registry invalid: " + "; ".join(self.card_registry_errors))
         self.logic = {}
         for path in (DATA / "logic").glob("*.json"):
             self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
@@ -1890,8 +1878,8 @@ class ContentStore:
             for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
         if "runtime_world" in requested:
             self.sync_place_runtime()
-            world_keys = ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]
-            defaults = {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": time.time(), "clock_mode": "wall_clock"}
+            world_keys = ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "distribution_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]
+            defaults = {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "distribution_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": time.time(), "clock_mode": "wall_clock"}
             for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
             write_json(RUNTIME_WORLD_INDEX, {"schema": 3, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "last_wall_time": float(self.world.get("last_wall_time", time.time())), "clock_mode": "wall_clock", "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
@@ -1978,6 +1966,9 @@ class ContentStore:
             if goal.get("kind") == "master_family" and payload.get("family") == goal.get("target"): goal["progress"] = min(100.0, float(goal.get("progress", 0.0)) + 1.0)
 
     def record_history(self, scope, entity_id, event, payload=None):
+        if scope == "character" and entity_id in self.characters:
+            self.characters[entity_id].idle_elapsed = 0.0
+            self.characters[entity_id].idle_cue_count = 0
         record = {"scope": str(scope), "entity_id": str(entity_id), "event": str(event), "payload": dict(payload or {}), "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()}
         self.world.setdefault("histories", []).append(record)
         self.world["histories"] = self.world["histories"][-1000:]
@@ -1988,6 +1979,49 @@ class ContentStore:
             entity.history = entity.history[-100:]
         if scope == "character": self.evolve_persona(entity_id, event, payload)
         return record
+
+    def distribute_trio_cards(self, team, trigger, context=None):
+        config = dict(getattr(team, "distribution", {}) or {})
+        rules = dict((self.rules or {}).get("trio_distribution") or {})
+        if not config.get("enabled") or not bool(rules.get("enabled", True)): return []
+        pool_id = str(config.get("pool", rules.get("pool", "")) or "")
+        opportunity = float(config.get("opportunity", rules.get("opportunity", 0.60)) or 0.60)
+        if trigger not in list(config.get("triggers", rules.get("trigger_events", ["duel_completed", "team_win"])) or []): return []
+        recipients = [character for character in self.characters.values() if character.id not in team.members and character.world_status == "in_playground"]
+        if not recipients: recipients = [character for character in self.characters.values() if character.id not in team.members]
+        if not recipients: return []
+        grants = []
+        sequence = int(self.world.get("distribution_sequence", 0))
+        for member_id in list(team.members):
+            sequence += 1
+            member = self.characters.get(member_id)
+            if not member: continue
+            candidates = [card for card in self.cards.values() if isinstance(getattr(card, "distribution", {}), dict) and card.distribution.get("eligible") and card.distribution.get("pool") == pool_id and card.distribution.get("unowned_at_start") and not any(card.id in character.library_cards for character in self.characters.values())]
+            candidates.sort(key=lambda card: (sum(1 for character in self.characters.values() if card.id in character.knowledge_state.setdefault("cards", {})), card.id))
+            if not candidates: continue
+            card = candidates[sequence % len(candidates)]
+            digest = hashlib.sha256(f"{sequence}:{team.id}:{member_id}:{card.id}".encode("utf-8")).hexdigest()
+            roll = int(digest[:8], 16) / 4294967295.0
+            attempt = {"type": "trio_distribution_attempt", "team": team.id, "giver": member_id, "card": card.id, "recipient": "", "trigger": trigger, "roll": roll, "opportunity": opportunity, "granted": False, "sequence": sequence, "sim_time": float(self.world.get("simulation_time", 0.0))}
+            if roll >= opportunity:
+                self.world.setdefault("simulation_events", []).append(attempt)
+                continue
+            recipients.sort(key=lambda character: (len(character.library_cards), character.id))
+            recipient = recipients[0]
+            if card.id in recipient.library_cards:
+                self.world.setdefault("simulation_events", []).append(attempt)
+                continue
+            recipient.library_cards.append(card.id)
+            recipient.library_cards = list(dict.fromkeys(recipient.library_cards))
+            self.discover_card(recipient.id, card.id, "trio_mysterio", member_id, {"team": team.id, "trigger": trigger, "distribution_sequence": sequence})
+            self.record_history("character", recipient.id, "trio_card_received", {"card": card.id, "giver": member_id, "team": team.id, "trigger": trigger})
+            self.record_history("character", member_id, "trio_card_given", {"card": card.id, "recipient": recipient.id, "team": team.id, "trigger": trigger})
+            grants.append({"card": card.id, "giver": member_id, "recipient": recipient.id, "team": team.id, "trigger": trigger, "roll": roll, "opportunity": opportunity, "sequence": sequence})
+            attempt.update({"recipient": recipient.id, "granted": True})
+            self.world.setdefault("simulation_events", []).append(attempt)
+            self.world.setdefault("simulation_events", []).append({"type": "trio_distribution_grant", **grants[-1], "sim_time": float(self.world.get("simulation_time", 0.0))})
+        self.world["distribution_sequence"] = sequence
+        return grants
 
     def discover_card(self, viewer_id, card_id, source="observed", owner_id="", context=None):
         if viewer_id not in self.characters or card_id not in self.cards: return False
@@ -2277,7 +2311,7 @@ class ContentStore:
         mode = aliases.get(key, "random")
         source = str(raw.get("source", "deck" if key == "deck_random" else "library")).lower()
         if source not in ["library", "deck"]: source = "library"
-        card_ids = [str(item) for item in list(raw.get("card_ids", raw.get("cards", [])) or []) if str(item) in self.cards][:3]
+        card_ids = [str(item) for item in list(raw.get("card_ids", []) or []) if str(item) in self.cards][:3]
         count = max(0, min(3, int(raw.get("count", 1) or 0)))
         card_kind = str(raw.get("card_kind", raw.get("kind", ""))).lower()
         family = str(raw.get("family", "")).lower()
@@ -2295,7 +2329,7 @@ class ContentStore:
         owned = list(loser.library_cards)
         if reward["source"] == "deck":
             deck = self.decks.get(loser.deck_id, {}) if loser.deck_id else {}
-            deck_ids = list(deck.get("cards", [])) if isinstance(deck, dict) else []
+            deck_ids = DeckRules.all_cards(deck) if isinstance(deck, dict) else []
             owned = [card_id for card_id in deck_ids if card_id in owned]
         candidates = []
         for card_id in owned:
@@ -2728,6 +2762,19 @@ class ContentStore:
                 battle["next_action"] = float(battle.get("next_action", 3.0)) + 2.0
                 actions += 1
 
+    def advance_character_idle(self, seconds):
+        threshold = float(self.rules.get("narrator", {}).get("idle_seconds", {}).get("character", 30.0) or 30.0)
+        for character in self.characters.values():
+            if character.world_status != "in_playground" or character.availability != "free" or character.activity != "idle":
+                character.idle_elapsed = 0.0
+                character.idle_cue_count = 0
+                continue
+            character.idle_elapsed += max(0.0, float(seconds))
+            while character.idle_elapsed >= threshold:
+                character.idle_elapsed -= threshold
+                character.idle_cue_count = int(getattr(character, "idle_cue_count", 0)) + 1
+                self.world.setdefault("simulation_events", []).append({"type": "character_idle", "state": "character_idle", "character": character.id, "cadence": character.idle_cue_count, "sim_time": float(self.world.get("simulation_time", 0.0))})
+
     def advance_world(self, seconds=None):
         if seconds is None:
             current_wall_time = time.time()
@@ -2741,6 +2788,7 @@ class ContentStore:
         self.world_tick_active = True
         try:
             self.world["simulation_time"] = float(self.world.get("simulation_time", 0.0)) + seconds
+            self.advance_character_idle(seconds)
             self._advance_movement(seconds)
             self._advance_out_of_game()
             for request in self.world.setdefault("requests", []):
@@ -3145,7 +3193,7 @@ class ContentStore:
         if self.owned_counts(lender_id).get(card_id, 0) - self._borrow_reserved_count(lender_id, card_id) < 1: return None
         if deck_id and deck_id != borrower.deck_id: return None
         deck = self.decks.get(borrower.deck_id, {}) if borrower.deck_id else {}
-        if list(deck.get("cards", [])).count(card_id) >= 3: return None
+        if DeckRules.all_cards(deck).count(card_id) >= DeckRules.copies: return None
         sequence = int(self.world.get("borrow_sequence", 0)) + 1
         self.world["borrow_sequence"] = sequence
         request_id = "borrow_" + str(int(time.time() * 1000)) + "_" + str(sequence)
@@ -3163,7 +3211,7 @@ class ContentStore:
         if self.owned_counts(lender_id).get(card_id, 0) - self._borrow_reserved_count(lender_id, card_id, record.get("id", "")) < 1: return False
         borrower = self.characters.get(borrower_id)
         deck = self.decks.get(borrower.deck_id, {}) if borrower and borrower.deck_id else {}
-        if not borrower or list(deck.get("cards", [])).count(card_id) >= 3: return False
+        if not borrower or DeckRules.all_cards(deck).count(card_id) >= DeckRules.copies: return False
         record["state"] = "active"
         record["activated_sim_time"] = float(self.world.get("simulation_time", 0.0))
         record.setdefault("history", []).append({"actor": actor_id, "action": "accepted", "status": "active", "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
@@ -3214,7 +3262,7 @@ class ContentStore:
             if borrower.origin == "user" or not self.social_available(borrower.id): continue
             if any(record.get("borrower") == borrower.id and record.get("state") in ["requested", "deferred", "active"] for record in self.world.setdefault("borrows", [])): continue
             deck = self.decks.get(borrower.deck_id, {}) if borrower.deck_id else {}
-            deck_cards = list(deck.get("cards", []))
+            deck_cards = DeckRules.all_cards(deck)
             desired = [card for card in self.cards.values() if card.id not in deck_cards and card.family in borrower.preferred_families and card.kind != "fusion"]
             desired.sort(key=lambda card: (self._card_trade_value(borrower.id, card.id), card.id), reverse=True)
             preferred = desired[0] if desired else None
@@ -3319,8 +3367,38 @@ class ContentStore:
         for card_id in transferred_cards:
             if winner: self.discover_card(winner.id, card_id, "traded", loser.id if loser else "", {"duel": True, "mode": metadata.get("mode", "current")})
             if loser: self.discover_card(loser.id, card_id, "traded", winner.id if winner else "", {"duel": True, "mode": metadata.get("mode", "current")})
+        for team in involved_teams:
+            distribution = dict(getattr(team, "distribution", {}) or {})
+            if distribution.get("enabled"):
+                trigger = "team_win" if winner and winner.id in team.members else "duel_completed"
+                self.distribute_trio_cards(team, trigger, {"winner": winner.id if winner else "", "loser": loser.id if loser else "", "reason": reason})
         self.save()
         return transferred
+
+    def validate_card_registry(self):
+        errors = []
+        legendary_rules = dict((self.rules or {}).get("legendary") or {})
+        required_stars = int(legendary_rules.get("required_stars", 11) or 11)
+        copy_limit = int(legendary_rules.get("copy_limit", 1) or 1)
+        minimum_effects = int(legendary_rules.get("minimum_effects", 1) or 1)
+        maximum_effects = int(legendary_rules.get("maximum_effects", 5) or 5)
+        legendary_types = {}
+        for card in self.cards.values():
+            is_legendary = card.kind == "legendary" or bool(getattr(card, "legendary", False))
+            legendary_type = str(getattr(card, "legendary_type", "") or "")
+            if is_legendary:
+                if card.kind != "legendary": errors.append(f"{card.id}: Legendary flag requires legendary kind")
+                if not card.legendary: errors.append(f"{card.id}: Legendary kind requires legendary flag")
+                if int(card.stars) != required_stars: errors.append(f"{card.id}: Legendary cards require {required_stars} stars")
+                if int(card.limit) != copy_limit: errors.append(f"{card.id}: Legendary cards require copy limit {copy_limit}")
+                if not legendary_type: errors.append(f"{card.id}: Legendary cards require legendary_type")
+                if legendary_type in legendary_types: errors.append(f"{card.id}: legendary_type {legendary_type} duplicates {legendary_types[legendary_type]}")
+                else: legendary_types[legendary_type] = card.id
+                procedure = dict(getattr(card, "summon_procedure", {}) or {})
+                if bool(legendary_rules.get("requires_special_procedure", True)) and (procedure.get("kind") != "legendary" or not procedure.get("enabler")): errors.append(f"{card.id}: Legendary cards require an authored special procedure and enabler")
+                if not minimum_effects <= len(card.effects) <= maximum_effects: errors.append(f"{card.id}: Legendary cards require {minimum_effects}-{maximum_effects} effects")
+            elif legendary_type: errors.append(f"{card.id}: legendary_type is reserved for Legendary cards")
+        return list(dict.fromkeys(errors))
 
     def validate_effects(self, effects):
         errors = []
@@ -3335,26 +3413,33 @@ class ContentStore:
                     if capability["status"] != "implemented" and capability["status"] != "declared_unsupported": errors.append(f"{spec.effect_id}: capability report marks {capability['name']} as {capability['status']}")
         return list(dict.fromkeys(errors))
 
-    def validate_card_definition(self, kind, stars, atk, defense, family, description, targets=None, target_count=0, timing="main", materials=None, ritual_cost=0, summon_method="normal", effects=None):
+    def validate_card_definition(self, kind, stars, atk, defense, family, description, targets=None, target_count=0, timing="main", materials=None, ritual_cost=0, summon_method="normal", effects=None, summon_procedure=None, legendary_type=""):
         errors = []
         monster_kinds = {"normal", "effect", "fusion", "ritual", "legendary"}
         if not str(family or "").strip(): errors.append("family is required")
         if not str(description or "").strip(): errors.append("description is required")
         if kind in monster_kinds and int(stars) < 1: errors.append("monster cards require at least one star")
         if kind not in monster_kinds and (int(stars) != 0 or int(atk) != 0 or int(defense) != 0): errors.append("non-monster cards cannot carry monster stats")
-        if kind == "fusion" and (summon_method != "fusion" or not materials): errors.append("fusion cards require fusion summon mode and materials")
-        if kind == "ritual" and (summon_method != "ritual" or int(ritual_cost) < 1): errors.append("ritual cards require ritual summon mode and a ritual cost")
-        if kind not in ["fusion", "ritual"] and summon_method not in ["normal", ""]: errors.append("only fusion and ritual cards may use special summon modes")
+        if kind == "fusion" and (summon_method != "fusion" or not materials or not summon_procedure or summon_procedure.get("kind") != "fusion" or not summon_procedure.get("enabler")): errors.append("fusion cards require a canonical Fusion procedure, materials, and authored enabler")
+        if kind == "ritual" and (summon_method != "ritual" or int(ritual_cost) < 1 or not summon_procedure or summon_procedure.get("kind") != "ritual" or not summon_procedure.get("enabler")): errors.append("ritual cards require a canonical Ritual procedure, exact Level cost, and authored enabler")
+        if kind == "legendary" and (int(stars) != 11 or summon_method != "legendary" or not summon_procedure or summon_procedure.get("kind") != "legendary" or not summon_procedure.get("enabler")): errors.append("Legendary cards require 11 stars, a canonical Legendary procedure, and authored enabler")
+        if kind == "legendary" and not str(legendary_type or "").strip(): errors.append("Legendary cards require a legendary_type")
+        if kind == "legendary" and not 1 <= len(effects or []) <= 5: errors.append("Legendary cards require one to five effects")
+        if kind not in ["fusion", "ritual", "legendary"] and summon_method not in ["normal", ""]: errors.append("only Fusion, Ritual, and Legendary cards may use special summon modes")
         if int(target_count) > 0 and (not targets or targets == ["none"]): errors.append("target count requires a target type")
         if timing not in ["main", "opponent_attack", "any"]: errors.append("unsupported timing")
         errors.extend(self.validate_effects(effects or []))
         return list(dict.fromkeys(errors))
 
-    def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path="", effects=None):
+    def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path="", effects=None, summon_procedure=None, legendary_type="", non_removable=False):
         card_id = "card_" + str(int(time.time() * 1000))
         frame = "yellow" if kind == "normal" else "orange" if kind == "effect" else "sky" if kind in ["spell", "field"] else "pink" if kind == "trap" else "violet" if kind == "fusion" else "blue" if kind == "ritual" else "red"
-        resolved_method = summon_method if summon_method != "normal" else kind if kind in ["fusion", "ritual"] else "normal"
-        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method)
+        resolved_method = summon_method if summon_method != "normal" else kind if kind in ["fusion", "ritual"] else "legendary" if kind == "legendary" else "normal"
+        procedure = dict(summon_procedure or {})
+        if not procedure and kind == "fusion": procedure = {"kind": "fusion", "required_card_ids": list(materials or []), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": True, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
+        if not procedure and kind == "ritual": procedure = {"kind": "ritual", "min_stars": int(ritual_cost), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": False, "material_destination": "graveyard", "source_selector": {"zone": "hand", "card_kind": "ritual"}, "source_method": "ritual", "enabler": {"card_kinds": ["spell", "effect"]}}
+        if not procedure and kind == "legendary": procedure = {"kind": "legendary", "source_zones": ["hand", "graveyard"], "source_selector": {"zone": ["hand", "graveyard"], "card_kind": "legendary"}, "source_method": "legendary_special", "special": True, "enabler": {"card_kinds": ["spell", "effect"]}}
+        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, legendary_type=str(legendary_type or (family if kind == "legendary" else "")), non_removable=bool(non_removable))
         card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card", ["images", "interactions", "logic", "animations", "audio"])
         card.art_folder = card.media_folder
         source = Path(str(art_path)).expanduser() if art_path else None
@@ -3406,7 +3491,7 @@ class ContentStore:
     def championship_decks(self, entity_id):
         owner_ids = [entity_id]
         if entity_id in self.teams: owner_ids = list(self.teams[entity_id].members)
-        return [deck for deck in self.decks.values() if deck.get("owner_id") in owner_ids and len(deck.get("cards", [])) >= 50]
+        return [deck for deck in self.decks.values() if deck.get("owner_id") in owner_ids and len(deck.get("main_cards", [])) >= DeckRules.minimum]
 
     def championship_host_eligible(self, host_id, level):
         level = clamp(int(level), 1, 5)
@@ -3742,10 +3827,10 @@ class ContentStore:
     def update_card(self, card_id, values):
         card = self.cards.get(card_id)
         if not card: return None
-        allowed = {"name", "kind", "stars", "atk", "defense", "family", "subtypes", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method", "effects"}
+        allowed = {"name", "kind", "stars", "atk", "defense", "family", "subtypes", "description", "logic_graph", "targets", "target_count", "timing", "field_effect", "materials", "ritual_cost", "summon_method", "summon_procedure", "legendary_type", "non_removable", "effects"}
         merged = {key: getattr(card, key) for key in allowed}
         merged.update({key: value for key, value in values.items() if key in allowed})
-        errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], merged["effects"])
+        errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], merged["effects"], merged.get("summon_procedure", {}), merged.get("legendary_type", ""))
         if errors: return None
         for key, value in merged.items(): setattr(card, key, value)
         card.subtypes = self.normalize_profile_list(getattr(card, "subtypes", []), limit=2)
@@ -3758,23 +3843,25 @@ class ContentStore:
     def deck_editor_state(self, deck_id):
         deck = self.decks.get(deck_id)
         if not deck: return None
-        cards = list(deck.get("cards", []))
-        errors = DeckRules.validate(cards, self.cards)
-        main, extra = DeckRules.partition(cards, self.cards)
+        main = list(deck.get("main_cards", []))
+        fusion = list(deck.get("fusion_cards", []))
+        errors = DeckRules.validate(main, fusion, self.cards)
+        cards = main + fusion
         counts = {}
         for card_id in cards: counts[card_id] = counts.get(card_id, 0) + 1
-        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", "deck_placeholder"), "owner_id": deck.get("owner_id", ""), "cards": cards, "main_cards": main, "extra_cards": extra, "counts": counts, "errors": errors, "legal": not errors and DeckRules.minimum <= len(main) <= DeckRules.maximum}
+        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", "deck_placeholder"), "owner_id": deck.get("owner_id", ""), "main_cards": main, "fusion_cards": fusion, "counts": counts, "errors": errors, "legal": not errors}
 
-    def create_deck(self, name, owner_id="", cards=None, description="", portrait="deck_placeholder", preferred_families=None, preferred_card_kinds=None, best_cards=None):
+    def create_deck(self, name, owner_id="", main_cards=None, fusion_cards=None, description="", portrait="deck_placeholder", preferred_families=None, preferred_card_kinds=None, best_cards=None):
         if len(self.decks) >= 10: return None
         deck_id = "deck_" + str(int(time.time() * 1000))
         display_name = str(name or "New Deck").strip() or "New Deck"
         preferred_families = self.normalize_profile_list(preferred_families, limit=20)
         preferred_card_kinds = self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10)
-        values = list(cards or [])
-        if len(DeckRules.partition(values, self.cards)[0]) < DeckRules.minimum: values = self.starter_deck_cards(preferred_families, preferred_card_kinds, best_cards)
+        main_values = list(main_cards or [])
+        fusion_values = list(fusion_cards or [])
+        if len(main_values) < DeckRules.minimum: main_values = self.starter_deck_cards(preferred_families, preferred_card_kinds, best_cards)
         folder = self.scaffold_entity("decks", deck_id, display_name)
-        self.decks[deck_id] = {"name": display_name, "description": str(description or ""), "portrait": portrait or "deck_placeholder", "owner_id": owner_id if owner_id in self.characters else "", "cards": DeckRules.normalized(values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
+        self.decks[deck_id] = {"schema": 2, "name": display_name, "description": str(description or ""), "portrait": portrait or "deck_placeholder", "owner_id": owner_id if owner_id in self.characters else "", "main_cards": DeckRules.normalized(main_values, self.cards), "fusion_cards": DeckRules.normalized_fusion(fusion_values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
         self.save()
         return deck_id
 
@@ -3785,11 +3872,13 @@ class ContentStore:
         if "description" in values: deck["description"] = str(values["description"] or "")
         if "portrait" in values: deck["portrait"] = str(values["portrait"] or "deck_placeholder")
         if "owner_id" in values and values["owner_id"] in self.characters: deck["owner_id"] = values["owner_id"]
-        if "cards" in values:
-            candidate = list(values["cards"] if isinstance(values["cards"], list) else [])
-            errors = DeckRules.validate(candidate, self.cards)
+        candidate_main = list(values["main_cards"] if isinstance(values.get("main_cards"), list) else deck.get("main_cards", []))
+        candidate_fusion = list(values["fusion_cards"] if isinstance(values.get("fusion_cards"), list) else deck.get("fusion_cards", []))
+        if "main_cards" in values or "fusion_cards" in values:
+            errors = DeckRules.validate(candidate_main, candidate_fusion, self.cards)
             if errors: return None
-            deck["cards"] = candidate
+            deck["main_cards"] = candidate_main
+            deck["fusion_cards"] = candidate_fusion
         if "best_cards" in values: deck["best_cards"] = self.normalize_profile_list(values["best_cards"], set(self.cards), 20)
         if "preferred_families" in values: deck["preferred_families"] = self.normalize_profile_list(values["preferred_families"], limit=20)
         if "preferred_card_kinds" in values: deck["preferred_card_kinds"] = self.normalize_profile_list(values["preferred_card_kinds"], {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10)
@@ -3799,7 +3888,7 @@ class ContentStore:
     def duplicate_deck(self, deck_id, name=""):
         source = self.decks.get(deck_id)
         if not source or len(self.decks) >= 10: return None
-        return self.create_deck(name or str(source.get("name", deck_id)) + " Copy", source.get("owner_id", ""), list(source.get("cards", [])), source.get("description", ""), source.get("portrait", "deck_placeholder"), source.get("preferred_families", []), source.get("preferred_card_kinds", []), source.get("best_cards", []))
+        return self.create_deck(name or str(source.get("name", deck_id)) + " Copy", source.get("owner_id", ""), list(source.get("main_cards", [])), list(source.get("fusion_cards", [])), source.get("description", ""), source.get("portrait", "deck_placeholder"), source.get("preferred_families", []), source.get("preferred_card_kinds", []), source.get("best_cards", []))
 
     def delete_deck(self, deck_id, force=False):
         if deck_id not in self.decks: return False
@@ -3849,9 +3938,9 @@ class ContentStore:
         if deck_id not in self.decks:
             deck_id = "deck_" + str(int(time.time() * 1000))
             deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck")
-            self.decks[deck_id] = {"name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": char_id, "cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
+            self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": char_id, "main_cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "fusion_cards": [], "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
         folder = self.scaffold_entity("characters", char_id, display_name)
-        char = CharacterDef(id=char_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(self.decks[deck_id].get("cards", [])), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
+        char = CharacterDef(id=char_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
         char.logic_graph = str(logic_graph or "")
         self.characters[char_id] = char
         self.normalize_character_profile(char)
@@ -3866,7 +3955,7 @@ class ContentStore:
         deck_id = user_id + "_deck"
         card_ids = self.starter_deck_cards(["warrior"])
         deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck", folder_name=deck_id + "_deck")
-        self.decks[deck_id] = {"name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": user_id, "cards": card_ids, "best_cards": [], "preferred_families": ["warrior"], "preferred_card_kinds": [], "media_folder": deck_folder}
+        self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": user_id, "main_cards": card_ids, "fusion_cards": [], "best_cards": [], "preferred_families": ["warrior"], "preferred_card_kinds": [], "media_folder": deck_folder}
         character_folder = self.scaffold_entity("characters", user_id, display_name, folder_name=user_id)
         character = CharacterDef(id=user_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=5, smartness=5, relationship="stranger", preferred_families=["warrior"], deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(card_ids), gender=gender or "other", origin="user", best_cards=[], borrowed_cards=[], rank=1, media_folder=character_folder)
         self.characters[user_id] = character
@@ -3901,7 +3990,7 @@ class ContentStore:
             for category, registry in [("cards", self.cards), ("characters", self.characters), ("decks", self.decks), ("places", self.places), ("teams", self.teams), ("logic", self.logic)]: categories[category] = set(registry)
         if include_dependencies:
             for deck_id in list(categories["decks"]):
-                categories["cards"].update(item for item in self.decks.get(deck_id, {}).get("cards", []) if item in self.cards)
+                categories["cards"].update(item for item in DeckRules.all_cards(self.decks.get(deck_id, {})) if item in self.cards)
             for character_id in list(categories["characters"]):
                 character = self.characters.get(character_id)
                 if character:
@@ -3913,7 +4002,7 @@ class ContentStore:
             for character_id in list(categories["characters"]):
                 character = self.characters.get(character_id)
                 if character and include_dependencies and character.deck_id in self.decks: categories["decks"].add(character.deck_id)
-            for deck_id in list(categories["decks"]): categories["cards"].update(item for item in self.decks.get(deck_id, {}).get("cards", []) if item in self.cards)
+            for deck_id in list(categories["decks"]): categories["cards"].update(item for item in DeckRules.all_cards(self.decks.get(deck_id, {})) if item in self.cards)
         for card_id in list(categories["cards"]):
             card = self.cards.get(card_id)
             if card and card.logic_graph and card.logic_graph in self.logic: categories["logic"].add(card.logic_graph)
@@ -4076,56 +4165,99 @@ def query_entities(values, query="", sort_mode="name"):
 
 
 class DeckRules:
-    minimum = 40
-    maximum = 80
-    copies = 3
+    minimum = 0
+    maximum = 0
+    copies = 0
+    fusion_minimum = 0
+    fusion_maximum = 0
+    legendary_copies = 0
+    legendary_no_other = False
+
+    @classmethod
+    def configure(cls, rules):
+        deck = dict((rules or {}).get("deck") or {})
+        main = dict(deck.get("main") or {})
+        fusion = dict(deck.get("fusion_extra") or {})
+        legendary = dict((rules or {}).get("legendary") or {})
+        cls.minimum = max(0, int(main.get("minimum", 0) or 0))
+        cls.maximum = max(cls.minimum, int(main.get("maximum", cls.minimum) or cls.minimum))
+        cls.copies = max(1, int(main.get("copy_limit", 1) or 1))
+        cls.fusion_minimum = max(0, int(fusion.get("minimum", 0) or 0))
+        cls.fusion_maximum = max(cls.fusion_minimum, int(fusion.get("maximum", cls.fusion_minimum) or cls.fusion_minimum))
+        cls.legendary_copies = max(1, int(legendary.get("copy_limit", 1) or 1))
+        cls.legendary_no_other = bool(legendary.get("no_other_legendary_deck_rule", False))
+
+    @classmethod
+    def all_cards(cls, deck):
+        return list((deck or {}).get("main_cards", []) or []) + list((deck or {}).get("fusion_cards", []) or [])
 
     @classmethod
     def partition(cls, card_ids, available):
         main = []
-        extra = []
+        fusion = []
         for card_id in card_ids:
             card = available.get(card_id)
             if not card: continue
-            if card.kind == "fusion": extra.append(card_id)
+            if card.kind == "fusion": fusion.append(card_id)
             else: main.append(card_id)
-        return main, extra
+        return main, fusion
 
     @classmethod
     def normalized(cls, card_ids, available):
         result = []
         counts = {}
-        main_count = 0
         for card_id in card_ids:
             card = available.get(card_id)
-            if not card: continue
-            limit = 1 if card.legendary else cls.copies
-            if counts.get(card_id, 0) >= limit: continue
-            if card.kind != "fusion" and main_count >= cls.maximum: continue
+            if not card or card.kind == "fusion": continue
+            limit = cls.legendary_copies if card.legendary else cls.copies
+            if counts.get(card_id, 0) >= limit or len(result) >= cls.maximum: continue
             result.append(card_id)
             counts[card_id] = counts.get(card_id, 0) + 1
-            if card.kind != "fusion": main_count += 1
         return result
 
     @classmethod
-    def validate(cls, card_ids, available):
-        errors = []
-        main, extra = cls.partition(card_ids, available)
-        if len(main) < cls.minimum: errors.append(f"minimum {cls.minimum} main-deck cards")
-        if len(main) > cls.maximum: errors.append(f"maximum {cls.maximum} main-deck cards")
+    def normalized_fusion(cls, card_ids, available):
+        result = []
         counts = {}
         for card_id in card_ids:
             card = available.get(card_id)
-            if not card:
-                errors.append(f"unknown card {card_id}")
-                continue
+            if not card or card.kind != "fusion": continue
+            limit = cls.legendary_copies if card.legendary else cls.copies
+            if counts.get(card_id, 0) >= limit or len(result) >= cls.fusion_maximum: continue
+            result.append(card_id)
             counts[card_id] = counts.get(card_id, 0) + 1
-            if counts[card_id] > (1 if card.legendary else cls.copies): errors.append(f"{card.name} exceeds its copy limit")
+        return result
+
+    @classmethod
+    def validate(cls, main_cards, fusion_cards, available):
+        errors = []
+        main = list(main_cards or [])
+        fusion = list(fusion_cards or [])
+        if len(main) < cls.minimum: errors.append(f"minimum {cls.minimum} main-deck cards")
+        if len(main) > cls.maximum: errors.append(f"maximum {cls.maximum} main-deck cards")
+        if len(fusion) < cls.fusion_minimum: errors.append(f"minimum {cls.fusion_minimum} Fusion/Extra cards")
+        if len(fusion) > cls.fusion_maximum: errors.append(f"maximum {cls.fusion_maximum} Fusion/Extra cards")
+        counts = {}
+        legendary_ids = set()
+        for collection, card_ids in [("Main Deck", main), ("Fusion/Extra", fusion)]:
+            for card_id in card_ids:
+                card = available.get(card_id)
+                if not card:
+                    errors.append(f"unknown card {card_id}")
+                    continue
+                if collection == "Main Deck" and card.kind == "fusion": errors.append(f"{card.name} must be in Fusion/Extra")
+                if collection == "Fusion/Extra" and card.kind != "fusion": errors.append(f"{card.name} is not a Fusion card")
+                counts[card_id] = counts.get(card_id, 0) + 1
+                limit = cls.legendary_copies if card.legendary else cls.copies
+                if counts[card_id] > limit: errors.append(f"{card.name} exceeds its copy limit")
+                if card.legendary:
+                    legendary_ids.add(card_id)
+        if cls.legendary_no_other and len(legendary_ids) > 1: errors.append("only one Legendary card may be used")
         return list(dict.fromkeys(errors))
 
     @classmethod
-    def summary(cls, card_ids, available):
-        errors = cls.validate(card_ids, available)
+    def summary(cls, main_cards, fusion_cards, available):
+        errors = cls.validate(main_cards, fusion_cards, available)
         return "VALID" if not errors else "INVALID: " + ", ".join(dict.fromkeys(errors))
 
 
@@ -4226,19 +4358,22 @@ class Duelist:
         self.graveyard = []
         self.banished = []
         self.extra = []
-        deck_ids = list(DeckRules.normalized(store.decks.get(character.deck_id, {}).get("cards", []), store.cards))
+        deck = store.decks.get(character.deck_id, {})
+        main_ids = DeckRules.normalized(deck.get("main_cards", []), store.cards)
+        fusion_ids = DeckRules.normalized_fusion(deck.get("fusion_cards", []), store.cards)
         loan_cards = [record.get("card_id", "") for record in store.world.setdefault("borrows", []) if record.get("state") == "active" and record.get("borrower") == character.id and record.get("card_id") in store.cards]
-        deck_ids = DeckRules.normalized(deck_ids + loan_cards, store.cards)
-        for card_id in deck_ids:
+        main_ids = DeckRules.normalized(main_ids + [card_id for card_id in loan_cards if store.cards[card_id].kind != "fusion"], store.cards)
+        fusion_ids = DeckRules.normalized_fusion(fusion_ids + [card_id for card_id in loan_cards if store.cards[card_id].kind == "fusion"], store.cards)
+        for card_id in fusion_ids:
             instance = CardInstance(store.cards[card_id], self.name)
-            if instance.card.kind == "fusion":
-                instance.position = "extra"
-                instance.last_zone = "extra"
-                self.extra.append(instance)
-            else:
-                instance.position = "deck"
-                instance.last_zone = "deck"
-                self.deck.append(instance)
+            instance.position = "extra"
+            instance.last_zone = "extra"
+            self.extra.append(instance)
+        for card_id in main_ids:
+            instance = CardInstance(store.cards[card_id], self.name)
+            instance.position = "deck"
+            instance.last_zone = "deck"
+            self.deck.append(instance)
         random.shuffle(self.deck)
 
     def draw(self, count=1):
@@ -4683,7 +4818,7 @@ class DuelEngine:
 
     def legal_targets(self, card, actor=None, selector=None):
         actor = actor or self.player
-        selector = selector or self.legacy_selector(card, actor)
+        selector = selector or self.card_selector(card, actor)
         if not selector: return []
         candidate_selector = dict(selector)
         candidate_selector.pop("count", None)
@@ -4822,8 +4957,6 @@ class DuelEngine:
     def modifier_records(self):
         records = []
         if self.field_card:
-            legacy = dict(self.field_card.card.field_effect or {})
-            if legacy: records.append({"source": self.field_card, "modifier": EffectSpec.from_dict({"id": "field_" + self.field_card.card.id, "field_effect": legacy}).modifier})
             for effect in self.field_card.card.effects:
                 spec = EffectSpec.from_dict(effect, "field_" + self.field_card.card.id)
                 if spec.modifier: records.append({"source": self.field_card, "modifier": spec.modifier})
@@ -4983,8 +5116,8 @@ class DuelEngine:
             required_ids = sorted(procedure.required_card_ids)
             if procedure.exact and selected_ids != required_ids: return False, "The exact fusion material set is not available."
             if not procedure.exact and not selected: return False, "Fusion requires at least one material."
-        if procedure.kind == "ritual" and sum(item.card.stars for item in selected) < procedure.min_stars:
-            return False, f"Ritual summoning requires {procedure.min_stars} material stars."
+        if procedure.kind == "ritual" and sum(item.card.stars for item in selected) != procedure.min_stars:
+            return False, f"Ritual summoning requires exactly {procedure.min_stars} material stars."
         if procedure.kind == "tribute" and len(selected) != procedure.required_count:
             return False, f"This normal summon requires exactly {procedure.required_count} tribute(s)."
         return True, ""
@@ -5061,22 +5194,44 @@ class DuelEngine:
         self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
         return True, "pending_procedure"
 
-    def begin_summon_procedure(self, card, actor, procedure=None):
+    def procedure_enabler_valid(self, procedure, enabler, enabler_effect_id):
+        if procedure.kind not in ["fusion", "ritual", "legendary"]: return True, ""
+        contract = dict(procedure.enabler or {})
+        if not enabler: return False, f"{procedure.kind.title()} summoning requires its authored enabler."
+        definition = getattr(enabler, "card", enabler)
+        allowed_ids = list(contract.get("card_ids", contract.get("required_card_ids", [])) or [])
+        allowed_kinds = list(contract.get("card_kinds", []) or [])
+        allowed_effect_ids = list(contract.get("effect_ids", []) or [])
+        allowed_effect_ids.extend(list(contract.get("actions", [contract.get("action", "")] if contract.get("action") else []) or []))
+        if allowed_ids and definition.id not in allowed_ids: return False, "That card is not an authored enabler for this summon."
+        if allowed_kinds and definition.kind not in allowed_kinds: return False, "That card type cannot enable this summon."
+        if allowed_effect_ids and enabler_effect_id not in allowed_effect_ids and enabler_effect_id != contract.get("effect_id", ""): return False, "That effect is not an authored summon enabler."
+        owner = self.owner_of(enabler)
+        if owner is None: return False, "The summon enabler is no longer in the duel."
+        if owner is not self.player and owner is not self.opponent: return False, "The summon enabler has no duel owner."
+        return True, ""
+
+    def begin_summon_procedure(self, card, actor, procedure=None, enabler=None, enabler_effect_id=""):
         procedure = procedure or ProcedureSpec.from_card(card)
-        source_zone = "extra" if procedure.kind == "fusion" else "hand"
-        source_cards = actor.extra if procedure.kind == "fusion" else actor.hand
+        source_zones = list(procedure.source_zones or (["extra"] if procedure.kind == "fusion" else ["hand"]))
+        source_cards = []
+        for zone in source_zones: source_cards.extend(SelectorRuntime(self, actor, card).zone_items(actor, zone))
         if card not in source_cards: return False, "Select a summon card from its legal source zone."
         if procedure.source_selector and not SelectorRuntime(self, actor, card).matches(card, procedure.source_selector): return False, "The summon card is not in its allowed source state."
-        if procedure.source_selector.get("zone") and str(procedure.source_selector.get("zone")) not in [str(card.position), "hand"]: return False, "The summon card is not in its allowed source zone."
-        if procedure.kind not in ["fusion", "ritual", "tribute"]: return False, "This summon procedure is not implemented."
-        if procedure.special: return False, "This monster requires an authored special summon procedure."
+        allowed_source_zones = procedure.source_selector.get("zone", source_zones) if procedure.source_selector else source_zones
+        allowed_source_zones = allowed_source_zones if isinstance(allowed_source_zones, list) else [allowed_source_zones]
+        if card.position not in allowed_source_zones and card.last_zone not in allowed_source_zones: return False, "The summon card is not in its allowed source zone."
+        if procedure.kind not in ["fusion", "ritual", "tribute", "legendary"]: return False, "This summon procedure is not implemented."
+        if procedure.special and procedure.kind != "legendary": return False, "This monster requires an authored special summon procedure."
+        valid_enabler, reason = self.procedure_enabler_valid(procedure, enabler, enabler_effect_id)
+        if not valid_enabler: return False, reason
         if procedure.kind == "tribute" and self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         if not any(value is None for value in actor.monsters): return False, "All five monster zones are occupied."
         if procedure.costs:
             cost_spec = EffectSpec.from_dict({"id": card.card.id + "_procedure_cost", "trigger": "summon", "cost": procedure.costs}, card.card.id + "_procedure_cost")
             valid, result = self.preflight_costs(cost_spec, card, actor)
             if not valid: return False, result.get("reason", "The summon procedure cost cannot be paid.")
-        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False, "transaction": self.capture_procedure_transaction()}
+        self.pending_procedure = {"card": card, "actor": actor, "procedure": procedure, "enabler": enabler, "enabler_effect_id": enabler_effect_id, "candidates": [], "selected": [], "required": 0, "snapshot": [], "costs_paid": False, "transaction": self.capture_procedure_transaction()}
         if procedure.costs:
             paid, result = self.pay_costs(cost_spec, card, actor, 0, "procedure_cost")
             if not paid:
@@ -5087,6 +5242,7 @@ class DuelEngine:
                     return True, "pending_cost"
                 return self.abort_procedure(result.get("reason", "The summon procedure cost could not be paid."))
             self.pending_procedure["costs_paid"] = True
+        if procedure.kind == "legendary": return self.resolve_pending_procedure([])
         return self.prompt_summon_procedure()
 
     def toggle_procedure_material(self, material):
@@ -5138,7 +5294,7 @@ class DuelEngine:
             permission, reason = self.consume_normal_summon(actor)
             if not permission: return self.abort_procedure(reason)
         source_zone = card.position
-        placed, reason = self.place_procedure_summon(card, actor, procedure.source_method or procedure.kind, source_zone, None, procedure.kind + "_procedure")
+        placed, reason = self.place_procedure_summon(card, actor, procedure.source_method or procedure.kind, source_zone, pending.get("enabler"), pending.get("enabler_effect_id", ""))
         if not placed: return self.abort_procedure(reason)
         self.pending_procedure = None
         notification = self.pending_notification("choose_cards")
@@ -5148,25 +5304,27 @@ class DuelEngine:
         self.run_logic(card, "summon", actor, self.other(actor))
         return True, ""
 
-    def _manual_procedure_summon(self, card, actor, kind, materials):
+    def _manual_procedure_summon(self, card, actor, kind, materials, enabler=None, enabler_effect_id=""):
         procedure = ProcedureSpec.from_card(card)
         if procedure.kind != kind: return False, "The card does not declare the requested summon procedure."
-        started = self.begin_summon_procedure(card, actor, procedure)
+        started = self.begin_summon_procedure(card, actor, procedure, enabler, enabler_effect_id)
         if not started[0]: return started
         if self.pending_cost: return True, "pending_cost"
         return self.resolve_pending_procedure(materials)
 
-    def fusion_summon(self, card, materials=None):
+    def fusion_summon(self, card, materials=None, enabler=None, enabler_effect_id=""):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Fusion summoning is only available during your main phase."
         if card.card.summon_method != "fusion" or card not in self.player.extra: return False, "Select a Fusion monster from the Extra Deck."
+        if enabler is None: return False, "Activate an authored Fusion Spell or effect first."
         procedure = ProcedureSpec.from_card(card)
-        return self.begin_summon_procedure(card, self.player, procedure) if materials is None else self._manual_procedure_summon(card, self.player, "fusion", materials)
+        return self.begin_summon_procedure(card, self.player, procedure, enabler, enabler_effect_id) if materials is None else self._manual_procedure_summon(card, self.player, "fusion", materials, enabler, enabler_effect_id)
 
-    def ritual_summon(self, card, tributes=None):
+    def ritual_summon(self, card, tributes=None, enabler=None, enabler_effect_id=""):
         if self.finished or self.active is not self.player or self.phase not in ["MAIN 1", "MAIN 2"]: return False, "Ritual summoning is only available during your main phase."
         if card.card.summon_method != "ritual" or card not in self.player.hand: return False, "Select a Ritual monster from your hand."
+        if enabler is None: return False, "Activate an authored Ritual Spell or effect first."
         procedure = ProcedureSpec.from_card(card)
-        return self.begin_summon_procedure(card, self.player, procedure) if tributes is None else self._manual_procedure_summon(card, self.player, "ritual", tributes)
+        return self.begin_summon_procedure(card, self.player, procedure, enabler, enabler_effect_id) if tributes is None else self._manual_procedure_summon(card, self.player, "ritual", tributes, enabler, enabler_effect_id)
 
     def summon(self, card, actor=None):
         actor = actor or self.player
@@ -5174,6 +5332,7 @@ class DuelEngine:
             return False, "Summoning is only available during your main phase."
         if card not in actor.hand or card.card.kind not in ["normal", "effect", "legendary"]:
             return False, "Select a monster from your hand."
+        if card.card.kind == "legendary": return False, "Legendary cards require their authored special summon procedure."
         if self.normal_summon_remaining(actor) <= 0: return False, "No normal summon permission remains this turn."
         zone = next((index for index, value in enumerate(actor.monsters) if value is None), None)
         if zone is None: return False, "All five monster zones are occupied."
@@ -5200,7 +5359,8 @@ class DuelEngine:
         if self.finished or self.active is not actor or self.phase not in ["MAIN 1", "MAIN 2"]:
             return False, "Setting is only available during your main phase."
         if card not in actor.hand: return False, "Select a card in the acting side's hand."
-        is_monster = card.card.kind in ["normal", "effect", "legendary"]
+        if card.card.kind == "legendary": return False, "Legendary cards cannot be set."
+        is_monster = card.card.kind in ["normal", "effect"]
         target = actor.monsters if is_monster else actor.spells
         zone = next((index for index, value in enumerate(target) if value is None), None)
         if zone is None: return False, "That zone is full."
@@ -5226,7 +5386,7 @@ class DuelEngine:
         if card.card.timing not in ["main", "any"]: return False, "This card is waiting for a different timing window."
         effect_specs = [EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects)]
         activate_spec = next((spec for spec in effect_specs if spec.trigger == "activate"), None)
-        selector = activate_spec.selector if activate_spec and activate_spec.selector else self.legacy_selector(card, actor)
+        selector = activate_spec.selector if activate_spec and activate_spec.selector else self.card_selector(card, actor)
         raw_required = selector.get("count", card.card.target_count or 0) if selector else 0
         try: required = 0 if raw_required == "all" else int(raw_required or 0)
         except (TypeError, ValueError): required = 0
@@ -5271,6 +5431,7 @@ class DuelEngine:
     def move_card(self, card, destination, owner=None):
         owner = owner or self.owner_of(card)
         if not owner or not card or destination not in ["graveyard", "banished", "hand", "deck", "extra"]: return False
+        if bool(getattr(card.card, "non_removable", False)) and card.position in ["field", "monster", "spell", "set"] and destination in ["graveyard", "banished", "hand", "deck"]: return False
         source_zone = card.position
         source_anchor = self.logical_anchor(self.side_key(owner), "monster" if card in owner.monsters else "spell_trap", card)
         if card is self.field_card:
@@ -5386,7 +5547,7 @@ class DuelEngine:
                     if spec.speed < max(2, policy["min_speed"]) or spec.speed > policy["max_speed"] or not self.chain_speed_allowed(spec.speed, side): continue
                     if self.effect_used(card, spec): continue
                     if not self.condition_matches(spec.conditions, card, side, self.other(side)): continue
-                    selector = spec.selector or self.legacy_selector(card, side)
+                    selector = spec.selector or self.card_selector(card, side)
                     required = int(selector.get("count", card.card.target_count or 0) or 0) if selector else 0
                     legal = self.legal_targets(card, side, selector) if selector and required else []
                     if required and len(legal) < required: continue
@@ -5423,7 +5584,7 @@ class DuelEngine:
             elif name == "grant_normal_summon": score += 350
             elif name == "negate_chain": score += 5000
             elif name == "shuffle": score += 80
-        selector = spec.selector or self.legacy_selector(card, actor)
+        selector = spec.selector or self.card_selector(card, actor)
         if selector:
             legal = self.legal_targets(card, actor, selector)
             required = int(selector.get("count", 1) or 1) if selector.get("count") != "all" else 1
@@ -5659,7 +5820,11 @@ class DuelEngine:
         if self.pending_effect:
             pending = self.pending_effect
             return {"kind": "effect", "card": pending["card"].card.id, "actor": self.side_key(pending["actor"]), "effect_id": pending["spec"].effect_id, "target": self.pending_ref(pending.get("target"))}
-        if self.pending_cost or self.pending_procedure or self.pending_response or self.pending_trigger_order: return {"kind": "unsupported_interactive", "supported": False}
+        if self.pending_procedure:
+            pending = self.pending_procedure
+            procedure = pending.get("procedure")
+            return {"kind": "procedure", "procedure": procedure.kind if procedure else "", "actor": self.side_key(pending.get("actor")), "card": pending.get("card").card.id if pending.get("card") else "", "enabler": pending.get("enabler").card.id if pending.get("enabler") else "", "enabler_effect_id": pending.get("enabler_effect_id", ""), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])]}
+        if self.pending_cost or self.pending_response or self.pending_trigger_order: return {"kind": "unsupported_interactive", "supported": False}
         return None
 
     def checkpoint_chain_ref(self, item):
@@ -6024,6 +6189,7 @@ class DuelEngine:
             moved = []
             for selected_card in selected_cards:
                 current_owner = self.owner_of(selected_card)
+                if bool(getattr(selected_card.card, "non_removable", False)): continue
                 if not current_owner or selected_card.position not in ["field", "monster"]: continue
                 empty_zone = next((index for index, item in enumerate(actor.monsters) if item is None), None)
                 if empty_zone is None: continue
@@ -6101,7 +6267,7 @@ class DuelEngine:
         values = conditions if isinstance(conditions, list) else [conditions]
         return all(evaluate(condition) for condition in values if condition is not None)
 
-    def legacy_selector(self, card, actor):
+    def card_selector(self, card, actor):
         types = set(card.card.targets or [])
         if not types or types == {"none"}: return {}
         selector = {"count": max(1, int(card.card.target_count or 1))}
@@ -6203,7 +6369,7 @@ class DuelEngine:
         return True, ""
 
     def execute_effect_spec(self, card, spec, actor, default_target, start_index=0):
-        selector = spec.selector or self.legacy_selector(card, actor)
+        selector = spec.selector or self.card_selector(card, actor)
         if selector:
             if isinstance(default_target, list): selected = list(default_target)
             elif isinstance(default_target, CardInstance): selected = [default_target]
@@ -6250,6 +6416,15 @@ class DuelEngine:
                 negated, _ = self.negate_chain_link(link.link_id, self.active_chain_link_id, spec.effect_id)
                 if not negated: return False
                 continue
+            if action_name in ["fusion_summon", "ritual_summon"]:
+                selected_summon = resolved[0] if isinstance(resolved, list) and resolved else resolved
+                if not isinstance(selected_summon, CardInstance): return False
+                expected_kind = "fusion" if action_name == "fusion_summon" else "ritual"
+                if selected_summon.card.kind != expected_kind: return False
+                result = self.begin_summon_procedure(selected_summon, actor, ProcedureSpec.from_card(selected_summon), card, spec.effect_id)
+                if not result[0]: return False
+                if result[1] == "pending_procedure": return False
+                continue
             if action_name in ["summon", "special_summon"]:
                 summon_selector = action.get("select") or (target_value if isinstance(target_value, dict) else spec.selector)
                 summon_method = str(action.get("method", "special" if action_name == "special_summon" else "special")).lower()
@@ -6258,9 +6433,10 @@ class DuelEngine:
                 candidate_selector["count"] = "all"
                 summon_source = SelectorRuntime(self, actor, card).select(candidate_selector)
                 if summon_source:
-                    if summon_method in ["fusion", "ritual", "normal"]:
+                    if summon_method in ["fusion", "ritual", "normal"] or any(summon_card.card.kind == "legendary" for summon_card in summon_source):
                         for summon_card in summon_source[:int(summon_count or 1)]:
-                            if summon_method in ["fusion", "ritual"]: summon_result = self.begin_summon_procedure(summon_card, actor, ProcedureSpec.from_card(summon_card))
+                            if summon_card.card.kind == "legendary": summon_result = self.begin_summon_procedure(summon_card, actor, ProcedureSpec.from_card(summon_card), card, spec.effect_id)
+                            elif summon_method in ["fusion", "ritual"]: summon_result = self.begin_summon_procedure(summon_card, actor, ProcedureSpec.from_card(summon_card), card, spec.effect_id)
                             else: summon_result = self.summon(summon_card, actor)
                             if not summon_result[0] or summon_result[1] in ["pending_procedure", "pending_cost"]: return False
                     else:
@@ -6597,13 +6773,7 @@ class DuelEngine:
 
     def ai_can_summon(self, card, actor):
         if not any(value is None for value in actor.monsters): return False
-        if card.card.summon_method in ["fusion", "ritual"]:
-            procedure = ProcedureSpec.from_card(card)
-            if procedure.costs:
-                cost_spec = EffectSpec.from_dict({"id": card.card.id + "_procedure_cost", "trigger": "summon", "cost": procedure.costs}, card.card.id + "_procedure_cost")
-                if not self.preflight_costs(cost_spec, card, actor)[0]: return False
-            selected = self.ai_procedure_selection(card, actor, procedure)
-            return bool(selected) and self.validate_procedure_materials(card, selected, actor, procedure)[0]
+        if card.card.kind in ["fusion", "ritual", "legendary"] or card.card.summon_method in ["fusion", "ritual", "legendary"]: return False
         if self.normal_summon_remaining(actor) <= 0: return False
         if card.card.stars <= 4: return True
         procedure = ProcedureSpec.normal_tribute(card, self.store.rules)
@@ -6716,7 +6886,7 @@ class DuelEngine:
         spec = self.ai_activation_spec(card)
         if not spec: return self.ai_card_score(card, "spell", actor)
         score = self.ai_card_score(card, "spell", actor)
-        selector = spec.selector or self.legacy_selector(card, actor)
+        selector = spec.selector or self.card_selector(card, actor)
         legal = self.legal_targets(card, actor, selector) if selector else []
         enemy = self.other(actor)
         own_value = sum(max(0, self.ai_target_score(item, enemy)) for item in legal if self.owner_of(item) is actor)
@@ -6730,13 +6900,74 @@ class DuelEngine:
                 score += enemy_value - own_value
             elif name == "draw":
                 score += max(1, int(action.get("amount", 1) or 1)) * 140
+            elif name in ["fusion_summon", "ritual_summon"]:
+                expected = "fusion" if name == "fusion_summon" else "ritual"
+                targets = [item for item in legal if isinstance(item, CardInstance) and item.card.kind == expected]
+                opportunities = []
+                for target in targets:
+                    procedure = ProcedureSpec.from_card(target)
+                    selected = self.ai_procedure_selection(target, actor, procedure)
+                    if selected and self.validate_procedure_materials(target, selected, actor, procedure)[0]: opportunities.append(self.ai_special_summon_score(target, actor, selected))
+                score += max(opportunities, default=-100000)
+            elif name == "special_summon":
+                targets = [item for item in legal if isinstance(item, CardInstance) and item.card.kind == "legendary"]
+                score += max((self.ai_special_summon_score(item, actor, []) for item in targets), default=0)
         if selector and selector.get("zone") == "spell_trap" and not any(self.owner_of(item) is enemy for item in legal): score -= 100000
         return score * float(actor.character.behavior_weights.get("duel", {}).get("activation_bias", 1.0))
+
+    def ai_special_summon_score(self, card, actor, materials):
+        enemy = self.other(actor)
+        score = float(self.effective_atk(card, actor)) * 0.38 + float(self.effective_defense(card, actor)) * 0.12
+        visible_threat = max([self.effective_atk(item, enemy) for item in enemy.monsters if item and item.face_up and self.known_card(actor, item)] or [0])
+        if score > visible_threat: score += (score - visible_threat) * 0.34
+        if materials: score -= sum(float(self.ai_card_score(item, "monster", actor)) for item in materials) * 0.08
+        score += float(card.card.stars) * 24
+        return score
+
+    def ai_summon_score(self, card, actor):
+        enemy = self.other(actor)
+        attack = float(self.effective_atk(card, actor))
+        defense = float(self.effective_defense(card, actor))
+        visible = [item for item in enemy.monsters if item and item.face_up and self.known_card(actor, item)]
+        visible_attack = max([self.effective_atk(item, enemy) for item in visible] or [0])
+        winning_targets = [item for item in visible if attack > self.effective_atk(item, enemy)]
+        score = attack * 0.34 + defense * 0.08 + float(card.card.stars) * 28
+        if not visible:
+            score += attack * 0.42 + 300
+        elif winning_targets:
+            score += max(attack - self.effective_atk(item, enemy) for item in winning_targets) * 0.52 + len(winning_targets) * 180
+        else:
+            score += max(0.0, defense - visible_attack) * 0.44 - max(0.0, visible_attack - attack) * 0.34
+        if len([item for item in actor.monsters if item]) >= 4: score -= 180
+        for index, raw_effect in enumerate(card.card.effects):
+            spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+            if not spec.validate(): score += self.declarative_effect_score(card, spec, actor, enemy) * 0.65
+        score += float(actor.character.technique_profile.get("aggression", 5.0)) * attack * 0.035
+        score += float(actor.character.technique_profile.get("control", 5.0)) * max(0.0, visible_attack - attack) * 0.015
+        return score
+
+    def ai_set_score(self, card, actor):
+        enemy = self.other(actor)
+        defense = float(self.effective_defense(card, actor))
+        attack = float(self.effective_atk(card, actor))
+        visible = [item for item in enemy.monsters if item and item.face_up and self.known_card(actor, item)]
+        strongest = max([self.effective_atk(item, enemy) for item in visible] or [0])
+        score = defense * 0.31 + attack * 0.06
+        if strongest:
+            score += max(0.0, defense - strongest) * 0.55
+            score += max(0.0, strongest - attack) * 0.28
+        else:
+            score -= attack * 0.03
+        for index, raw_effect in enumerate(card.card.effects):
+            spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
+            if not spec.validate() and spec.trigger in ["flip", "battle", "summon"]: score += self.declarative_effect_score(card, spec, actor, enemy) * 0.75
+        score += float(actor.character.technique_profile.get("defense", 5.0)) * defense * 0.04
+        return score
 
     def ai_can_activate(self, card, actor):
         if card not in actor.hand or card.card.kind not in ["spell", "field"] or card.card.timing not in ["main", "any"]: return False
         spec = self.ai_activation_spec(card)
-        selector = spec.selector if spec and spec.selector else self.legacy_selector(card, actor)
+        selector = spec.selector if spec and spec.selector else self.card_selector(card, actor)
         if selector:
             legal = self.legal_targets(card, actor, selector)
             if not legal: return False
@@ -6752,18 +6983,18 @@ class DuelEngine:
         actor = actor or self.opponent
         actions = []
         if any(value is None for value in actor.monsters):
-            for card in actor.hand + actor.extra:
-                if card.card.kind in ["normal", "effect", "legendary", "fusion", "ritual"] and self.ai_can_summon(card, actor):
-                    actions.append({"kind": "summon", "card": card, "score": self.ai_card_score(card, "monster", actor) + 120})
+            for card in actor.hand:
+                if card.card.kind in ["normal", "effect"] and self.ai_can_summon(card, actor):
+                    actions.append({"kind": "summon", "card": card, "score": self.ai_summon_score(card, actor)})
         if self.normal_summon_remaining(actor) > 0 and any(value is None for value in actor.monsters):
             for card in actor.hand:
-                if card.card.kind in ["normal", "effect", "legendary"] and self.ai_can_summon(card, actor):
-                    actions.append({"kind": "set", "card": card, "score": self.ai_card_score(card, "set", actor)})
+                if card.card.kind in ["normal", "effect"] and self.ai_can_summon(card, actor):
+                    actions.append({"kind": "set", "card": card, "score": self.ai_set_score(card, actor)})
         for card in actor.hand:
             if card.card.kind in ["spell", "field"] and self.ai_can_activate(card, actor):
                 actions.append({"kind": "activate", "card": card, "score": self.ai_activation_score(card, actor)})
             elif card.card.kind == "trap" and any(value is None for value in actor.spells):
-                actions.append({"kind": "set", "card": card, "score": self.ai_card_score(card, "trap", actor)})
+                actions.append({"kind": "set", "card": card, "score": self.ai_card_score(card, "trap", actor) + float(actor.character.technique_profile.get("bluff", 5.0)) * 18})
         return max(actions, key=lambda item: (item["score"], item["card"].card.id, item["kind"])) if actions else None
 
     def autonomous_actor(self):
@@ -7765,6 +7996,23 @@ class DuelScene(Scene):
         self.hp_delta = {"player": 0, "opponent": 0}
         self.hp_delta_until = {"player": 0.0, "opponent": 0.0}
         self.gamble_rects = []
+        self.idle_elapsed = 0.0
+        self.idle_observation = self.engine.observation_sequence
+        self.idle_cue_count = 0
+
+    def dispatch_idle_narrator(self, dt):
+        current_observation = self.engine.observation_sequence
+        if current_observation != self.idle_observation:
+            self.idle_observation = current_observation
+            self.idle_elapsed = 0.0
+            return
+        if self.engine.finished: return
+        self.idle_elapsed += max(0.0, float(dt))
+        threshold = float(self.app.store.rules.get("narrator", {}).get("idle_seconds", {}).get("duel", 45.0) or 45.0)
+        while self.idle_elapsed >= threshold:
+            self.idle_elapsed -= threshold
+            self.idle_cue_count += 1
+            self.app.store.narrator_cue("duel_idle", self.engine.player.character.id, self.engine.opponent.character.id, {"cadence": self.idle_cue_count, "spectator": self.spectator, "duel_mode": self.engine.duel_mode})
 
     def enter(self):
         super().enter()
@@ -7775,7 +8023,9 @@ class DuelScene(Scene):
             self.buttons = [Button((650, 530, 110, 38), "EXIT WATCH", lambda: self.app.pop(), COLORS["muted"])]
 
     def leave(self):
-        pygame.mixer.stop()
+        if pygame.mixer.get_init():
+            try: pygame.mixer.stop()
+            except pygame.error: pass
         self.app.assets.release_media_scope(self.media_scope)
         if self.spectator and self.watcher_id: self.app.store.remove_battle_watcher(self.watched_battle.get("id", ""), self.watcher_id)
         self.reaction_player.selection = None
@@ -8171,6 +8421,7 @@ class DuelScene(Scene):
             self.sync_watcher_media()
             self.sync_duel_music()
             return
+        self.dispatch_idle_narrator(dt)
         if self.engine.pending_discard is self.engine.player and self.question is None:
             self.question = {"kind": "discard", "stage": "await_ok"}
         self.sync_notification()
@@ -8759,7 +9010,7 @@ class LibraryScene(Scene):
     def known_cards(self):
         player = self.app.store.characters[self.app.store.role_config()["player_character"]]
         deck = self.app.store.decks.get(player.deck_id, {})
-        return set(player.library_cards) | set(deck.get("cards", []))
+        return set(player.library_cards) | set(DeckRules.all_cards(deck))
 
     def handle(self, event):
         super().handle(event)
@@ -8806,7 +9057,7 @@ class CardDetailScene(Scene):
         self.card = app.store.cards[card_id]
         player = app.store.characters[app.store.role_config()["player_character"]]
         deck = app.store.decks.get(player.deck_id, {})
-        self.known = self.card.id in set(player.library_cards) | set(deck.get("cards", []))
+        self.known = self.card.id in set(player.library_cards) | set(DeckRules.all_cards(deck))
 
     def enter(self):
         self.buttons = [Button((70, 470, 230, 46), "RUN EFFECT EXAMPLE", lambda: self.app.push(CardSimulationScene(self.app, self.card.id))), Button((315, 470, 170, 46), "MODIFY CARD", lambda: self.app.push(CardMakerScene(self.app, self.card.id))), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop())]
@@ -8962,19 +9213,25 @@ class DeckEditorScene(Scene):
 
     def add_card(self, card_id):
         deck = self.app.store.decks[self.deck_id]
-        candidate = list(deck.get("cards", [])) + [card_id]
-        errors = DeckRules.validate(candidate, self.app.store.cards)
+        main = list(deck.get("main_cards", []))
+        fusion = list(deck.get("fusion_cards", []))
+        card = self.app.store.cards.get(card_id)
+        if not card: return
+        (fusion if card.kind == "fusion" else main).append(card_id)
+        errors = DeckRules.validate(main, fusion, self.app.store.cards)
         if any("exceeds" in error or "maximum" in error for error in errors):
-            self.app.notify("That card would exceed the deck copy or size limit.")
+            self.app.notify("That card would exceed the deck copy or collection limit.")
             return
-        deck["cards"] = candidate
+        deck["main_cards"] = main
+        deck["fusion_cards"] = fusion
         self.app.store.save()
         self.enter()
 
     def remove_card(self, card_id):
         deck = self.app.store.decks[self.deck_id]
-        if card_id in deck.get("cards", []):
-            deck["cards"].remove(card_id)
+        collection = deck.get("fusion_cards", []) if self.app.store.cards.get(card_id) and self.app.store.cards[card_id].kind == "fusion" else deck.get("main_cards", [])
+        if card_id in collection:
+            collection.remove(card_id)
             self.app.store.save()
             self.enter()
 
@@ -8999,9 +9256,9 @@ class DeckEditorScene(Scene):
         self.portrait.draw(surface, self.app.assets.font(10), "Portrait key")
         self.query.draw(surface, self.app.assets.font(10), "Search cards")
         main_count = len(state["main_cards"]) if state else 0
-        extra_count = len(state["extra_cards"]) if state else 0
+        extra_count = len(state["fusion_cards"]) if state else 0
         status = "LEGAL" if state and state["legal"] else "INCOMPLETE / INVALID"
-        draw_text(surface, f"MAIN {main_count}/80  |  EXTRA {extra_count}  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
+        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
         self.draw_panel(surface, (32, 155, 360, 330), "CURRENT CARDS", COLORS["gold"])
         self.draw_panel(surface, (410, 155, 358, 330), "CARD CATALOG", COLORS["cyan"])
         self.card_buttons = []
@@ -9054,6 +9311,9 @@ class CardMakerScene(Scene):
         self.target_count = int(card.target_count) if card else 0
         self.timing = card.timing if card else "main"
         self.summon_method = card.summon_method if card else "normal"
+        self.summon_procedure = dict(card.summon_procedure) if card else {}
+        self.legendary_type = str(getattr(card, "legendary_type", "") or "") if card else ""
+        self.non_removable = bool(getattr(card, "non_removable", False)) if card else False
         self.materials = list(card.materials) if card else []
         self.materials_text = TextInput((80, 365, 640, 34), ", ".join(self.materials))
         self.ritual_cost = int(card.ritual_cost) if card else 0
@@ -9063,12 +9323,21 @@ class CardMakerScene(Scene):
     def refresh_buttons(self):
         self.buttons = [Button((420, 150, 150, 34), "TYPE: " + self.kind.upper(), lambda: self.cycle_kind(), COLORS["violet"]), Button((590, 150, 150, 34), "FAMILY: " + self.family.upper(), lambda: self.cycle_family(), COLORS["cyan"]), Button((420, 200, 150, 34), "LOGIC: " + (self.logic_graph or "NONE").upper(), lambda: self.cycle_logic(), COLORS["gold"]), Button((590, 200, 150, 34), "TARGET: " + self.targets[0].upper(), lambda: self.cycle_target(), COLORS["green"]), Button((420, 245, 150, 34), "EFFECTS: " + str(len(self.effects)), lambda: self.open_effects(), COLORS["orange"]), Button((80, 340, 110, 34), "STAR +", lambda: self.change("stars", 1)), Button((200, 340, 110, 34), "ATK +", lambda: self.change("atk", 100)), Button((320, 340, 110, 34), "DEF +", lambda: self.change("defense", 100)), Button((440, 340, 150, 34), "TIMING", lambda: self.cycle_timing()), Button((80, 410, 180, 34), "SUMMON MODE", lambda: self.cycle_summon()), Button((280, 410, 180, 34), "TARGET COUNT", lambda: self.cycle_target_count()), Button((80, 470, 240, 38), "SAVE MODIFIED" if self.card_id else "CREATE CARD", lambda: self.save_card(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
+    def procedure_for_kind(self):
+        if self.kind == "fusion": return {"kind": "fusion", "required_card_ids": list(self.materials), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": True, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
+        if self.kind == "ritual": return {"kind": "ritual", "min_stars": int(self.ritual_cost), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": False, "material_destination": "graveyard", "source_selector": {"zone": "hand", "card_kind": "ritual"}, "source_method": "ritual", "enabler": {"card_kinds": ["spell", "effect"]}}
+        if self.kind == "legendary": return {"kind": "legendary", "source_zones": ["hand", "graveyard"], "source_selector": {"zone": ["hand", "graveyard"], "card_kind": "legendary"}, "source_method": "legendary_special", "special": True, "enabler": {"card_kinds": ["spell", "effect"]}}
+        return {}
+
     def cycle_kind(self):
         values = ["normal", "effect", "spell", "trap", "field", "fusion", "ritual", "legendary"]
         self.kind = values[(values.index(self.kind) + 1) % len(values)]
         if self.kind == "fusion": self.summon_method, self.materials, self.ritual_cost = "fusion", [], 0
         elif self.kind == "ritual": self.summon_method, self.materials, self.ritual_cost = "ritual", [], 7
+        elif self.kind == "legendary": self.summon_method, self.materials, self.ritual_cost = "legendary", [], 0
         else: self.summon_method, self.materials, self.ritual_cost = "normal", [], 0
+        self.summon_procedure = self.procedure_for_kind()
+        self.legendary_type = self.family if self.kind == "legendary" else ""
         self.materials_text.value = ", ".join(self.materials)
         self.refresh_buttons()
 
@@ -9096,11 +9365,14 @@ class CardMakerScene(Scene):
         self.refresh_buttons()
 
     def cycle_summon(self):
-        values = ["normal", "fusion", "ritual"]
-        self.summon_method = values[(values.index(self.summon_method) + 1) % len(values)]
-        if self.summon_method == "fusion": self.materials, self.ritual_cost = [], 0
-        elif self.summon_method == "ritual": self.materials, self.ritual_cost = [], 7
+        values = ["normal", "fusion", "ritual", "legendary"]
+        self.summon_method = values[(values.index(self.summon_method) + 1) % len(values)] if self.summon_method in values else "normal"
+        if self.summon_method == "fusion": self.kind, self.materials, self.ritual_cost = "fusion", [], 0
+        elif self.summon_method == "ritual": self.kind, self.materials, self.ritual_cost = "ritual", [], 7
+        elif self.summon_method == "legendary": self.kind, self.materials, self.ritual_cost = "legendary", [], 0
         else: self.materials, self.ritual_cost = [], 0
+        self.summon_procedure = self.procedure_for_kind()
+        self.legendary_type = self.family if self.kind == "legendary" else ""
         self.materials_text.value = ", ".join(self.materials)
         self.refresh_buttons()
 
@@ -9113,13 +9385,14 @@ class CardMakerScene(Scene):
     def save_card(self):
         graph = self.logic_graph
         self.materials = [value.strip() for value in self.materials_text.value.split(",") if value.strip()]
-        values = {"name": self.name.value, "kind": self.kind, "stars": self.stars if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "subtypes": [item.strip().lower() for item in self.subtypes.value.split(",") if item.strip()][:2], "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": self.ritual_cost, "summon_method": self.summon_method, "effects": self.effects}
-        errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"], values["effects"])
+        self.summon_procedure = self.procedure_for_kind() if self.kind in ["fusion", "ritual", "legendary"] else {}
+        values = {"name": self.name.value, "kind": self.kind, "stars": 11 if self.kind == "legendary" else self.stars if self.kind in ["normal", "effect", "fusion", "ritual"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "subtypes": [item.strip().lower() for item in self.subtypes.value.split(",") if item.strip()][:2], "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": 7 if self.kind == "ritual" else self.ritual_cost, "summon_method": self.summon_method, "summon_procedure": self.summon_procedure, "legendary_type": self.legendary_type or (self.family if self.kind == "legendary" else ""), "non_removable": self.non_removable, "effects": self.effects}
+        errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"], values["effects"], values["summon_procedure"], values["legendary_type"])
         if errors: self.app.notify("Card rejected: " + "; ".join(errors[:2])); return
         if self.card_id:
             if not self.app.store.update_card(self.card_id, values): self.app.notify("Card update failed."); return
         else:
-            created = self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"])
+            created = self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"], values["summon_procedure"], values["legendary_type"], values["non_removable"])
             if created:
                 created.subtypes = values["subtypes"]
                 self.app.store.save()
@@ -9490,7 +9763,9 @@ class EntityAboutScene(Scene):
         if self.selection and self.selection.audio and self.app.store.save_data.get("vocals", True): self.app.assets.play_reaction_audio(self.selection.audio, True, 0.8, self.scope)
 
     def leave(self):
-        pygame.mixer.stop()
+        if pygame.mixer.get_init():
+            try: pygame.mixer.stop()
+            except pygame.error: pass
         self.app.assets.release_media_scope(self.scope)
 
     def update(self, dt):
