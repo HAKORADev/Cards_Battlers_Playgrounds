@@ -69,7 +69,7 @@ TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect
 
 
 def ensure_dirs():
-    paths = [DATA, ASSETS, SCHEMAS, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "animations", DATA / "audio", DATA / "menu" / "background", DATA / "menu" / "duelers" / "left", DATA / "menu" / "duelers" / "center", DATA / "menu" / "duelers" / "right", DATA / "menu" / "ui", DATA / "menu" / "audio", DATA / "exports", RUNTIME_DIR, RUNTIME_CHARACTERS, RUNTIME_TEAMS, RUNTIME_WORLD, RUNTIME_WORLD_COLLECTIONS]
+    paths = [DATA, ASSETS, SCHEMAS, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "animations", DATA / "animations" / "universal", DATA / "animations" / "universal" / "attack", DATA / "audio", DATA / "audio" / "universal", DATA / "audio" / "universal" / "attack", DATA / "menu" / "background", DATA / "menu" / "duelers" / "left", DATA / "menu" / "duelers" / "center", DATA / "menu" / "duelers" / "right", DATA / "menu" / "ui", DATA / "menu" / "audio", DATA / "exports", RUNTIME_DIR, RUNTIME_CHARACTERS, RUNTIME_TEAMS, RUNTIME_WORLD, RUNTIME_WORLD_COLLECTIONS]
     for path in paths: path.mkdir(parents=True, exist_ok=True)
 
 
@@ -994,10 +994,25 @@ class MediaRegistry:
             if animation_root.exists() or audio_root.exists(): pairs.append((animation_root, audio_root))
         return pairs
 
+    def event_aliases(self, event):
+        raw = str(event or "idle").strip().lower().replace(" ", "_")
+        aliases = {raw}
+        aliases.update({raw.replace("_", "-"), raw.replace("-", "_")})
+        groups = {"attack": ["attack", "attacking", "attack_start"], "attacking": ["attacking", "attack", "attack_start"], "attack_travel": ["attack_travel", "attack-flight", "attack_flight", "attack"], "hit": ["hit", "damage", "damage_taken"], "damage": ["damage", "hit", "damage_dealt"], "damage_dealt": ["damage_dealt", "damage", "hit"], "damage_received": ["damage_received", "damage_taken", "damage", "hit"], "destroy": ["destroy", "destroyed", "die", "death"], "flip": ["flip", "flip_reveal", "reveal"], "return": ["return", "return_to_hand", "returned"], "send_to_graveyard": ["send_to_graveyard", "graveyard", "movement"], "banish": ["banish", "banished"], "activate": ["activate", "effect", "effect_start"], "switch_position": ["switch_position", "position_change"], "stat_change": ["stat_change", "boost", "effect"], "special_summon": ["special_summon", "summon"], "direct_damage": ["direct_damage", "damage", "hit"], "idle": ["idle"]}
+        aliases.update(groups.get(raw, []))
+        return list(dict.fromkeys(aliases))
+
     def candidate_pairs(self, event, relation, entity_type, entity_id, place_id, actor_id=""):
         pairs = []
+        events = self.event_aliases(event)
+        for event_name in events:
+            pairs.extend(self._candidate_pairs_for_event(event_name, relation, entity_type, entity_id, place_id, actor_id))
+        return list(dict.fromkeys(pairs))
+
+    def _candidate_pairs_for_event(self, event, relation, entity_type, entity_id, place_id, actor_id=""):
+        pairs = []
         alias_event = str(event).replace("_", "-")
-        if alias_event != str(event): pairs.extend(self.candidate_pairs(alias_event, relation, entity_type, entity_id, place_id, actor_id))
+        if alias_event != str(event): pairs.extend(self._candidate_pairs_for_event(alias_event, relation, entity_type, entity_id, place_id, actor_id))
         def add(animation_root, audio_root=None):
             for pair in self._pairs(animation_root, audio_root or animation_root):
                 if pair not in pairs: pairs.append(pair)
@@ -1006,10 +1021,14 @@ class MediaRegistry:
             relation_names = dict.fromkeys([relation, "opponent" if relation == "stranger" else "stranger", "neutral"])
             for relation_name in relation_names:
                 add(root / "duel" / "reactions" / relation_name / event, root / "duel" / "reactions" / relation_name / event / "audio")
+                add(root / "duel" / "reactions" / relation_name / event / "animations", root / "duel" / "reactions" / relation_name / event / "audio")
+                add(root / "duel" / relation_name / event / "animations", root / "duel" / relation_name / event / "audio")
                 add(root / "animations" / event / relation_name, root / "audio" / event / relation_name)
                 add(root / "animations" / "battle" / event / relation_name, root / "audio" / "battle" / event / relation_name)
             add(root / "animations" / event, root / "audio" / event)
             add(root / "animations" / "battle" / event, root / "audio" / "battle" / event)
+            add(root / "duel" / event / "animations", root / "duel" / event / "audio")
+            add(root / "duel" / "interactions" / event / "animations", root / "duel" / "interactions" / event / "audio")
             add(root / "animations" / "left" / event, root / "audio" / "left" / event)
             add(root / "animations" / "right" / event, root / "audio" / "right" / event)
         if entity_type == "cards" and actor_id:
@@ -1035,11 +1054,37 @@ class MediaRegistry:
             add(root / "presentation" / event / "animations", root / "presentation" / event / "audio")
             add(root / "animations" / event, root / "audio" / event)
         add(self.data_root / "animations" / event, self.data_root / "audio" / event)
-        return pairs
+        return list(dict.fromkeys(pairs))
 
-    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang", variant=None):
+    def vfx_path(self, effect="attack", card_id="", actor_id=""):
+        effect = str(effect or "attack").strip().lower().replace(" ", "_").replace("-", "_")
+        candidates = []
+        if card_id:
+            card_root = self.entity_path("cards", card_id)
+            candidates.extend([card_root / "interactions" / effect / "vfx.png", card_root / "interactions" / effect / "animations" / "vfx.png", card_root / "effects" / effect / "vfx.png"])
+            for suffix in self.image_extensions:
+                candidates.extend([card_root / "interactions" / effect / ("effect" + suffix), card_root / "interactions" / effect / "vfx" / ("effect" + suffix), card_root / "interactions" / effect / "vfx" / ("vfx" + suffix)])
+        if actor_id:
+            actor_root = self.entity_path("characters", actor_id)
+            candidates.extend([actor_root / "duel" / "vfx" / effect / "1.png", actor_root / "duel" / "effects" / effect / "1.png"])
+        candidates.extend([self.data_root / "animations" / "universal" / effect / "sword.png", self.data_root / "animations" / "universal" / effect / "1.png", self.data_root / "animations" / effect / "universal.png"])
+        for path in candidates:
+            if path.exists() and path.is_file() and path.suffix.lower() in self.image_extensions: return str(path)
+        return ""
+
+    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang", variant=None, metadata=None):
         entity_id = entity_id or actor_id
-        for animation_root, audio_root in self.candidate_pairs(event, relation, entity_type, entity_id, place_id, actor_id if entity_type == "cards" else ""):
+        base_pairs = self.candidate_pairs(event, relation, entity_type, entity_id, place_id, actor_id if entity_type == "cards" else "")
+        pairs = []
+        amount = (metadata or {}).get("amount") if isinstance(metadata, dict) else None
+        if amount is not None:
+            try: amount_key = ("+" if float(amount) >= 0 else "-") + str(abs(int(float(amount))))
+            except (TypeError, ValueError): amount_key = ""
+            if amount_key:
+                for animation_root, audio_root in base_pairs:
+                    pairs.append((Path(animation_root) / amount_key, Path(audio_root) / amount_key))
+        pairs.extend(base_pairs)
+        for animation_root, audio_root in pairs:
             options = self.variants(animation_root, audio_root)
             if not options: continue
             selected = next((item for item in options if item.variant == int(variant)), None) if variant is not None else None
@@ -1086,9 +1131,9 @@ class ReactionResolver:
     def numbered(self, folder, extensions):
         return self.registry._numeric_files(folder, extensions)
 
-    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang", variant=None):
+    def resolve(self, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", place_id="", mode="hang", variant=None, metadata=None):
         mode = mode if mode in ["loop", "hang", "strict-sync"] else "hang"
-        return self.registry.resolve(event, actor_id, target_id, relation, entity_type, entity_id, place_id, mode, variant)
+        return self.registry.resolve(event, actor_id, target_id, relation, entity_type, entity_id, place_id, mode, variant, metadata)
 
 
 @dataclass
@@ -1109,10 +1154,12 @@ class ReactionSelection:
     animation_duration: float = 0.0
     frame_rate: float = FPS
     sync: str = "hang"
+    presentation: dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw):
-        fields = {"event", "actor_id", "target_id", "relation", "source", "variant", "image", "audio", "mode", "placeholder", "frames", "video", "duration", "animation_duration", "frame_rate", "sync"}
+        fields = {"event", "actor_id", "target_id", "relation", "source", "variant", "image", "audio", "mode", "placeholder", "frames", "video", "duration", "animation_duration", "frame_rate", "sync", "presentation", "metadata"}
         data = {key: raw[key] for key in fields if key in raw}
         data.setdefault("event", raw.get("cue", "media"))
         data.setdefault("actor_id", "")
@@ -1141,7 +1188,8 @@ class ReactionPlayer:
         audio_duration = max(0.0, float(selection.duration or 0.0))
         animation_duration = max(0.0, float(selection.animation_duration or 0.0))
         if selection.frames and animation_duration <= 0: animation_duration = len(selection.frames) / max(1.0, float(selection.frame_rate or FPS))
-        self.duration = max(0.05, audio_duration, animation_duration) if audio_duration or animation_duration else max(0.05, float(duration or 2.0))
+        fallback_duration = 0.35 if selection.placeholder else float(duration or 2.0)
+        self.duration = max(0.05, audio_duration, animation_duration) if audio_duration or animation_duration else max(0.05, fallback_duration)
         self.finished = False
 
     def update(self, dt):
@@ -1430,16 +1478,20 @@ class LogicRuntime:
 
 
 class WorldClock:
-    def now(self):
-        current = time.localtime()
+    def __init__(self, epoch=None):
+        self.epoch = float(epoch if epoch is not None else time.time())
+
+    def now(self, simulation_time=None):
+        current = time.localtime() if simulation_time is None else time.localtime(self.epoch + max(0.0, float(simulation_time)))
         return {"year": current.tm_year, "month": current.tm_mon, "day": current.tm_mday, "hour": current.tm_hour, "minute": current.tm_min}
 
-    def period(self):
-        hour = time.localtime().tm_hour
+    def period(self, simulation_time=None):
+        hour = self.now(simulation_time)["hour"]
         return "night" if hour < 6 or hour >= 18 else "day"
 
-    def label(self):
-        return time.strftime("%Y-%m-%d %H:%M")
+    def label(self, simulation_time=None):
+        if simulation_time is None: return time.strftime("%Y-%m-%d %H:%M")
+        return time.strftime("%Y-%m-%d %H:%M", time.localtime(self.epoch + max(0.0, float(simulation_time))))
 
 
 class ContentStore:
@@ -1463,7 +1515,7 @@ class ContentStore:
         self.world_sessions = {}
         self.rules = read_json(DATA / "rules.json", {})
         self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}})
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("interactions", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
         self.load()
 
     def role_config(self):
@@ -1505,7 +1557,7 @@ class ContentStore:
         stored = read_json(RUNTIME_WORLD_INDEX, {}) if RUNTIME_WORLD_INDEX.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
         state = dict(state) if isinstance(state, dict) else {}
-        for key in ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]:
+        for key in ["requests", "orders", "championships", "trades", "borrows", "interactions", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]:
             path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
             if not path.exists(): continue
             payload = read_json(path, {})
@@ -1561,7 +1613,10 @@ class ContentStore:
         self.ensure_behavior_weights()
         legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}})
         self.world = self.migrate_world_state(legacy_world)
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
+        self.world.setdefault("clock_epoch", int(time.time()))
+        try: self.clock.epoch = float(self.world.get("clock_epoch", time.time()))
+        except (TypeError, ValueError): self.clock.epoch = time.time(); self.world["clock_epoch"] = int(self.clock.epoch)
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("interactions", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
         occupancy = self.world.get("place_occupancy", {}) if isinstance(self.world, dict) else {}
         for place in self.places.values(): place.current_duels = int(occupancy.get(place.id, place.current_duels) or 0)
         self.sync_place_runtime()
@@ -1732,10 +1787,10 @@ class ContentStore:
             for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
         if "runtime_world" in requested:
             self.sync_place_runtime()
-            world_keys = ["requests", "orders", "championships", "trades", "borrows", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
-            defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
+            world_keys = ["requests", "orders", "championships", "trades", "borrows", "interactions", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
+            defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
             for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
-            write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "collections": world_keys})
+            write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
         if "logic" in requested:
             for key, graph in self.logic.items(): write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
@@ -1758,7 +1813,44 @@ class ContentStore:
             self.save()
 
     def world_context(self):
-        return {"clock": self.clock.now(), "period": self.clock.period(), "label": self.clock.label(), "simulation_time": float(self.world.get("simulation_time", 0.0)), "places": {place.id: {"current": place.current_duels, "capacity": place.capacity} for place in self.places.values()}, "characters": {character.id: {"availability": character.availability, "place": character.current_place, "destination": character.destination, "progress": character.movement_progress, "activity": character.activity} for character in self.characters.values()}, "active_battles": len([battle for battle in self.world.setdefault("active_battles", []) if battle.get("status") == "active"])}
+        simulation_time = float(self.world.get("simulation_time", 0.0))
+        return {"clock": self.clock.now(simulation_time), "period": self.clock.period(simulation_time), "label": self.clock.label(simulation_time), "simulation_time": simulation_time, "places": {place.id: {"current": place.current_duels, "capacity": place.capacity} for place in self.places.values()}, "characters": {character.id: {"availability": character.availability, "place": character.current_place, "destination": character.destination, "progress": character.movement_progress, "activity": character.activity} for character in self.characters.values()}, "active_battles": len([battle for battle in self.world.setdefault("active_battles", []) if battle.get("status") == "active"])}
+
+    def interaction_by_id(self, interaction_id):
+        return next((item for item in self.world.setdefault("interactions", []) if item.get("id") == interaction_id), None)
+
+    def queue_interaction_media(self, family, event, actor_id="", target_id="", relation="opponent", entity_type="characters", entity_id="", metadata=None):
+        place_id = self.role_config().get("default_place", "")
+        if relation == "opponent" and actor_id and target_id: relation = self.relationship_for(actor_id, target_id)
+        selection = self.media.resolve(event, actor_id, target_id, relation, entity_type, entity_id or actor_id, place_id, "hang")
+        record = {"type": "interaction_media", "family": family, "event": event, "actor": actor_id, "target": target_id, "relation": relation, "selection": selection.to_dict(), "metadata": dict(metadata or {}), "sim_time": float(self.world.get("simulation_time", 0.0))}
+        events = self.world.setdefault("simulation_events", [])
+        events.append(record)
+        self.world["simulation_events"] = events[-200:]
+        return selection
+
+    def register_interaction(self, family, record):
+        interaction_id = record.get("id", "")
+        if not interaction_id: return None
+        catalog = self.world.setdefault("interactions", [])
+        existing = self.interaction_by_id(interaction_id)
+        participants = [record.get(key, "") for key in ["from", "to", "creator", "recipient", "placer", "taker", "lender", "borrower"]]
+        envelope = {"id": interaction_id, "family": family, "from": record.get("from") or record.get("creator") or record.get("placer") or record.get("lender", ""), "to": record.get("to") or record.get("recipient") or record.get("taker") or record.get("borrower", ""), "participants": list(dict.fromkeys(item for item in participants if item)), "intent": record.get("relationship_intent", record.get("intent", family)), "status": record.get("status", record.get("state", "open")), "created_sim_time": record.get("created_sim_time", record.get("created", float(self.world.get("simulation_time", 0.0)))), "expires_sim_time": record.get("expires_sim_time", record.get("expires", 0.0)), "payload": {key: value for key, value in record.items() if key not in ["events", "history", "id", "status", "state"]}, "events": list(record.get("events", record.get("history", [])))}
+        if existing is None: catalog.append(envelope)
+        else: existing.update(envelope)
+        return envelope
+
+    def transition_interaction(self, family, record, status, actor, action=None, metadata=None):
+        now = float(self.world.get("simulation_time", 0.0))
+        if "status" in record: record["status"] = status
+        if "state" in record: record["state"] = status
+        event = {"status": status, "actor": actor, "action": action or status, "sim_time": now}
+        if metadata: event.update(dict(metadata))
+        events = record.setdefault("events", record.setdefault("history", []))
+        events.append(event)
+        envelope = self.register_interaction(family, record)
+        if envelope is not None: envelope["events"] = list(events); envelope["status"] = status
+        return event
 
     def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="stranger", deck_id="", reward_policy="random_card", expires_in=10800):
         preferred_place = preferred_place or self.role_config()["default_place"]
@@ -1770,8 +1862,10 @@ class ContentStore:
         self.world["request_sequence"] = sequence
         request_id = "request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
-        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id if deck_id in self.decks else "", "reward_policy": reward_policy, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "sim_time": now}]}
+        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id if deck_id in self.decks else "", "reward_policy": reward_policy, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "action": "open", "sim_time": now}]}
         self.world.setdefault("requests", []).append(request)
+        self.register_interaction("request", request)
+        self.queue_interaction_media("request", "request_open", from_id, to_id, relationship_intent, "characters", from_id, {"request_id": request_id, "reason": reason})
         sender = self.characters[from_id]
         sender.history.append({"event": "request_sent", "request_id": request_id, "to": to_id, "intent": relationship_intent, "reason": reason, "time": time.time()})
         sender.history = sender.history[-100:]
@@ -1794,8 +1888,9 @@ class ContentStore:
             status = {"accept": "queued", "deny": "denied", "ignore": "ignored"}[decision]
         else: return False
         now = float(self.world.get("simulation_time", 0.0))
+        self.transition_interaction("request", request, status, actor_id, decision)
+        self.queue_interaction_media("request", "request_" + status, actor_id, recipient_id if actor_id == sender_id else sender_id, request.get("relationship_intent", "stranger"), "characters", actor_id, {"request_id": request_id, "decision": decision})
         request["status"] = status
-        request.setdefault("events", []).append({"status": status, "actor": actor_id, "sim_time": now})
         actor = self.characters.get(actor_id)
         other = self.characters.get(recipient_id if actor_id == sender_id else sender_id)
         if actor:
@@ -1813,7 +1908,7 @@ class ContentStore:
             if intent in ["ally", "enemy"]:
                 self.set_relationship(sender_id, recipient_id, intent, "request accepted")
                 self.set_relationship(recipient_id, sender_id, intent, "request accepted")
-        self.save()
+            self.save()
         return True
 
     def move_character(self, character_id, destination, duration=5.0):
@@ -1940,8 +2035,10 @@ class ContentStore:
             self._advance_movement(seconds)
             for request in self.world.setdefault("requests", []):
                 if request.get("status") in ["open", "queued"] and self.world["simulation_time"] >= float(request.get("expires_sim_time", 0.0)):
-                    request["status"] = "expired"
-                    request.setdefault("events", []).append({"status": "expired", "actor": "world", "sim_time": self.world["simulation_time"]})
+                    self.transition_interaction("request", request, "expired", "world", "expired")
+            for order in self.world.setdefault("orders", []):
+                if order.get("status") == "open" and float(order.get("expires_sim_time", 0.0)) > 0 and self.world["simulation_time"] >= float(order.get("expires_sim_time", 0.0)):
+                    self.transition_interaction("order", order, "expired", "world", "expired")
             self._advance_battles(seconds)
             self._activate_queued_requests()
             self._ai_request_tick()
@@ -1956,16 +2053,51 @@ class ContentStore:
             self.save({"runtime_characters", "runtime_teams", "runtime_world"})
         return self.world_context()
 
-    def place_order(self, placer, taker, give):
-        order_id = "order_" + str(int(time.time() * 1000))
-        self.world.setdefault("orders", []).append({"id": order_id, "title": f"Order by {placer}: {give}", "placer": placer, "taker": taker, "give": give, "status": "open"})
+    def place_order(self, placer, taker, give, deck_id="", place_id="", reward_policy="random_card", expires_in=10800, intent="duel_order"):
+        if placer not in self.characters or taker and taker not in self.characters: return None
+        sequence = int(self.world.get("order_sequence", 0)) + 1
+        self.world["order_sequence"] = sequence
+        order_id = "order_" + str(int(time.time() * 1000)) + "_" + str(sequence)
+        now = float(self.world.get("simulation_time", 0.0))
+        order = {"id": order_id, "title": f"Order by {placer}: {give}", "placer": placer, "taker": taker or "", "give": give, "deck_id": deck_id if deck_id in self.decks else "", "place": place_id if place_id in self.places else "", "reward_policy": reward_policy, "intent": intent, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1.0, float(expires_in)), "events": [{"status": "open", "actor": placer, "action": "open", "sim_time": now}]}
+        self.world.setdefault("orders", []).append(order)
+        self.register_interaction("order", order)
+        self.queue_interaction_media("order", "order_open", placer, taker or "", "opponent", "characters", placer, {"order_id": order_id, "give": give})
         self.save()
         return order_id
 
+    def interaction_list(self, family="", status=""):
+        records = list(self.world.setdefault("interactions", []))
+        if family: records = [item for item in records if item.get("family") == family]
+        if status: records = [item for item in records if item.get("status") == status]
+        return sorted(records, key=lambda item: (float(item.get("created_sim_time", 0.0)), item.get("id", "")), reverse=True)
+
+    def respond_order(self, order_id, actor_id, decision):
+        order = next((item for item in self.world.setdefault("orders", []) if item.get("id") == order_id), None)
+        decision = str(decision or "").lower()
+        if not order or order.get("status") != "open": return False
+        placer = order.get("placer", "")
+        taker = order.get("taker", "")
+        if decision == "cancel":
+            if actor_id != placer: return False
+            status = "canceled"
+        elif decision in ["accept", "deny", "ignore"]:
+            if actor_id == placer or taker and actor_id != taker: return False
+            status = {"accept": "accepted", "deny": "denied", "ignore": "ignored"}[decision]
+            if decision == "accept" and not taker: order["taker"] = actor_id
+        else: return False
+        self.transition_interaction("order", order, status, actor_id, decision)
+        self.queue_interaction_media("order", "order_" + status, actor_id, placer, "opponent", "characters", actor_id, {"order_id": order_id, "decision": decision})
+        if status == "accepted": order["accepted_by"] = actor_id
+        self.save()
+        return True
+
     def close_world_entry(self, collection, entry_id):
+        family = {"orders": "order", "requests": "request", "trades": "trade", "borrows": "borrow"}.get(collection, collection.rstrip("s"))
         for entry in self.world.setdefault(collection, []):
             if entry.get("id") == entry_id:
-                entry["status"] = "accepted"
+                actor = entry.get("taker") or entry.get("recipient") or entry.get("to") or entry.get("placer") or entry.get("creator") or entry.get("borrower") or "world"
+                self.transition_interaction(family, entry, "accepted", actor, "accept")
                 self.save()
                 return entry
         return None
@@ -1974,7 +2106,7 @@ class ContentStore:
         trades = self.world.setdefault("trades", [])
         now = time.time()
         for trade in trades:
-            if trade.get("state") in ["open", "countered"] and now >= trade.get("expires", 0): trade["state"] = "expired"
+            if trade.get("state") in ["open", "countered"] and now >= trade.get("expires", 0): self.transition_interaction("trade", trade, "expired", "world", "expired")
         self.save()
         return trades
 
@@ -1994,9 +2126,14 @@ class ContentStore:
         counts = self.owned_counts(creator_id)
         if not offered_cards or any(counts.get(card_id, 0) < offered_cards.count(card_id) for card_id in set(offered_cards)): return None
         requested_cards = list(requested_cards or [])[:3]
-        trade_id = "trade_" + str(int(time.time() * 1000))
-        trade = {"id": trade_id, "creator": creator_id, "recipient": recipient_id, "offered_cards": offered_cards, "requested_cards": requested_cards, "requested_family": requested_family, "state": "open", "parent_id": "", "created": time.time(), "expires": time.time() + 10800, "history": [{"actor": creator_id, "action": "opened", "time": time.time()}], "ownership_transferred": False}
+        sequence = int(self.world.get("trade_sequence", 0)) + 1
+        self.world["trade_sequence"] = sequence
+        trade_id = "trade_" + str(int(time.time() * 1000)) + "_" + str(sequence)
+        created = time.time()
+        trade = {"id": trade_id, "creator": creator_id, "recipient": recipient_id, "offered_cards": offered_cards, "requested_cards": requested_cards, "requested_family": requested_family, "intent": "card_trade", "state": "open", "parent_id": "", "created": created, "expires": created + 10800, "history": [{"actor": creator_id, "action": "opened", "status": "open", "time": created}], "events": [{"actor": creator_id, "action": "opened", "status": "open", "sim_time": float(self.world.get("simulation_time", 0.0))}], "ownership_transferred": False}
         self.world.setdefault("trades", []).append(trade)
+        self.register_interaction("trade", trade)
+        self.queue_interaction_media("trade", "trade_open", creator_id, recipient_id, "opponent", "characters", creator_id, {"trade_id": trade_id})
         self.save()
         return trade
 
@@ -2024,9 +2161,13 @@ class ContentStore:
         if counter:
             counter["state"] = "countered"
             counter["parent_id"] = parent["id"]
-            counter["history"] = list(parent.get("history", [])) + [{"actor": actor_id, "action": "countered", "parent_id": parent["id"], "time": time.time()}]
+            counter["history"] = list(parent.get("history", [])) + [{"actor": actor_id, "action": "countered", "status": "countered", "parent_id": parent["id"], "time": time.time()}]
+            counter["events"] = list(parent.get("events", [])) + [{"actor": actor_id, "action": "countered", "status": "countered", "sim_time": float(self.world.get("simulation_time", 0.0))}]
             parent["state"] = "countered"
-            parent["history"].append({"actor": actor_id, "action": "answered_with_counter", "child_id": counter["id"], "time": time.time()})
+            parent["history"].append({"actor": actor_id, "action": "answered_with_counter", "status": "countered", "child_id": counter["id"], "time": time.time()})
+            self.transition_interaction("trade", parent, "countered", actor_id, "countered", {"child_id": counter["id"]})
+            self.queue_interaction_media("trade", "trade_countered", actor_id, parent.get("creator", ""), "opponent", "characters", actor_id, {"trade_id": counter["id"], "parent_id": parent["id"]})
+            self.register_interaction("trade", counter)
             self.save()
         return counter
 
@@ -2041,7 +2182,9 @@ class ContentStore:
         trade["requested_cards"] = requested
         trade["state"] = "accepted"
         trade["ownership_transferred"] = True
-        trade["history"].append({"actor": actor_id, "action": "accepted", "time": time.time()})
+        trade["history"].append({"actor": actor_id, "action": "accepted", "status": "accepted", "time": time.time()})
+        self.transition_interaction("trade", trade, "accepted", actor_id, "accepted", {"received": trade["offered_cards"], "gave": requested})
+        self.queue_interaction_media("trade", "trade_complete", actor_id, trade.get("creator", ""), "opponent", "characters", actor_id, {"trade_id": trade_id})
         creator.history.append({"event": "trade", "trade_id": trade["id"], "with": recipient.id, "received": requested, "gave": trade["offered_cards"], "time": time.time()})
         recipient.history.append({"event": "trade", "trade_id": trade["id"], "with": creator.id, "received": trade["offered_cards"], "gave": requested, "time": time.time()})
         self.save()
@@ -2050,14 +2193,18 @@ class ContentStore:
     def cancel_trade(self, trade_id, actor_id):
         trade = self.get_trade(trade_id)
         if not trade or actor_id not in [trade.get("creator"), trade.get("recipient")] or trade.get("state") in ["accepted", "canceled", "expired", "duel_accepted"]: return False
+        self.transition_interaction("trade", trade, "canceled", actor_id, "canceled")
+        self.queue_interaction_media("trade", "trade_canceled", actor_id, trade.get("creator", "") if actor_id == trade.get("recipient") else trade.get("recipient", ""), "opponent", "characters", actor_id, {"trade_id": trade_id})
         trade["state"] = "canceled"
-        trade["history"].append({"actor": actor_id, "action": "canceled", "time": time.time()})
+        trade["history"].append({"actor": actor_id, "action": "canceled", "status": "canceled", "time": time.time()})
         self.save()
         return True
 
     def escalate_trade(self, trade_id, actor_id):
         trade = self.get_trade(trade_id)
         if not trade or actor_id not in [trade.get("creator"), trade.get("recipient")] or trade.get("state") not in ["open", "countered"]: return None
+        self.transition_interaction("trade", trade, "escalated", actor_id, "escalated")
+        self.queue_interaction_media("trade", "trade_escalated", actor_id, trade.get("creator", "") if actor_id == trade.get("recipient") else trade.get("recipient", ""), "opponent", "characters", actor_id, {"trade_id": trade_id})
         trade["state"] = "escalated"
         request_id = self.add_request(actor_id, trade["creator"] if actor_id == trade["recipient"] else trade["recipient"], "high-stakes trade duel")
         trade["duel_request_id"] = request_id
@@ -2068,9 +2215,14 @@ class ContentStore:
     def borrow_card(self, lender_id, borrower_id, card_id, duels=1):
         if lender_id not in self.characters or borrower_id not in self.characters or lender_id == borrower_id or card_id not in self.cards: return None
         if self.owned_counts(lender_id).get(card_id, 0) < 1: return None
-        borrow_id = "borrow_" + str(int(time.time() * 1000))
-        record = {"id": borrow_id, "lender": lender_id, "borrower": borrower_id, "card_id": card_id, "remaining_duels": max(1, min(5, int(duels))), "state": "active", "created": time.time()}
+        sequence = int(self.world.get("borrow_sequence", 0)) + 1
+        self.world["borrow_sequence"] = sequence
+        borrow_id = "borrow_" + str(int(time.time() * 1000)) + "_" + str(sequence)
+        created = time.time()
+        record = {"id": borrow_id, "lender": lender_id, "borrower": borrower_id, "card_id": card_id, "remaining_duels": max(1, min(5, int(duels))), "intent": "card_borrow", "state": "active", "created": created, "history": [{"actor": borrower_id, "action": "opened", "status": "active", "time": created}], "events": [{"actor": borrower_id, "action": "opened", "status": "active", "sim_time": float(self.world.get("simulation_time", 0.0))}]}
         self.world.setdefault("borrows", []).append(record)
+        self.register_interaction("borrow", record)
+        self.queue_interaction_media("borrow", "borrow_open", borrower_id, lender_id, "ally", "characters", borrower_id, {"borrow_id": borrow_id, "card_id": card_id})
         self.characters[borrower_id].borrowed_cards.append(card_id)
         self.characters[borrower_id].history.append({"event": "borrow_started", "borrow_id": borrow_id, "card": card_id, "from": lender_id, "time": time.time()})
         self.save()
@@ -2083,6 +2235,8 @@ class ContentStore:
                 record["remaining_duels"] -= 1
                 changed = True
                 if record["remaining_duels"] <= 0:
+                    self.transition_interaction("borrow", record, "returned", character_id, "returned")
+                    self.queue_interaction_media("borrow", "borrow_returned", character_id, record.get("lender", ""), "ally", "characters", character_id, {"borrow_id": record.get("id", ""), "card_id": record.get("card_id", "")})
                     record["state"] = "returned"
                     borrower = self.characters.get(character_id)
                     if borrower and record["card_id"] in borrower.borrowed_cards: borrower.borrowed_cards.remove(record["card_id"])
@@ -2257,12 +2411,15 @@ class ContentStore:
             "places": ["logic", "background/day", "background/night", "animations/pre-duel", "animations/spin-dice", "animations/in-duel", "animations/win", "animations/lose", "animations/draw", "audio/pre-duel", "audio/spin-dice", "audio/in-duel", "audio/near-win", "audio/near-lose", "audio/win", "audio/lose", "audio/draw", "music"],
             "decks": ["logic", "cards", "experience"]
         }
-        events = ["idle", "about", "pre-duel", "pre_duel", "spin-dice", "spin_dice", "draw", "standby", "turn-start", "turn_start", "turn-end", "turn_end", "summon", "special-summon", "special_summon", "set", "flip", "attack", "damage", "destroy", "return", "direct-damage", "direct_damage", "win", "lose", "draw-result", "draw_result", "instant-win", "instant_win", "instant-lose", "instant_lose", "near-win", "near_win", "near-lose", "near_lose"]
+        events = ["idle", "about", "pre-duel", "pre_duel", "spin-dice", "spin_dice", "draw", "standby", "turn-start", "turn_start", "turn-end", "turn_end", "summon", "special-summon", "special_summon", "set", "flip", "flip-reveal", "flip_reveal", "activate", "effect", "effect-start", "effect_start", "attack", "attacking", "attack-travel", "attack_travel", "hit", "damage", "switch-position", "switch_position", "stat-change", "stat_change", "damage-dealt", "damage_dealt", "damage-received", "damage_received", "direct-damage", "direct_damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "return_to_hand", "banish", "banished", "turn-start", "turn_start", "turn-end", "turn_end", "best-card", "best_card", "near-win", "near_win", "near-lose", "near_lose", "win", "lose", "draw-result", "draw_result", "instant-win", "instant_win", "instant-lose", "instant_lose"]
         for relation_name in ["stranger", "ally", "enemy", "opponent"]:
             trees["characters"].extend(f"duel/reactions/{relation_name}/{event}" for event in events)
         trees["characters"].extend(f"duel/interactions/{event}" for event in events)
         trees["cards"].extend(f"interactions/{event}/animations" for event in events)
         trees["cards"].extend(f"interactions/{event}/audio" for event in events)
+        trees["cards"].extend(f"interactions/{event}/vfx" for event in events)
+        trees["characters"].extend(f"duel/vfx/{event}" for event in events)
+        trees["characters"].extend(f"duel/effects/{event}" for event in events)
         trees["places"].extend(f"music/{period}/{state}" for period in ["day", "night"] for state in ["pre-duel", "duel", "near-win", "near-lose", "post-duel-win", "post-duel-lose", "draw"])
         return trees.get(category, ["logic", "animations", "audio"])
 
@@ -3045,6 +3202,8 @@ class DuelEngine:
         self.logic_runtime = LogicRuntime(store.logic)
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
+        self.presentation_events = []
+        self.presentation_sequence = 0
         self.selected_hand = None
         self.selected_monster = None
         self.finished = False
@@ -3209,13 +3368,41 @@ class DuelEngine:
         self.react("pfp_" + action, actor.id, target.id, "opponent")
         self.store.save()
 
-    def react(self, event, actor_id, target_id="", relation="stranger", entity_type="characters", entity_id="", mode="hang"):
+    def react(self, event, actor_id, target_id="", relation="stranger", entity_type="characters", entity_id="", mode="hang", metadata=None):
         if relation == "opponent": relation = self.store.relationship_for(actor_id, target_id)
-        selection = self.reaction_resolver.resolve(event, actor_id, target_id, relation, entity_type, entity_id, self.place.id, mode)
-        record = {"event": event, "actor": actor_id, "target": target_id, "relation": relation, "selection": selection.to_dict(), "time": time.time()}
+        selection = self.reaction_resolver.resolve(event, actor_id, target_id, relation, entity_type, entity_id, self.place.id, mode, None, metadata)
+        selection.metadata = dict(metadata or {})
+        record = {"kind": "reaction", "event": event, "actor": actor_id, "target": target_id, "relation": relation, "selection": selection.to_dict(), "metadata": dict(metadata or {}), "sequence": len(self.reaction_events) + 1, "time": time.time()}
         self.reaction_events.append(record)
-        self.reaction_events = self.reaction_events[-20:]
+        self.reaction_events = self.reaction_events[-100:]
         self.log(f"MEDIA {event}: {selection.source} variant {selection.variant or 'placeholder'}")
+        return selection
+
+    def logical_anchor(self, side, zone, card=None):
+        duelist = self.player if side == "player" else self.opponent
+        collection = duelist.monsters if zone == "monster" else duelist.spells if zone == "spell_trap" else []
+        index = collection.index(card) if card in collection else -1
+        return {"side": side, "zone": zone, "index": index, "card_id": card.card.id if isinstance(card, CardInstance) else ""}
+
+    def card_react(self, event, card, owner, other=None, metadata=None, mode="hang"):
+        other = other or self.other(owner)
+        data = dict(metadata or {})
+        data.setdefault("card_id", card.card.id if isinstance(card, CardInstance) else "")
+        data.setdefault("anchor", self.logical_anchor(self.side_key(owner), "monster" if card in owner.monsters else "spell_trap", card))
+        return self.react(event, owner.character.id, other.character.id if other else "", "opponent", "cards", card.card.id if isinstance(card, CardInstance) else "", mode, data)
+
+    def emit_attack_presentation(self, attacker_side, attacker, target=None, target_side=None, direct=False):
+        target_side = target_side or self.other(attacker_side)
+        self.presentation_sequence += 1
+        source_anchor = self.logical_anchor(self.side_key(attacker_side), "monster", attacker)
+        target_anchor = {"side": self.side_key(target_side), "zone": "duelist" if direct or target is None else "monster", "index": -1 if direct or target is None else target_side.monsters.index(target), "card_id": target.card.id if isinstance(target, CardInstance) else ""}
+        vfx = self.store.media.vfx_path("attack", attacker.card.id, attacker_side.character.id)
+        selection = ReactionSelection("attack_travel", attacker_side.character.id, target_side.character.id if direct or target is None else target.card.id, self.store.relationship_for(attacker_side.character.id, target_side.character.id), vfx or "universal", 1 if vfx else 0, vfx, "", "hang", not bool(vfx), [], "", 0.72, 0.72, FPS, "hang", {"kind": "attack", "source_anchor": source_anchor, "target_anchor": target_anchor, "direct": bool(direct or target is None), "presentation_id": "attack_presentation_" + str(self.presentation_sequence)}, {"card_id": attacker.card.id, "target_card_id": target.card.id if isinstance(target, CardInstance) else "", "amount": 0})
+        record = {"kind": "presentation", "event": "attack_travel", "actor": attacker_side.character.id, "target": target_side.character.id if direct or target is None else target.card.id, "relation": selection.relation, "presentation_id": selection.presentation.get("presentation_id", ""), "selection": selection.to_dict(), "metadata": dict(selection.metadata), "sequence": self.presentation_sequence, "time": time.time()}
+        self.presentation_events.append(record)
+        self.presentation_events = self.presentation_events[-50:]
+        self.reaction_events.append(record)
+        self.reaction_events = self.reaction_events[-100:]
         return selection
 
     def advance(self):
@@ -3855,6 +4042,8 @@ class DuelEngine:
     def move_card(self, card, destination, owner=None):
         owner = owner or self.owner_of(card)
         if not owner or not card or destination not in ["graveyard", "banished", "hand", "deck", "extra"]: return False
+        source_zone = card.position
+        source_anchor = self.logical_anchor(self.side_key(owner), "monster" if card in owner.monsters else "spell_trap", card)
         if card is self.field_card:
             self.field_card = None
             self.field_card_owner = None
@@ -3880,7 +4069,11 @@ class DuelEngine:
             owner.extra.append(card)
         else:
             return False
-        self.emit_event("movement", owner, source=card, target=card, metadata={"from_zone": card.last_zone, "to_zone": destination, "owner": owner.character.id})
+        movement_metadata = {"from_zone": source_zone, "to_zone": destination, "owner": owner.character.id, "anchor": source_anchor, "card_id": card.card.id}
+        self.emit_event("movement", owner, source=card, target=card, metadata=movement_metadata)
+        if destination == "hand": self.card_react("return", card, owner, self.other(owner), movement_metadata)
+        elif destination == "banished": self.card_react("banish", card, owner, self.other(owner), movement_metadata)
+        elif destination == "graveyard": self.card_react("send_to_graveyard", card, owner, self.other(owner), movement_metadata)
         return True
 
     def normalize_event_window(self, trigger, actor=None, source=None, target=None, metadata=None):
@@ -4524,7 +4717,14 @@ class DuelEngine:
                 recipient.hp = max(0, recipient.hp - amount)
                 values.append(before - recipient.hp)
             result["value"] = values[0] if len(values) == 1 else values
-            for recipient, value in zip(recipients, values): self.emit_event("damage", actor, source=card, target=recipient, metadata={"amount": value, "requested": amount})
+            for recipient, value in zip(recipients, values):
+                self.emit_event("damage", actor, source=card, target=recipient, metadata={"amount": value, "requested": amount})
+                if isinstance(recipient, Duelist):
+                    self.react("damage_dealt", actor.character.id, recipient.character.id, "opponent", "characters", actor.character.id, "hang", {"amount": value, "source_card_id": card.card.id if isinstance(card, CardInstance) else "", "direct": True})
+                    self.react("damage_received", recipient.character.id, actor.character.id, "opponent", metadata={"amount": value, "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
+                elif isinstance(recipient, CardInstance):
+                    recipient_owner = self.owner_of(recipient) or self.other(actor)
+                    self.card_react("hit", recipient, recipient_owner, actor, {"amount": value, "source_card_id": card.card.id if isinstance(card, CardInstance) else "", "cause": "effect"})
             self.log(f"{source} deals {amount} damage to {len(recipients)} target(s).")
         elif action == "heal":
             recipients = [item for item in targets if hasattr(item, "hp")] or [actor]
@@ -4549,11 +4749,14 @@ class DuelEngine:
             selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
             values = []
             for selected_card in selected_cards:
+                anchor = self.logical_anchor(self.side_key(self.owner_of(selected_card) or actor), "monster" if selected_card in (self.owner_of(selected_card) or actor).monsters else "spell_trap", selected_card)
                 if action == "set_face_up": selected_card.face_up = True
                 elif action == "set_face_down": selected_card.face_up = False
                 elif selected_card.face_up: selected_card.battle_position = "defense" if selected_card.battle_position == "attack" else "attack"
                 values.append({"id": selected_card.card.id, "face_up": selected_card.face_up, "position": selected_card.battle_position})
                 self.emit_event(action, actor, source=card, target=selected_card, metadata={"face_up": selected_card.face_up, "position": selected_card.battle_position})
+                owner = self.owner_of(selected_card) or actor
+                self.card_react("flip" if action in ["set_face_up", "set_face_down"] else "switch_position", selected_card, owner, self.other(owner), {"anchor": anchor, "face_up": selected_card.face_up, "position": selected_card.battle_position, "cause": "effect"})
             result["value"] = values
             self.log(f"{source} changes state of {len(selected_cards)} card(s).")
         elif action in ["boost_attack", "boost_defense"]:
@@ -4562,12 +4765,18 @@ class DuelEngine:
             for selected_card in selected_cards:
                 if action == "boost_attack": selected_card.attack_bonus += amount; values.append(selected_card.attack_bonus)
                 else: selected_card.defense_bonus += amount; values.append(selected_card.defense_bonus)
+                owner = self.owner_of(selected_card) or actor
+                self.card_react("stat_change", selected_card, owner, self.other(owner), {"anchor": self.logical_anchor(self.side_key(owner), "monster" if selected_card in owner.monsters else "spell_trap", selected_card), "amount": amount, "stat": "attack" if action == "boost_attack" else "defense", "cause": "effect"})
             result["value"] = values[0] if len(values) == 1 else values
             result["target_ids"] = [item.card.id for item in selected_cards]
             label = "ATK" if action == "boost_attack" else "DEF"
             self.log(f"{source} modifies {len(selected_cards)} card(s) by {amount} {label}.")
         elif action == "destroy":
             selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
+            for selected_card in selected_cards:
+                owner = self.owner_of(selected_card) or actor
+                anchor = self.logical_anchor(self.side_key(owner), "monster" if selected_card in owner.monsters else "spell_trap", selected_card)
+                self.card_react("destroy", selected_card, owner, self.other(owner), {"anchor": anchor, "cause": "effect", "destroyed_by": card.card.id if isinstance(card, CardInstance) else ""})
             moved = [item.card.id for item in selected_cards if self.move_card(item, "graveyard")]
             result["value"] = moved
             result["status"] = "resolved" if moved else "blocked"
@@ -4823,7 +5032,10 @@ class DuelEngine:
             amount = action.get("amount", 0)
             if isinstance(amount, dict): amount = amount.get("value", 0)
             self.apply_effect(card, action_name, int(amount or 0), actor, resolved, card.card.name, spec.trigger)
-        if spec.media: self.reaction_events.append({"event": spec.media.get("cue", spec.effect_id), "actor": actor.character.id, "target": default_target.character.id, "selection": spec.media, "time": time.time()})
+        if spec.media:
+            cue = spec.media.get("cue", spec.effect_id)
+            mode = spec.media.get("mode", "hang")
+            self.react(cue, actor.character.id, default_target.character.id, "opponent", "cards", card.card.id if isinstance(card, CardInstance) else "", mode, {"effect_id": spec.effect_id, "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
         return True
 
     def answer_pending_effect(self, answer):
@@ -5007,41 +5219,59 @@ class DuelEngine:
         attacker.attacked = True
         self.emit_event("attack", attacker_side, source=attacker, target=target, metadata={"attacker": attacker.card.id, "target": self.entity_id(target) if target else "", "direct": not bool(targets)})
         self.emit_event("attacked", defender_side, source=None, target=target or defender_side, metadata={"attacker": attacker.card.id, "target": self.entity_id(target) if target else defender_side.character.id, "direct": not bool(targets)})
+        self.emit_attack_presentation(attacker_side, attacker, target, defender_side, not bool(targets))
+        self.card_react("attack", attacker, attacker_side, defender_side, {"target_card_id": target.card.id if isinstance(target, CardInstance) else "", "direct": not bool(targets)})
         if not target:
             damage = self.effective_atk(attacker, attacker_side)
             defender_side.hp = max(0, defender_side.hp - damage)
             self.emit_event("damage", attacker_side, source=attacker, target=defender_side, metadata={"amount": damage, "source": "battle", "direct": True})
             self.log(f"{attacker.card.name} attacks directly for {damage}.")
-            self.react("attack", attacker_side.character.id, defender_side.character.id, "opponent")
+            self.react("direct_damage", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "direct": True})
+            self.react("attack", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "direct": True})
             self.check_end()
             return True, ""
         if not target.face_up:
             target.face_up = True
             self.log(f"{target.card.name} flips face-up.")
             self.emit_event("flip", defender_side, source=target, target=target, metadata={"position": target.battle_position})
-            self.react("flip", defender_side.character.id, attacker_side.character.id, "opponent", "cards", target.card.id)
+            self.card_react("flip", target, defender_side, attacker_side, {"revealed_by_attack": True, "position": target.battle_position})
+            self.react("flip_reveal", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"card_id": target.card.id, "position": target.battle_position})
             self.resolve(target, "flip", actor=defender_side, target=attacker)
             self.run_logic(target, "flip", defender_side, attacker_side)
         attack_value = self.effective_atk(attacker, attacker_side)
         target_in_attack = target.battle_position == "attack"
         target_value = self.battle_value(target, defender_side)
         if attack_value > target_value:
+            target_anchor = self.logical_anchor(self.side_key(defender_side), "monster", target)
             self.destroy(defender_side, target)
+            self.card_react("destroy", target, defender_side, attacker_side, {"anchor": target_anchor, "cause": "battle", "destroyed_by": attacker.card.id})
             damage = attack_value - target_value if target_in_attack else 0
             if damage:
                 defender_side.hp = max(0, defender_side.hp - damage)
                 self.emit_event("damage", attacker_side, source=attacker, target=defender_side, metadata={"amount": damage, "source": "battle", "direct": False, "defeated": target.card.id})
             self.log(f"{attacker.card.name} defeats {target.card.name}" + (f" for {damage} damage." if damage else "."))
-            self.react("damage", attacker_side.character.id, defender_side.character.id, "opponent")
+            if damage:
+                self.react("damage_dealt", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "target_card_id": target.card.id})
+                self.react("damage_received", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"amount": damage, "source_card_id": attacker.card.id, "anchor": target_anchor})
+            self.card_react("hit", target, defender_side, attacker_side, {"amount": damage, "cause": "battle", "anchor": target_anchor, "destroyed": True})
         elif attack_value < target_value:
             damage = target_value - attack_value
+            attacker_anchor = self.logical_anchor(self.side_key(attacker_side), "monster", attacker)
             self.destroy(attacker_side, attacker)
+            self.card_react("destroy", attacker, attacker_side, defender_side, {"anchor": attacker_anchor, "cause": "battle", "destroyed_by": target.card.id})
+            self.card_react("hit", attacker, attacker_side, defender_side, {"amount": damage, "cause": "battle", "anchor": attacker_anchor, "destroyed": True})
             attacker_side.hp = max(0, attacker_side.hp - damage)
             self.emit_event("damage", defender_side, source=target, target=attacker_side, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": attacker.card.id})
+            self.react("damage_dealt", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"amount": damage, "target_card_id": attacker.card.id})
+            self.react("damage_received", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "source_card_id": target.card.id, "anchor": attacker_anchor})
             self.log(f"{attacker.card.name} loses the battle and {attacker_side.name} takes {damage} damage.")
         elif target_in_attack:
+            attacker_anchor = self.logical_anchor(self.side_key(attacker_side), "monster", attacker)
+            target_anchor = self.logical_anchor(self.side_key(defender_side), "monster", target)
             self.destroy(attacker_side, attacker)
             self.destroy(defender_side, target)
+            self.card_react("destroy", attacker, attacker_side, defender_side, {"anchor": attacker_anchor, "cause": "battle", "destroyed_by": target.card.id})
+            self.card_react("destroy", target, defender_side, attacker_side, {"anchor": target_anchor, "cause": "battle", "destroyed_by": attacker.card.id})
             self.log("Both monsters are destroyed.")
         else:
             self.log(f"{attacker.card.name} is stopped by {target.card.name}.")
@@ -5853,7 +6083,7 @@ class PreDuelScene(Scene):
 
     def enter(self):
         self.buttons = [Button((90, 496, 180, 44), "ACCEPT FIRST", lambda: self.accept_first(), COLORS["cyan"]), Button((290, 496, 180, 44), "DENY / ROLL", lambda: self.deny_first(), COLORS["gold"]), Button((490, 496, 120, 44), "BACK", lambda: self.app.pop(), COLORS["muted"])]
-        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period() == "night", "pre-duel")
+        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "pre-duel")
 
     def accept_first(self):
         self.choice = self.requested_first_side
@@ -5864,7 +6094,7 @@ class PreDuelScene(Scene):
 
     def deny_first(self):
         self.decision = "denied"
-        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period() == "night", "spin-dice")
+        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "spin-dice")
         self.dice_rolling = True
         self.dice_clock = 0.0
         self.dice_value = None
@@ -5996,6 +6226,10 @@ class DuelScene(Scene):
         self.media_scope = "duel_scene_" + str(id(self))
         self.music_state = ""
         self.reaction_seen = 0
+        self.reaction_queue = []
+        self.attack_presentation = None
+        self.attack_preview_clock = 0.0
+        self.last_pointer = (400, 300)
         self.stage = "watching" if self.spectator else "battle"
         self.message = "Live house POV: watching the duel." if self.spectator else "Select a card, then choose an action."
         self.ai_timer = 0
@@ -6032,6 +6266,9 @@ class DuelScene(Scene):
         self.app.assets.release_media_scope(self.media_scope)
         self.reaction_player.selection = None
         self.reaction_player.finished = True
+        self.reaction_queue.clear()
+        self.attack_presentation = None
+        self.attack_preview_clock = 0.0
 
     def sync_duel_music(self):
         if self.engine.finished:
@@ -6044,7 +6281,7 @@ class DuelScene(Scene):
             state = "duel"
         if state == self.music_state: return
         self.music_state = state
-        self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period() == "night", state)
+        self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", state)
 
     def handle(self, event):
         if self.spectator:
@@ -6052,6 +6289,7 @@ class DuelScene(Scene):
             super().handle(event)
             return
         if event.type == pygame.MOUSEMOTION:
+            self.last_pointer = event.pos
             self.update_hover(event.pos)
             if self.interactions_open:
                 for button_rect, action in self.interaction_rects:
@@ -6157,6 +6395,7 @@ class DuelScene(Scene):
                 return
             if self.hover_target is None and self.hover_attacker and self.engine.phase == "BATTLE":
                 self.engine.selected_monster = self.hover_attacker
+                self.attack_preview_clock = 0.0
                 return
 
     def action_mode_for_hand(self, card):
@@ -6376,6 +6615,7 @@ class DuelScene(Scene):
     def start_reaction(self, record):
         selection = ReactionSelection.from_dict(record.get("selection", {}))
         self.reaction_player.start(selection)
+        self.attack_presentation = dict(selection.presentation) if selection.presentation else None
         enabled = bool(self.app.store.save_data.get("vocals", True))
         if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8, self.media_scope)
 
@@ -6385,11 +6625,12 @@ class DuelScene(Scene):
             self.app.store.advance_world(dt)
             session = self.app.store._world_session(self.watched_battle)
             if session: self.engine = session
-            if len(self.engine.reaction_events) > self.reaction_seen:
-                record = self.engine.reaction_events[-1]
-                self.start_reaction(record)
-                self.reaction_seen = len(self.engine.reaction_events)
+            while self.reaction_seen < len(self.engine.reaction_events):
+                self.reaction_queue.append(self.engine.reaction_events[self.reaction_seen])
+                self.reaction_seen += 1
+            if self.reaction_player.finished and self.reaction_queue: self.start_reaction(self.reaction_queue.pop(0))
             self.reaction_player.update(dt)
+            if self.attack_presentation and self.reaction_player.finished: self.attack_presentation = None
             self.sync_duel_music()
             return
         if self.engine.pending_discard is self.engine.player and self.question is None:
@@ -6406,11 +6647,13 @@ class DuelScene(Scene):
             if self.ai_timer > 0.6:
                 self.ai_timer = 0
                 self.engine.ai_step()
-        if len(self.engine.reaction_events) > self.reaction_seen:
-            record = self.engine.reaction_events[-1]
-            self.start_reaction(record)
-            self.reaction_seen = len(self.engine.reaction_events)
+        while self.reaction_seen < len(self.engine.reaction_events):
+            self.reaction_queue.append(self.engine.reaction_events[self.reaction_seen])
+            self.reaction_seen += 1
+        if self.reaction_player.finished and self.reaction_queue: self.start_reaction(self.reaction_queue.pop(0))
         self.reaction_player.update(dt)
+        if self.attack_presentation and self.reaction_player.finished: self.attack_presentation = None
+        self.attack_preview_clock = self.attack_preview_clock + dt if self.engine.selected_monster and not self.engine.finished else 0.0
         self.sync_duel_music()
         if self.engine.finished and self.stage == "battle":
             if self.place_reserved:
@@ -6429,6 +6672,7 @@ class DuelScene(Scene):
         if self.spectator:
             draw_text(surface, "LIVE HOUSE POV  |  " + self.engine.player.character.name.upper(), (400, 74), self.app.assets.font(10, True), COLORS["gold"], "center")
         self.draw_reaction(surface)
+        self.draw_attack_preview(surface)
         self.draw_hand(surface)
         self.draw_interactions(surface)
         self.draw_hover_cloud(surface)
@@ -6437,7 +6681,7 @@ class DuelScene(Scene):
         if self.engine.finished: self.draw_result(surface)
 
     def draw_duel_backdrop(self, surface):
-        night = self.app.store.clock.period() == "night"
+        night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
         ground = self.app.assets.place_visual(self.place_id, "ground", night, self.time, (W, H), self.media_scope) or self.app.assets.role_image("place_ground", (W, H)) or self.app.assets.role_image("duel_environment", (W, H))
         if ground: ui_blit(surface, ground, (0, 0))
         else:
@@ -6451,6 +6695,91 @@ class DuelScene(Scene):
         ui_blit(surface, frame, self.layout.duel_frame.topleft)
         ui_blit(surface, field_surface, self.layout.field.topleft)
 
+    def anchor_rect(self, anchor):
+        anchor = dict(anchor or {})
+        side = anchor.get("side", "player")
+        zone = anchor.get("zone", "monster")
+        index = int(anchor.get("index", -1))
+        if zone == "duelist": return self.layout.hud_rect(side)
+        if zone == "monster" and 0 <= index < 5: return self.layout.monster_rect(side, index)
+        if zone == "spell_trap" and 0 <= index < 5: return self.layout.spell_rect(side, index)
+        return self.layout.hud_rect(side)
+
+    def draw_attack_preview(self, surface):
+        if not self.engine.selected_monster or self.engine.finished or self.engine.phase != "BATTLE": return
+        source = self.monster_rect(self.engine.selected_monster, True)
+        target = pygame.Vector2(self.last_pointer)
+        origin = pygame.Vector2(source.centerx, source.centery + 34)
+        elapsed = min(1.0, self.attack_preview_clock / 0.35)
+        point = origin.lerp(target, elapsed)
+        pygame.draw.line(surface, (255, 248, 228, 120), source.center, (int(point.x), int(point.y)), 2)
+        vfx_path = self.app.store.media.vfx_path("attack", self.engine.selected_monster.card.id, self.engine.player.character.id)
+        image = self.app.assets.media_image(vfx_path, (84, 84), self.media_scope) if vfx_path else None
+        if image:
+            direction = target - pygame.Vector2(source.center)
+            sprite = pygame.transform.rotate(image, -math.degrees(math.atan2(direction.y, direction.x)))
+            sprite.set_alpha(int(110 + 90 * elapsed))
+            ui_blit(surface, sprite, sprite.get_rect(center=(int(point.x), int(point.y))))
+        self.draw_cloud(surface, int(point.x), int(point.y) - 12, "Attack!")
+
+    def draw_attack_presentation(self, surface, state):
+        presentation = dict(self.attack_presentation or {})
+        source = self.anchor_rect(presentation.get("source_anchor", {}))
+        target = self.anchor_rect(presentation.get("target_anchor", {}))
+        clock = float(state.get("clock", 0.0))
+        duration = max(0.05, float(state.get("duration", 0.72)))
+        progress = clamp(clock / duration, 0.0, 1.0)
+        eased = progress * progress * (3.0 - 2.0 * progress)
+        start = pygame.Vector2(source.centerx, source.centery + 42)
+        end = pygame.Vector2(target.center)
+        point = start.lerp(end, eased)
+        path = state.get("image", "")
+        image = self.app.assets.media_image(path, (108, 108), self.media_scope) if path else None
+        if image:
+            direction = end - start
+            angle = -math.degrees(math.atan2(direction.y, direction.x))
+            sprite = pygame.transform.rotate(image, angle)
+            fade = int(255 * clamp(progress * 5.0, 0.0, 1.0) * clamp((1.0 - progress) * 5.0, 0.0, 1.0))
+            sprite.set_alpha(max(40, fade))
+            ui_blit(surface, sprite, sprite.get_rect(center=(int(point.x), int(point.y))))
+        if progress >= 0.82:
+            ui_draw_rect(surface, (255, 248, 228, int(110 * (1.0 - progress))), target.inflate(8, 8), 2, border_radius=6)
+
+    def draw_card_reaction_fx(self, surface, state):
+        selection = self.reaction_player.selection
+        if not selection: return
+        metadata = dict(selection.metadata or {})
+        anchor = metadata.get("anchor")
+        if not anchor: return
+        rect = self.anchor_rect(anchor)
+        event = str(state.get("event", "")).lower().replace("-", "_")
+        clock = float(state.get("clock", 0.0))
+        duration = max(0.05, float(state.get("duration", 0.35)))
+        progress = clamp(clock / duration, 0.0, 1.0)
+        if event in ["hit", "damage", "damage_dealt", "damage_received"]:
+            offset = int(math.sin(clock * 78.0) * (1.0 - progress) * 6.0)
+            flash = pygame.Surface(rect.size, pygame.SRCALPHA)
+            flash.fill((218, 74, 65, int(85 * (1.0 - progress))))
+            ui_blit(surface, flash, (rect.x + offset, rect.y))
+            ui_draw_rect(surface, (255, 212, 176, int(180 * (1.0 - progress))), rect.inflate(4, 4), 2, border_radius=5)
+        elif event in ["flip", "flip_reveal", "reveal"]:
+            ui_draw_rect(surface, (255, 255, 255, int(150 * (1.0 - progress))), rect.inflate(6, 6), 3, border_radius=5)
+        elif event in ["destroy", "destroyed", "die", "death"]:
+            center = rect.center
+            alpha = int(230 * (1.0 - progress))
+            ui_draw_line(surface, (255, 224, 167, alpha), (rect.x, rect.y), (rect.right, rect.bottom), 3)
+            ui_draw_line(surface, (255, 224, 167, alpha), (rect.right, rect.y), (rect.x, rect.bottom), 3)
+            ui_draw_rect(surface, (255, 180, 90, alpha), rect.inflate(int(progress * 12), int(progress * 12)), 2, border_radius=5)
+        elif event in ["return", "return_to_hand", "banish", "banished", "send_to_graveyard", "graveyard"]:
+            ui_draw_rect(surface, (205, 225, 221, int(150 * (1.0 - progress))), rect.inflate(5, 5), 2, border_radius=5)
+        frame_path = state.get("image", "")
+        if frame_path and not state.get("placeholder") and event not in ["destroy", "destroyed", "die", "death"]:
+            image = self.app.assets.media_image(frame_path, (rect.width, rect.height), self.media_scope)
+            if image:
+                image = image.copy()
+                image.set_alpha(int(190 * (1.0 - progress)))
+                ui_blit(surface, image, rect.topleft)
+
     def draw_reaction(self, surface):
         state = self.reaction_player.state()
         if not state.get("active"): return
@@ -6462,6 +6791,8 @@ class DuelScene(Scene):
         image_path = state.get("image")
         image = self.app.assets.media_image(image_path, (52, 32), self.media_scope) if image_path else self.app.assets.media_video_frame(state.get("video", ""), state.get("clock", 0.0), (52, 32), self.media_scope)
         if image: ui_blit(surface, image, (292, 82))
+        if self.attack_presentation: self.draw_attack_presentation(surface, state)
+        self.draw_card_reaction_fx(surface, state)
 
     def draw_duel_header(self, surface):
         for side, participant in [("opponent", self.engine.opponent), ("player", self.engine.player)]:
