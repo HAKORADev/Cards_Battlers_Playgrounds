@@ -2,33 +2,459 @@
   "schema": "cbp.effect.v1",
   "description": "Declarative effect definitions normalized by the CBP rules runtime.",
   "architecture": {
-    "content_roots": {"authored": "data/", "assets": "data/assets/", "schemas": "data/schemas/", "runtime": "data/runtime/"},
-    "profile": {"path": "data/save.json", "purpose": "small active-user marker and preferences only", "identity_fields": ["active_user_id", "active_user_folder", "setup_complete"], "excluded_content": ["character_definition", "world_state", "duel_history"]},
-    "registration": {"first_run": ["name", "portrait", "gender"], "character_id": "generated user_<timestamp>", "character_root": "data/characters/<user_id>/", "required_folders": ["logic", "weights", "decks", "pfp", "animations", "audio", "duel"]},
-    "runtime_layout": {"character_state": "data/runtime/characters/<id>.json", "team_state": "data/runtime/teams/<id>.json", "world_index": "data/runtime/world/index.json", "world_collections": "data/runtime/world/collections/<collection>.json", "place_occupancy": "data/runtime/world/index.json:place_occupancy"},
-    "relationships": {"values": ["stranger", "ally", "enemy"], "default": "stranger", "side_keys": ["player", "opponent"], "side_keys_are_social_relationships": false},
-    "phases": {"canonical_values": ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"], "ui_abbreviations": {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}},
-    "rendering": {"scene_layout_units": "800x600", "native_render_target": "1920x1080", "window_scale_operations": 1, "final_operation": "smoothscale native render target to centered aspect-preserving window viewport"},
-    "rules": {"path": "data/rules.json", "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only", "fusion_source": "extra", "ritual_source": "hand", "fusion_and_ritual_are_distinct": true},
-    "watching": {"house_player": "the participant recorded in accepted_by/house_player when the request is accepted", "guest_player": "the other participant", "scene": "full DuelScene using the engine-backed live world session", "orientation": "house_player is engine.player so the board, opponent rotation, hand, LP, and reactions use the house POV", "replay": false},
-    "duel_ai": {"scope": "duel decisions only; world relationships, trading, and character-stat simulation are separate systems", "side_neutral": true, "decision_order": ["chain_or_pending_response", "pending_cost_or_procedure", "pending_target", "pending_effect", "trap_window", "main_phase_plan", "battle_plan", "phase_advance"], "main_actions": ["normal_summon", "fusion_summon", "ritual_summon", "set_monster", "set_trap", "activate_spell", "activate_field"], "battle_actions": ["choose_attacker", "choose_legal_target", "avoid_known_losing_defense_attack"], "policy_weights": ["summon_bias", "set_bias", "activation_bias", "removal_bias", "defense_bias", "attack_bias", "trap_threshold"], "autonomous_actor": "pending interaction owner or chain priority side, otherwise active side", "regression": "completed deterministic AI-vs-AI duels must resolve without stalls and exercise summons, sets, activations, trap windows, flips, and shared combat"},
-    "character_cognition": {"authored_fields": ["description", "gender", "stars", "smartness", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "best_cards", "preferred_places", "technique_profile", "cognition", "learning_policy", "state_rules", "deck_id", "media_folder", "logic_graph"], "runtime_fields": ["mood", "mood_state", "allies", "enemies", "relationship", "relationship_history", "history", "knowledge_state", "learning_state", "experience", "behavior_weights", "learned_cards", "learned_opponents", "availability", "current_place", "destination", "activity", "cooldown_until"], "knowledge_rule": "own cards and legally visible cards are known; hidden opponent hand, deck, and facedown identities remain uncertain until observed or learned with confidence", "knowledge_provenance": ["owner_private", "public_face_up", "public_graveyard", "observed_event", "learned_outcome"], "preference_matching": "case-insensitive family, card-kind, subtype, card-ID, and place matching; absent preferred content does not block play", "learning": "bounded observation records carry confidence, recency, sightings, opponent association, and outcome context; repeated snapshots in one phase do not inflate sightings", "relationships": {"values": ["stranger", "ally", "enemy"], "transitions": "interaction and authored world events append relationship_history and update directional ally/enemy sets"}},
-    "team_foundation": {"authored_fields": ["name", "portrait", "description", "members", "leader", "preferred_places", "preferred_families", "preferred_card_kinds", "preferred_cards", "media_folder", "team_effect", "logic_graph"], "runtime_fields": ["relationship", "rank", "history", "effect_locked", "behavior_weights", "knowledge_state", "learning_state", "experience"], "member_limit": 3, "member_order": "preserved; leader must be a member", "individuality": "team members remain separate character actors for duel decisions, knowledge, reactions, and media"},
-    "deck_foundation": {"fields": ["name", "portrait", "description", "owner_id", "cards", "best_cards", "preferred_families", "preferred_card_kinds", "media_folder"], "main_size": [40, 80], "copy_limit": 3, "legendary_copy_limit": 1, "extra_deck_separate": true},
-    "packages": {"format": "zip", "manifest_schema": 4, "dependency_closure": "character/team/deck exports include referenced decks, cards, optional places, logic, and nested media only", "experience": "optional runtime character/team state selected explicitly", "world_default": false, "import_rule": "only manifest-listed categories and IDs are imported; world state is never merged unless the package explicitly includes world and the caller requests it; requested categories are selective and support replace, skip, and reject conflicts", "media": "nested entity media is preserved under data/<category>/... with path traversal rejected"},
-    "interaction_lifecycle": {"catalog": "data/runtime/world/collections/interactions.json", "families": ["request", "order", "trade", "borrow"], "envelope": ["id", "family", "from", "to", "participants", "intent", "status", "created_sim_time", "expires_sim_time", "payload", "events"], "legacy_collections": "each family remains in its own modular collection and is mirrored into the catalog", "permissions": "sender may cancel; recipient or open-order taker may accept, deny, or ignore; transitions append directional actor events", "media": "each transition may emit a relationship-aware media selection into simulation_events for future scene playback"},
-    "media": {"contract": "gdd_nested_v2", "animation_variants": "animations/<event>/<1-10>/numbered image frames or numbered video files", "audio_variants": "audio/<event>/<1-10>.<format> or numbered files paired by variant", "pairing": "one selected variant binds its animation and audio; animation and audio are never independently randomized", "sync_modes": ["loop", "hang", "strict-sync"], "duration": "paired media runs for the longer stream and preserves the shorter stream according to mode", "state_vocabulary": ["idle", "draw", "standby", "summon", "special_summon", "set", "flip", "activate", "effect", "attack", "attack_travel", "hit", "damage_dealt", "damage_received", "stat_change", "switch_position", "destroy", "return", "send_to_graveyard", "banish", "turn_start", "turn_end", "near_win", "near_lose", "win", "lose"], "attack_presentation": {"universal_vfx": "data/animations/universal/attack/sword.png", "custom_override": "data/cards/<card_folder>/interactions/attack/vfx/ or equivalent effects tree", "anchors": "normalized side, zone, slot index, and card ID; renderer maps anchors to the authored DuelLayout", "sequence": ["fade_in_from_source", "travel_toward_pointer_or_target", "impact", "target_reaction"]}, "card_reactions": {"hit_damage": "target shake and red impact flash", "flip": "reveal flash and card-specific animation/audio in the card image area", "destroy": "break overlay and graveyard movement cue", "return_banish": "movement fade cue", "effect": "card-specific media with universal fallback"}, "fallback": "missing optional animation, audio, video, or place track falls back through entity, relationship, place, universal, and placeholder sources without blocking gameplay", "place_music": "place/music/<day|night>/<state>/ with up to ten variants and universal duel fallback", "lifecycle": "scene-scoped optional assets are loaded on demand, bounded in cache, and released when the scene exits", "video": "supported video media is decoded as visual frames without requiring embedded sound", "settings": ["music", "vocals", "sfx"]}
+    "content_roots": {
+      "authored": "data/",
+      "assets": "data/assets/",
+      "schemas": "data/schemas/",
+      "runtime": "data/runtime/"
+    },
+    "profile": {
+      "path": "data/save.json",
+      "purpose": "small active-user marker and preferences only",
+      "identity_fields": [
+        "active_user_id",
+        "active_user_folder",
+        "setup_complete"
+      ],
+      "excluded_content": [
+        "character_definition",
+        "world_state",
+        "duel_history"
+      ]
+    },
+    "registration": {
+      "first_run": [
+        "name",
+        "portrait",
+        "gender"
+      ],
+      "character_id": "generated user_<timestamp>",
+      "character_root": "data/characters/<user_id>/",
+      "required_folders": [
+        "logic",
+        "weights",
+        "decks",
+        "pfp",
+        "animations",
+        "audio",
+        "duel"
+      ]
+    },
+    "runtime_layout": {
+      "character_state": "data/runtime/characters/<id>.json",
+      "team_state": "data/runtime/teams/<id>.json",
+      "world_index": "data/runtime/world/index.json",
+      "world_collections": "data/runtime/world/collections/<collection>.json",
+      "place_occupancy": "data/runtime/world/index.json:place_occupancy",
+      "world_sequences": "data/runtime/world/collections/{dice_sequence,duel_sequence,request_sequence,order_sequence}.json"
+    },
+    "relationships": {
+      "values": [
+        "stranger",
+        "ally",
+        "enemy"
+      ],
+      "default": "stranger",
+      "side_keys": [
+        "player",
+        "opponent"
+      ],
+      "side_keys_are_social_relationships": false
+    },
+    "phases": {
+      "canonical_values": [
+        "DRAW",
+        "STANDBY",
+        "MAIN 1",
+        "BATTLE",
+        "MAIN 2",
+        "END"
+      ],
+      "ui_abbreviations": {
+        "DRAW": "DP",
+        "STANDBY": "SP",
+        "MAIN 1": "M1",
+        "BATTLE": "BP",
+        "MAIN 2": "M2",
+        "END": "EP"
+      }
+    },
+    "rendering": {
+      "scene_layout_units": "800x600",
+      "native_render_target": "1920x1080",
+      "window_scale_operations": 1,
+      "final_operation": "smoothscale native render target to centered aspect-preserving window viewport"
+    },
+    "rules": {
+      "path": "data/rules.json",
+      "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only",
+      "fusion_source": "extra",
+      "ritual_source": "hand",
+      "fusion_and_ritual_are_distinct": true
+    },
+    "watching": {
+      "house_player": "the participant recorded in accepted_by/house_player when the request is accepted",
+      "guest_player": "the other participant",
+      "scene": "full DuelScene using the engine-backed live world session",
+      "orientation": "house_player is engine.player so the board, opponent rotation, hand, LP, and reactions use the house POV",
+      "replay": false
+    },
+    "duel_ai": {
+      "scope": "duel decisions only; world relationships, trading, and character-stat simulation are separate systems",
+      "side_neutral": true,
+      "decision_order": [
+        "chain_or_pending_response",
+        "pending_cost_or_procedure",
+        "pending_target",
+        "pending_effect",
+        "trap_window",
+        "main_phase_plan",
+        "battle_plan",
+        "phase_advance"
+      ],
+      "main_actions": [
+        "normal_summon",
+        "fusion_summon",
+        "ritual_summon",
+        "set_monster",
+        "set_trap",
+        "activate_spell",
+        "activate_field"
+      ],
+      "battle_actions": [
+        "choose_attacker",
+        "choose_legal_target",
+        "avoid_known_losing_defense_attack"
+      ],
+      "policy_weights": [
+        "summon_bias",
+        "set_bias",
+        "activation_bias",
+        "removal_bias",
+        "defense_bias",
+        "attack_bias",
+        "trap_threshold"
+      ],
+      "autonomous_actor": "pending interaction owner or chain priority side, otherwise active side",
+      "regression": "completed deterministic AI-vs-AI duels must resolve without stalls and exercise summons, sets, activations, trap windows, flips, and shared combat"
+    },
+    "character_cognition": {
+      "authored_fields": [
+        "description",
+        "gender",
+        "stars",
+        "smartness",
+        "preferred_families",
+        "preferred_card_kinds",
+        "preferred_subtypes",
+        "preferred_cards",
+        "best_cards",
+        "preferred_places",
+        "technique_profile",
+        "cognition",
+        "learning_policy",
+        "state_rules",
+        "deck_id",
+        "media_folder",
+        "logic_graph"
+      ],
+      "runtime_fields": [
+        "mood",
+        "mood_state",
+        "allies",
+        "enemies",
+        "relationship",
+        "relationship_history",
+        "history",
+        "knowledge_state",
+        "learning_state",
+        "experience",
+        "behavior_weights",
+        "learned_cards",
+        "learned_opponents",
+        "availability",
+        "current_place",
+        "destination",
+        "activity",
+        "cooldown_until"
+      ],
+      "knowledge_rule": "own cards and legally visible cards are known; hidden opponent hand, deck, and facedown identities remain uncertain until observed or learned with confidence",
+      "knowledge_provenance": [
+        "owner_private",
+        "public_face_up",
+        "public_graveyard",
+        "observed_event",
+        "learned_outcome"
+      ],
+      "preference_matching": "case-insensitive family, card-kind, subtype, card-ID, and place matching; absent preferred content does not block play",
+      "learning": "bounded observation records carry confidence, recency, sightings, opponent association, and outcome context; repeated snapshots in one phase do not inflate sightings",
+      "relationships": {
+        "values": [
+          "stranger",
+          "ally",
+          "enemy"
+        ],
+        "transitions": "interaction and authored world events append relationship_history and update directional ally/enemy sets"
+      }
+    },
+    "team_foundation": {
+      "authored_fields": [
+        "name",
+        "portrait",
+        "description",
+        "members",
+        "leader",
+        "preferred_places",
+        "preferred_families",
+        "preferred_card_kinds",
+        "preferred_cards",
+        "media_folder",
+        "team_effect",
+        "logic_graph"
+      ],
+      "runtime_fields": [
+        "relationship",
+        "rank",
+        "history",
+        "effect_locked",
+        "behavior_weights",
+        "knowledge_state",
+        "learning_state",
+        "experience"
+      ],
+      "member_limit": 3,
+      "member_order": "preserved; leader must be a member",
+      "individuality": "team members remain separate character actors for duel decisions, knowledge, reactions, and media"
+    },
+    "deck_foundation": {
+      "fields": [
+        "name",
+        "portrait",
+        "description",
+        "owner_id",
+        "cards",
+        "best_cards",
+        "preferred_families",
+        "preferred_card_kinds",
+        "media_folder"
+      ],
+      "main_size": [
+        40,
+        80
+      ],
+      "copy_limit": 3,
+      "legendary_copy_limit": 1,
+      "extra_deck_separate": true
+    },
+    "packages": {
+      "format": "zip",
+      "manifest_schema": 4,
+      "dependency_closure": "character/team/deck exports include referenced decks, cards, optional places, logic, and nested media only",
+      "experience": "optional runtime character/team state selected explicitly",
+      "world_default": false,
+      "import_rule": "only manifest-listed categories and IDs are imported; world state is never merged unless the package explicitly includes world and the caller requests it; requested categories are selective and support replace, skip, and reject conflicts",
+      "media": "nested entity media is preserved under data/<category>/... with path traversal rejected"
+    },
+    "interaction_lifecycle": {
+      "catalog": "data/runtime/world/collections/interactions.json",
+      "families": [
+        "request",
+        "order",
+        "trade",
+        "borrow"
+      ],
+      "envelope": [
+        "id",
+        "family",
+        "from",
+        "to",
+        "participants",
+        "intent",
+        "status",
+        "created_sim_time",
+        "expires_sim_time",
+        "payload",
+        "events"
+      ],
+      "legacy_collections": "each family remains in its own modular collection and is mirrored into the catalog",
+      "permissions": "sender may cancel; recipient or open-order taker may accept, deny, or ignore; transitions append directional actor events",
+      "media": "each transition may emit a relationship-aware media selection into simulation_events for future scene playback"
+    },
+    "media": {
+      "contract": "gdd_nested_v2",
+      "animation_variants": "animations/<event>/<1-10>/numbered image frames or numbered video files",
+      "audio_variants": "audio/<event>/<1-10>.<format> or numbered files paired by variant",
+      "pairing": "one selected variant binds its animation and audio; animation and audio are never independently randomized",
+      "sync_modes": [
+        "loop",
+        "hang",
+        "strict-sync"
+      ],
+      "duration": "paired media runs for the longer stream and preserves the shorter stream according to mode",
+      "state_vocabulary": [
+        "idle",
+        "draw",
+        "standby",
+        "summon",
+        "special_summon",
+        "set",
+        "flip",
+        "activate",
+        "effect",
+        "attack",
+        "attack_travel",
+        "hit",
+        "damage_dealt",
+        "damage_received",
+        "stat_change",
+        "switch_position",
+        "destroy",
+        "return",
+        "send_to_graveyard",
+        "banish",
+        "turn_start",
+        "turn_end",
+        "near_win",
+        "near_lose",
+        "win",
+        "lose"
+      ],
+      "attack_presentation": {
+        "universal_vfx": "data/animations/universal/attack/sword.png",
+        "custom_override": "data/cards/<card_folder>/interactions/attack/vfx/ or equivalent effects tree",
+        "anchors": "normalized side, zone, slot index, and card ID; renderer maps anchors to the authored DuelLayout",
+        "sequence": [
+          "fade_in_from_source",
+          "travel_toward_pointer_or_target",
+          "impact",
+          "target_reaction"
+        ]
+      },
+      "card_reactions": {
+        "hit_damage": "target shake and red impact flash",
+        "flip": "reveal flash and card-specific animation/audio in the card image area",
+        "destroy": "break overlay and graveyard movement cue",
+        "return_banish": "movement fade cue",
+        "effect": "card-specific media with universal fallback"
+      },
+      "fallback": "missing optional animation, audio, video, or place track falls back through entity, relationship, place, universal, and placeholder sources without blocking gameplay",
+      "place_music": "place/music/<day|night>/<state>/ with up to ten variants and universal duel fallback",
+      "lifecycle": "scene-scoped optional assets are loaded on demand, bounded in cache, and released when the scene exits",
+      "video": "supported video media is decoded as visual frames without requiring embedded sound",
+      "settings": [
+        "music",
+        "vocals",
+        "sfx"
+      ]
+    },
+    "spin_dicer": {
+      "states": [
+        "request_first",
+        "dice_intro",
+        "rolling",
+        "result_launcher",
+        "result_requester",
+        "ready"
+      ],
+      "faces": "data/assets/dice/faces/1.png through 6.png",
+      "ownership": "1-3 launcher/acceptor, 4-6 requester",
+      "animation": "authored face images cycle every 0.09 simulated seconds with rotation and bounce presentation",
+      "rng": "deterministic from simulation time, monotonic dice sequence, launcher ID, and requester ID",
+      "narrator": "data/narrator/spin_dicer.json with up to ten text variants per state and optional paired audio under data/narrator/audio/<state>/",
+      "world_autonomy": "queued battles persist pre_duel requester/acceptor, accept-or-deny decision, narrator states, spin result provenance, and first_side"
+    },
+    "duel_rewards": {
+      "modes": [
+        "random",
+        "preset",
+        "none"
+      ],
+      "sources": [
+        "library",
+        "deck"
+      ],
+      "fields": [
+        "count",
+        "card_ids",
+        "card_kind",
+        "family",
+        "giver_id",
+        "trigger"
+      ],
+      "triggers": {
+        "loser_to_winner": "the actual loser supplies the configured cards",
+        "placer_loss": "the configured giver supplies cards only when that giver is the actual loser"
+      },
+      "draw": "no reward transfer",
+      "unavailable": "selection returns no cards without mutating ownership",
+      "persistence": "active battle reward policy and completed transfer event are stored in modular world collections"
+    },
+    "duel_orders": {
+      "terms": [
+        "placer",
+        "taker",
+        "preferred_deck_id",
+        "place",
+        "reward"
+      ],
+      "acceptance": "accepting an order creates a linked duel_order request with exact place/deck/reward terms before marking the order fulfilled",
+      "failure": "if linked request creation fails, the order remains open and no fulfillment is recorded",
+      "ai_selection": "free non-player characters score valid open orders by relationship, place preference, reward value, and enemy bias"
+    },
+    "watchers": {
+      "capacity": 6,
+      "slots": "three left and three right around the live duel table",
+      "lifecycle": [
+        "watching_in",
+        "watching_out",
+        "watching"
+      ],
+      "media": "character-scoped watching-in frames/audio resolve by relationship with optional right-side mirroring; missing media falls back to portrait/placeholder",
+      "persistence": "watcher IDs are stored in battle records and cbp.state-checkpoint.v1 payloads and restored into reconstructed sessions",
+      "behavior": "bounded relationship-weighted watcher pressure modifies visible-information AI card scoring only",
+      "audio": "place-duel landscape watcher presentation is muted; full live house-POV DuelScene may play configured watcher audio"
+    },
+    "place_duel_view": {
+      "modes": [
+        "duels",
+        "landscape"
+      ],
+      "duels": "place-scoped live tables with current LP, phase, turn, step count, and WATCH LIVE house POV",
+      "landscape": "day/night place visual with watcher roster and live table summary",
+      "no_replay": true,
+      "player_media": "no player vocals or character animation in landscape mode; watcher visuals may appear muted",
+      "live_source": "world active battle and reconstructed DuelEngine session, never a replay recording"
+    },
+    "narrator_tree": {
+      "config": "data/narrator/spin_dicer.json",
+      "audio_root": "data/narrator/audio/<state>/",
+      "variant_contract": "state entries support up to ten text variants; selected text/audio variant is deterministic and optional audio never blocks state progression",
+      "fallback": "global state variant remains valid when place-specific narrator media is absent"
+    }
   },
   "card": {
     "summon_procedure": {
       "optional": true,
-      "kind": ["tribute", "fusion", "ritual", "authored procedure key"],
+      "kind": [
+        "tribute",
+        "fusion",
+        "ritual",
+        "authored procedure key"
+      ],
       "material_selector": "selector predicate for eligible materials; Fusion and Ritual default to monster kinds",
       "required_card_ids": "ordered or repeated authored card IDs; exact matching uses instance-safe multisets",
       "min_stars": "minimum total stars for threshold procedures such as Ritual",
-      "locations": ["hand", "monster", "graveyard", "banished"],
+      "locations": [
+        "hand",
+        "monster",
+        "graveyard",
+        "banished"
+      ],
       "exact": "boolean; exact Fusion procedures compare the selected card-ID multiset",
-      "material_destination": ["graveyard", "banished"],
+      "material_destination": [
+        "graveyard",
+        "banished"
+      ],
       "source_selector": "optional selector for the summon card's source state; Fusion defaults to Extra Deck and Ritual defaults to hand",
       "source_method": "provenance method recorded for the summoned card",
       "required_count": "exact material count for authored tribute procedures; normal tribute tiers are loaded from data/rules.json",
@@ -36,8 +462,22 @@
     }
   },
   "place": {
-    "authored_fields": ["id", "name", "capacity", "background", "day_night", "media_folder", "effects", "event_response_policies", "event_window_policies", "trigger_order_policies", "logic_graph"],
-    "runtime_fields": {"current_duels": "stored in data/runtime/world/index.json under place_occupancy; never written to authored data/places.json"},
+    "authored_fields": [
+      "id",
+      "name",
+      "capacity",
+      "background",
+      "day_night",
+      "media_folder",
+      "effects",
+      "event_response_policies",
+      "event_window_policies",
+      "trigger_order_policies",
+      "logic_graph"
+    ],
+    "runtime_fields": {
+      "current_duels": "stored in data/runtime/world/index.json under place_occupancy; never written to authored data/places.json"
+    },
     "event_response_policies": {
       "event_name": {
         "enabled": "boolean; false or absent keeps the event non-blocking",
@@ -64,12 +504,60 @@
       }
     }
   },
-      "effect_editor": {"route": "CardEffectsScene", "card_field": "effects", "supported_controls": ["id", "trigger", "phase", "condition", "cost", "selector", "action", "amount", "target", "optional", "once", "speed", "notification"], "validation": "EffectSpec.validate and ContentStore.validate_effects"},
-    "effect": {
-
+  "effect_editor": {
+    "route": "CardEffectsScene",
+    "card_field": "effects",
+    "supported_controls": [
+      "id",
+      "trigger",
+      "phase",
+      "condition",
+      "cost",
+      "selector",
+      "action",
+      "amount",
+      "target",
+      "optional",
+      "once",
+      "speed",
+      "notification"
+    ],
+    "validation": "EffectSpec.validate and ContentStore.validate_effects"
+  },
+  "effect": {
     "id": "stable_effect_id",
     "trigger": "on_summon",
-    "event_vocabulary": ["phase_enter", "turn_start", "turn_end", "draw", "summon", "special_summon", "fusion_summon", "ritual_summon", "activate", "set", "attack", "attack_travel", "attacked", "damage", "damage_dealt", "damage_received", "heal", "hit", "destroy", "flip", "effect", "stat_change", "movement", "return", "send_to_graveyard", "banish", "set_face_up", "set_face_down", "switch_position"],
+    "event_vocabulary": [
+      "phase_enter",
+      "turn_start",
+      "turn_end",
+      "draw",
+      "summon",
+      "special_summon",
+      "fusion_summon",
+      "ritual_summon",
+      "activate",
+      "set",
+      "attack",
+      "attack_travel",
+      "attacked",
+      "damage",
+      "damage_dealt",
+      "damage_received",
+      "heal",
+      "hit",
+      "destroy",
+      "flip",
+      "effect",
+      "stat_change",
+      "movement",
+      "return",
+      "send_to_graveyard",
+      "banish",
+      "set_face_up",
+      "set_face_down",
+      "switch_position"
+    ],
     "event_record": {
       "context_id": "stable rule-event sequence ID",
       "trigger": "normalized event name",
@@ -104,16 +592,26 @@
       "required_ids": "effect IDs that must be included",
       "optional_ids": "effect IDs eligible for omission when optional_effects is prompt",
       "excluded_ids": "optional effect IDs omitted by a none or prompt policy",
-      "order_mode": ["deterministic", "prompt"]
+      "order_mode": [
+        "deterministic",
+        "prompt"
+      ]
     },
     "trigger_order_policy": {
       "enabled": "boolean; enable an order prompt when more than one effect matches",
-      "chooser": ["actor", "player", "opponent"],
+      "chooser": [
+        "actor",
+        "player",
+        "opponent"
+      ],
       "mandatory": "boolean; the selected order must include every group member",
-              "fallback": "deterministic fallback label for non-prompt paths",
-        "optional_effects": ["all", "prompt", "none"],
+      "fallback": "deterministic fallback label for non-prompt paths",
+      "optional_effects": [
+        "all",
+        "prompt",
+        "none"
+      ],
       "order_validation": "prompt selections must contain every required ID, no duplicates, and only allowed optional IDs"
-
     },
     "window": {
       "phase": "main",
@@ -133,7 +631,19 @@
       "all": "nested predicates that must all match",
       "any": "nested predicates where at least one must match",
       "not": "single nested predicate that must not match",
-      "operators": ["equals", "not_equals", "in", "not_in", "contains", "truthy", "falsy", "less_than", "less_or_equal", "greater_than", "greater_or_equal"]
+      "operators": [
+        "equals",
+        "not_equals",
+        "in",
+        "not_in",
+        "contains",
+        "truthy",
+        "falsy",
+        "less_than",
+        "less_or_equal",
+        "greater_than",
+        "greater_or_equal"
+      ]
     },
     "cost": [
       {
@@ -152,7 +662,13 @@
     "select": {
       "side": "opponent",
       "zone": "monster",
-      "card_kind": ["normal", "effect", "fusion", "ritual", "legendary"],
+      "card_kind": [
+        "normal",
+        "effect",
+        "fusion",
+        "ritual",
+        "legendary"
+      ],
       "count": 1,
       "distinct": true,
       "optional": false,
@@ -210,8 +726,23 @@
     }
   },
   "selector": {
-    "side": ["self", "opponent", "both", "any"],
-    "zone": ["deck", "hand", "monster", "spell_trap", "field", "graveyard", "banished", "extra", "any"],
+    "side": [
+      "self",
+      "opponent",
+      "both",
+      "any"
+    ],
+    "zone": [
+      "deck",
+      "hand",
+      "monster",
+      "spell_trap",
+      "field",
+      "graveyard",
+      "banished",
+      "extra",
+      "any"
+    ],
     "card_kind": "string or array of strings",
     "card_type": "alias for card_kind",
     "card_id": "exact authored card ID or array",
@@ -221,46 +752,117 @@
     "origin": "card origin",
     "gender": "character gender predicate",
     "face_up": "boolean",
-    "position": ["attack", "defense", "any"],
+    "position": [
+      "attack",
+      "defense",
+      "any"
+    ],
     "stat": {
       "field": "attack or defense",
-      "operator": ["equals", "not_equals", "less_than", "less_or_equal", "greater_than", "greater_or_equal"],
+      "operator": [
+        "equals",
+        "not_equals",
+        "less_than",
+        "less_or_equal",
+        "greater_than",
+        "greater_or_equal"
+      ],
       "value": "number"
     },
-    "scope": ["field", "nearest", "adjacent", "aura", "source_controller", "selected"],
+    "scope": [
+      "field",
+      "nearest",
+      "adjacent",
+      "aura",
+      "source_controller",
+      "selected"
+    ],
     "radius": "number of ordered card slots",
     "count": "integer or all",
     "distinct": "boolean",
     "optional": "boolean"
   },
-      "visibility": {
-      "owner_private": "owner may inspect hand/deck/facedown identity",
-      "public": "face-up field and graveyard/banished records are visible",
-      "hidden": "opponent hand/deck/facedown identity is projected as hidden"
-    },
-    "live_observation": {
-      "schema": "cbp.live-observation.v1",
-      "snapshot": "viewer-scoped public state, current event records, and learned card/effect IDs for live duel spectators",
-      "checkpoint": "cbp.observation-checkpoint.v1 with canonical SHA-256 digest for inspection-state integrity",
-      "state_checkpoint": "cbp.state-checkpoint.v1 serializable zone, duel-state, chain, and supported pending-prompt payload with digest validation",
-      "interactive_pending": ["discard", "target", "summon", "trap", "effect"],
-      "unsupported_pending": ["cost", "procedure", "response", "trigger_order"],
-      "record_and_rewatch": false,
-      "purpose": "current live-duel viewer projections and diagnostics only; no record-and-rewatch playback"
-    },
-    "knowledge": {
-      "card_ids": "observed authored card IDs",
-      "effect_ids": "observed effect IDs",
-      "effect_facts": "observed trigger, action, speed, and optionality facts",
-      "outcome_facts": "future-compatible result observations; current runtime records legality and status",
-      "import": "unknown card/effect IDs are filtered against the current content registry"
-    },
-    "action": {
-
-    "implemented": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "special_summon", "negate_chain", "shuffle"],
-          "declared_but_unsupported": ["fusion_summon", "ritual_summon"],
-
-    "name": ["boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"],
+  "visibility": {
+    "owner_private": "owner may inspect hand/deck/facedown identity",
+    "public": "face-up field and graveyard/banished records are visible",
+    "hidden": "opponent hand/deck/facedown identity is projected as hidden"
+  },
+  "live_observation": {
+    "schema": "cbp.live-observation.v1",
+    "snapshot": "viewer-scoped public state, current event records, and learned card/effect IDs for live duel spectators",
+    "checkpoint": "cbp.observation-checkpoint.v1 with canonical SHA-256 digest for inspection-state integrity",
+    "state_checkpoint": "cbp.state-checkpoint.v1 serializable zone, duel-state, chain, and supported pending-prompt payload with digest validation",
+    "interactive_pending": [
+      "discard",
+      "target",
+      "summon",
+      "trap",
+      "effect"
+    ],
+    "unsupported_pending": [
+      "cost",
+      "procedure",
+      "response",
+      "trigger_order"
+    ],
+    "record_and_rewatch": false,
+    "purpose": "current live-duel viewer projections and diagnostics only; no record-and-rewatch playback"
+  },
+  "knowledge": {
+    "card_ids": "observed authored card IDs",
+    "effect_ids": "observed effect IDs",
+    "effect_facts": "observed trigger, action, speed, and optionality facts",
+    "outcome_facts": "future-compatible result observations; current runtime records legality and status",
+    "import": "unknown card/effect IDs are filtered against the current content registry"
+  },
+  "action": {
+    "implemented": [
+      "boost_attack",
+      "boost_defense",
+      "damage",
+      "heal",
+      "draw",
+      "discard",
+      "grant_normal_summon",
+      "banish",
+      "send_to_graveyard",
+      "return_to_hand",
+      "set_face_up",
+      "set_face_down",
+      "switch_position",
+      "destroy",
+      "control",
+      "special_summon",
+      "negate_chain",
+      "shuffle"
+    ],
+    "declared_but_unsupported": [
+      "fusion_summon",
+      "ritual_summon"
+    ],
+    "name": [
+      "boost_attack",
+      "boost_defense",
+      "damage",
+      "heal",
+      "draw",
+      "discard",
+      "grant_normal_summon",
+      "banish",
+      "send_to_graveyard",
+      "return_to_hand",
+      "set_face_up",
+      "set_face_down",
+      "switch_position",
+      "destroy",
+      "control",
+      "summon",
+      "special_summon",
+      "fusion_summon",
+      "ritual_summon",
+      "negate_chain",
+      "shuffle"
+    ],
     "summon": {
       "method": "special, normal, fusion, ritual, or authored method key",
       "select": "selector for cards to summon from deck, hand, graveyard, banished, or another legal zone",
@@ -310,18 +912,29 @@
       "revalidate": "boolean; declarative effects default true, legacy effects preserve prior behavior",
       "snapshot": "captured legal target IDs at selection-window creation"
     },
-          "duration": "instant, until_end_of_turn, per_turn, while_face_up, while_source_on_field, while_source_face_up, permanent, or phase window",
-
-          "condition": "optional predicate list; summon_method, summon_source_zone, summon_source_card_id, and summon_source_effect_id are supported provenance fields",
-      "modifier_runtime": {
-        "continuous": "boolean; register this modifier as a runtime effect when resolved",
-        "layer": "integer layer ordering; lower layers apply first",
-        "duration": "expiry contract evaluated at phase/turn boundaries or from source state",
-        "replacement": "optional event-value replacement object with event, operation, amount, selector, priority, and once",
-        "replacement_operations": ["reduce", "set", "replace", "multiply", "scale", "increase", "add", "prevent", "negate", "cancel", "cap", "maximum"],
-        "legality_record": "resolution result contains source_present, target_ids, target_count, and status"
-      },
-
+    "duration": "instant, until_end_of_turn, per_turn, while_face_up, while_source_on_field, while_source_face_up, permanent, or phase window",
+    "condition": "optional predicate list; summon_method, summon_source_zone, summon_source_card_id, and summon_source_effect_id are supported provenance fields",
+    "modifier_runtime": {
+      "continuous": "boolean; register this modifier as a runtime effect when resolved",
+      "layer": "integer layer ordering; lower layers apply first",
+      "duration": "expiry contract evaluated at phase/turn boundaries or from source state",
+      "replacement": "optional event-value replacement object with event, operation, amount, selector, priority, and once",
+      "replacement_operations": [
+        "reduce",
+        "set",
+        "replace",
+        "multiply",
+        "scale",
+        "increase",
+        "add",
+        "prevent",
+        "negate",
+        "cancel",
+        "cap",
+        "maximum"
+      ],
+      "legality_record": "resolution result contains source_present, target_ids, target_count, and status"
+    },
     "summon_provenance": {
       "summon_method": "normal, special, fusion, ritual, or authored method key",
       "summon_source_zone": "deck, hand, graveyard, banished, extra, or another zone key",
@@ -332,14 +945,17 @@
     "media": "optional cue metadata",
     "speed": "spell speed 1, 2, or 3",
     "response": "optional chain response metadata",
-          "control": {
-        "target": "selected field monster(s)",
-        "destination": "activating side's available monster zones",
-        "controller": "actor becomes the current controller and the move emits a control event"
-      },
-      "chain": {
-
-      "speed": [1, 2, 3],
+    "control": {
+      "target": "selected field monster(s)",
+      "destination": "activating side's available monster zones",
+      "controller": "actor becomes the current controller and the move emits a control event"
+    },
+    "chain": {
+      "speed": [
+        1,
+        2,
+        3
+      ],
       "enabled": "boolean or response.chain flag",
       "priority": "side currently allowed to add a response link",
       "passes": "alternating priority passes before resolving the stack",
@@ -348,17 +964,32 @@
     }
   },
   "notification": {
-    "kind": ["ok", "yes_no", "choose_target", "choose_cards", "choose_trigger_order", "chain_response", "info"],
+    "kind": [
+      "ok",
+      "yes_no",
+      "choose_target",
+      "choose_cards",
+      "choose_trigger_order",
+      "chain_response",
+      "info"
+    ],
     "text": "template string",
     "options": "optional explicit option list",
     "optional": "boolean",
     "default": "answer used only when an automatic policy is explicitly allowed",
-          "payload": "structured data for the renderer and resolver; procedure_materials payloads include procedure, card, candidate_ids, required, min_stars, locations, exact, material_destination, selected_ids, and selected_stars; chain_response payloads include chain ID, priority, and legal response card IDs"
-
+    "payload": "structured data for the renderer and resolver; procedure_materials payloads include procedure, card, candidate_ids, required, min_stars, locations, exact, material_destination, selected_ids, and selected_stars; chain_response payloads include chain ID, priority, and legal response card IDs"
   },
   "data_migration": {
     "normalize_imported_records": true,
-    "accepted_fields": ["trigger", "action", "amount", "targets", "target_count", "timing", "field_effect"],
+    "accepted_fields": [
+      "trigger",
+      "action",
+      "amount",
+      "targets",
+      "target_count",
+      "timing",
+      "field_effect"
+    ],
     "rule": "Imported effect records are normalized at load time into the canonical schema; this is a data migration boundary, not an engine compatibility promise."
   }
 }

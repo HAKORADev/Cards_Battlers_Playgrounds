@@ -409,9 +409,11 @@ class AssetBank:
         self.current_music_path = ""
         self.card_templates = {}
         self.card_badges = {}
+        self.dice_faces = {}
         self.splash_names = []
         self.external_manifest = self.load_external_manifest()
         self.load_images()
+        self.load_dice_faces()
         self.load_card_templates()
         self.load_sounds()
 
@@ -487,6 +489,22 @@ class AssetBank:
             if key not in self.sized_images: self.sized_images[key] = scaled_image(image, size)
             return self.sized_images[key]
         return image
+
+    def load_dice_faces(self):
+        self.dice_faces = {}
+        for base in self.asset_roots():
+            root = base / "dice" / "faces"
+            for value in range(1, 7):
+                path = root / f"{value}.png"
+                if path.exists():
+                    try: self.dice_faces[value] = pygame.image.load(str(path)).convert_alpha()
+                    except pygame.error: pass
+            if len(self.dice_faces) == 6: break
+
+    def dice_face(self, value, size=None):
+        image = self.dice_faces.get(max(1, min(6, int(value))))
+        if image is None: return None
+        return scaled_image(image, size) if size and image.get_size() != tuple(size) else image
 
     def load_card_templates(self):
         kinds = ["normal", "effect", "spell", "trap", "fusion", "ritual", "legendary"]
@@ -1507,6 +1525,8 @@ class ContentStore:
         profile_defaults = {"active_user_id": "", "active_user_folder": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "setup_complete": False}
         self.save_data = {key: stored_profile.get(key, default) for key, default in profile_defaults.items()}
         self.media = MediaRegistry(ROOT)
+        self.narrator_data = read_json(DATA / "narrator" / "spin_dicer.json", {})
+        self.narrator_sequence = 0
         self.clock = WorldClock()
         self.dirty_domains = set()
         self.world_tick_active = False
@@ -1514,9 +1534,36 @@ class ContentStore:
         self.world_checkpoint_interval = 15.0
         self.world_sessions = {}
         self.rules = read_json(DATA / "rules.json", {})
-        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}})
-        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("interactions", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {})]: self.world.setdefault(key, default)
+        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}, "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0})
+        for key, default in [("requests", []), ("orders", []), ("championships", []), ("trades", []), ("borrows", []), ("interactions", []), ("achievements", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {}), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0)]: self.world.setdefault(key, default)
         self.load()
+
+    def spin_dice_result(self, launcher_id, requester_id):
+        sequence = int(self.world.get("dice_sequence", 0)) + 1
+        self.world["dice_sequence"] = sequence
+        seed = int(self.world.get("simulation_time", 0.0) * 1000) + sequence * 104729 + sum(ord(char) for char in str(launcher_id) + str(requester_id))
+        value = random.Random(seed).randint(1, 6)
+        first_id = launcher_id if value <= 3 else requester_id
+        result = {"type": "spin_dice_result", "sequence": sequence, "launcher": launcher_id, "requester": requester_id, "value": value, "range": "launcher" if value <= 3 else "requester", "first": first_id, "sim_time": float(self.world.get("simulation_time", 0.0))}
+        self.world.setdefault("simulation_events", []).append(result)
+        return result
+
+    def narrator_cue(self, state, actor_id="", target_id="", context=None):
+        states = self.narrator_data.get("states", {}) if isinstance(self.narrator_data, dict) else {}
+        entry = states.get(str(state), {}) if isinstance(states, dict) else {}
+        texts = list(entry.get("texts", [])) if isinstance(entry, dict) else []
+        self.narrator_sequence += 1
+        index = (self.narrator_sequence - 1) % len(texts) if texts else 0
+        text = texts[index] if texts else str(state).replace("_", " ").title()
+        audio_root = str(entry.get("audio_root", "")) if isinstance(entry, dict) else ""
+        audio_paths = []
+        if audio_root:
+            root = DATA / "narrator" / audio_root
+            audio_paths = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
+        audio = str(audio_paths[index % len(audio_paths)]) if audio_paths else ""
+        cue = {"type": "narrator_cue", "state": str(state), "text": text, "audio": audio, "variant": index + 1, "actor": actor_id, "target": target_id, "context": dict(context or {}), "sim_time": float(self.world.get("simulation_time", 0.0))}
+        self.world.setdefault("simulation_events", []).append(cue)
+        return cue
 
     def role_config(self):
         roles = self.world.get("roles", {}) if isinstance(self.world, dict) else {}
@@ -1557,7 +1604,7 @@ class ContentStore:
         stored = read_json(RUNTIME_WORLD_INDEX, {}) if RUNTIME_WORLD_INDEX.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
         state = dict(state) if isinstance(state, dict) else {}
-        for key in ["requests", "orders", "championships", "trades", "borrows", "interactions", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]:
+        for key in ["requests", "orders", "championships", "trades", "borrows", "interactions", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence"]:
             path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
             if not path.exists(): continue
             payload = read_json(path, {})
@@ -1765,7 +1812,10 @@ class ContentStore:
         if float(self.world.get("simulation_time", 0.0)) < float(self.world.get("last_ai_request_time", 0.0)) + 10.0: return
         self.world["last_ai_request_time"] = float(self.world.get("simulation_time", 0.0))
         for character in sorted(self.characters.values(), key=lambda item: item.id):
-            if character.id != self.role_config()["player_character"] and character.availability == "free": self.schedule_ai_request(character.id)
+            if character.id == self.role_config()["player_character"] or character.availability != "free": continue
+            order = self.choose_ai_order(character.id)
+            if order and self.respond_order(order.get("id", ""), character.id, "accept"): continue
+            self.schedule_ai_request(character.id)
 
 
     def save(self, domains=None):
@@ -1787,8 +1837,8 @@ class ContentStore:
             for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
         if "runtime_world" in requested:
             self.sync_place_runtime()
-            world_keys = ["requests", "orders", "championships", "trades", "borrows", "interactions", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time"]
-            defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0}
+            world_keys = ["requests", "orders", "championships", "trades", "borrows", "interactions", "achievements", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence"]
+            defaults = {"requests": [], "orders": [], "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0}
             for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
             write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
@@ -1852,7 +1902,84 @@ class ContentStore:
         if envelope is not None: envelope["events"] = list(events); envelope["status"] = status
         return event
 
-    def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="stranger", deck_id="", reward_policy="random_card", expires_in=10800):
+    def normalize_duel_reward(self, policy="random_card", reward=None):
+        raw = reward if isinstance(reward, dict) else policy if isinstance(policy, dict) else {"mode": str(policy or "random_card")}
+        key = str(raw.get("mode", raw.get("policy", "random_card"))).lower().replace("-", "_").replace(" ", "_")
+        aliases = {"random_card": "random", "random": "random", "deck_random": "random", "library_random": "random", "preset": "preset", "preselected": "preset", "none": "none", "no_reward": "none"}
+        mode = aliases.get(key, "random")
+        source = str(raw.get("source", "deck" if key == "deck_random" else "library")).lower()
+        if source not in ["library", "deck"]: source = "library"
+        card_ids = [str(item) for item in list(raw.get("card_ids", raw.get("cards", [])) or []) if str(item) in self.cards][:3]
+        count = max(0, min(3, int(raw.get("count", 1) or 0)))
+        card_kind = str(raw.get("card_kind", raw.get("kind", ""))).lower()
+        family = str(raw.get("family", "")).lower()
+        return {"mode": mode, "source": source, "card_ids": card_ids, "count": count, "card_kind": card_kind, "family": family, "giver_id": str(raw.get("giver_id", "")), "trigger": str(raw.get("trigger", "loser_to_winner")), "duel_required": bool(raw.get("duel_required", False)), "label": str(raw.get("label", ""))}
+
+    def reward_policy_key(self, policy):
+        return self.normalize_duel_reward(policy).get("mode", "random")
+
+    def select_duel_reward_cards(self, loser_id, policy, sequence=0):
+        reward = self.normalize_duel_reward(policy)
+        source_id = reward.get("giver_id") or loser_id
+        if reward["mode"] == "none" or source_id not in self.characters or source_id == "": return []
+        if reward.get("trigger") in ["loser_to_winner", "placer_loss"] and source_id != loser_id: return []
+        loser = self.characters[source_id]
+        owned = list(loser.library_cards)
+        if reward["source"] == "deck":
+            deck = self.decks.get(loser.deck_id, {}) if loser.deck_id else {}
+            deck_ids = list(deck.get("cards", [])) if isinstance(deck, dict) else []
+            owned = [card_id for card_id in deck_ids if card_id in owned]
+        candidates = []
+        for card_id in owned:
+            card = self.cards.get(card_id)
+            if not card: continue
+            if reward["card_kind"] and card.kind.lower() != reward["card_kind"]: continue
+            if reward["family"] and card.family.lower() != reward["family"]: continue
+            candidates.append(card_id)
+        selected = []
+        if reward["mode"] == "preset":
+            for card_id in reward["card_ids"]:
+                if card_id in candidates and card_id not in selected: selected.append(card_id)
+        else:
+            randomizer = random.Random(int(self.world.get("simulation_time", 0.0) * 1000) + int(sequence or 0) + len(candidates) * 17)
+            randomizer.shuffle(candidates)
+            selected = candidates[:reward["count"] or 1]
+        return selected[:3]
+
+    def transfer_duel_reward(self, winner_id, loser_id, policy, sequence=0):
+        if not winner_id or not loser_id or winner_id not in self.characters or loser_id not in self.characters: return []
+        reward = self.normalize_duel_reward(policy)
+        source_id = reward.get("giver_id") or loser_id
+        if source_id == winner_id or reward.get("trigger") == "placer_loss" and source_id != loser_id: return []
+        selected = self.select_duel_reward_cards(loser_id, reward, sequence)
+        winner, loser = self.characters[winner_id], self.characters[source_id]
+        transferred = []
+        for card_id in selected:
+            if card_id in loser.library_cards:
+                loser.library_cards.remove(card_id)
+                winner.library_cards.append(card_id)
+                transferred.append(card_id)
+        if transferred:
+            self.world.setdefault("simulation_events", []).append({"type": "duel_reward_transfer", "winner": winner_id, "loser": loser_id, "cards": list(transferred), "policy": reward, "sim_time": float(self.world.get("simulation_time", 0.0))})
+            self.queue_interaction_media("duel_reward", "reward_transfer", winner_id, loser_id, self.relationship_for(winner_id, loser_id), "characters", winner_id, {"cards": list(transferred)})
+        return transferred
+
+    def choose_ai_order(self, character_id):
+        character = self.characters.get(character_id)
+        if not character: return None
+        candidates = [item for item in self.world.setdefault("orders", []) if item.get("status") == "open" and item.get("placer") != character_id and (not item.get("taker") or item.get("taker") == character_id) and (not item.get("place") or item.get("place") in self.places) and (not item.get("deck_id") or item.get("deck_id") in self.decks) and (not item.get("preferred_deck_id") or item.get("preferred_deck_id") in self.decks)]
+        if not candidates: return None
+        def score(order):
+            reward = self.normalize_duel_reward(order.get("reward", order.get("reward_policy", "random_card")))
+            relation = self.relationship_for(character_id, order.get("placer", ""))
+            relation_score = self._relationship_score(character, self.characters[order.get("placer")]) if order.get("placer") in self.characters else 0.0
+            place_score = float(character.behavior_weights.get("place_preference", 5.0)) if order.get("place") in character.preferred_places else 0.0
+            reward_score = float(character.behavior_weights.get("reward_value", 5.0)) * (len(reward.get("card_ids", [])) + (1 if reward.get("mode") != "none" else 0))
+            enemy_pressure = float(character.behavior_weights.get("enemy_bias", 6.0)) if relation == "enemy" else 0.0
+            return reward_score + place_score + relation_score + enemy_pressure
+        return max(candidates, key=lambda item: (score(item), item.get("id", "")))
+
+    def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="stranger", deck_id="", reward_policy="random_card", expires_in=10800, reward=None):
         preferred_place = preferred_place or self.role_config()["default_place"]
         relationship_intent = str(relationship_intent or "stranger").lower()
         if from_id not in self.characters or to_id not in self.characters or from_id == to_id or preferred_place not in self.places: return None
@@ -1862,7 +1989,8 @@ class ContentStore:
         self.world["request_sequence"] = sequence
         request_id = "request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
-        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id if deck_id in self.decks else "", "reward_policy": reward_policy, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "action": "open", "sim_time": now}]}
+        normalized_reward = self.normalize_duel_reward(reward_policy, reward)
+        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id if deck_id in self.decks else "", "reward_policy": normalized_reward["mode"], "reward": normalized_reward, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "action": "open", "sim_time": now}]}
         self.world.setdefault("requests", []).append(request)
         self.register_interaction("request", request)
         self.queue_interaction_media("request", "request_open", from_id, to_id, relationship_intent, "characters", from_id, {"request_id": request_id, "reason": reason})
@@ -1958,10 +2086,23 @@ class ContentStore:
                     character.activity = "dueling"
             house_id = request.get("house_player") or request.get("accepted_by") or request.get("to") or request.get("from")
             guest_id = request.get("guest_player") or (request.get("to") if house_id == request.get("from") else request.get("from"))
-            engine = DuelEngine(self, house_id, guest_id, place_id, True)
+            house = self.characters.get(house_id)
+            relation = self.relationship_for(house_id, guest_id)
+            acceptance_score = float((house.behavior_weights if house else {}).get("accept_first", 0.0)) + (2.0 if relation == "ally" else -1.0 if relation == "enemy" else 0.0)
+            accepts_first = acceptance_score >= 8.0
+            request_cue = self.narrator_cue("request_first", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id})
+            decision_cue = self.narrator_cue("ready" if accepts_first else "dice_intro", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id})
+            if accepts_first:
+                dice = {"type": "spin_dice_result", "skipped": True, "launcher": house_id, "requester": guest_id, "value": None, "range": "requester", "first": guest_id, "sim_time": float(self.world.get("simulation_time", 0.0))}
+                first_side = "opponent"
+            else:
+                dice = self.spin_dice_result(house_id, guest_id)
+                first_side = "player" if dice["first"] == house_id else "opponent"
+                result_cue = self.narrator_cue("result_launcher" if dice["value"] <= 3 else "result_requester", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id, "value": dice["value"]})
+            engine = DuelEngine(self, house_id, guest_id, place_id, True, first_side=first_side)
             engine.match_recorded = True
             battle_id = "sim_battle_" + str(int(time.time() * 1000))
-            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "turn": engine.turn, "actions": [], "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
+            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "actions": [], "turn": engine.turn, "first_side": first_side, "spin_dice": dice, "pre_duel": {"requester": guest_id, "acceptor": house_id, "decision": "accept" if accepts_first else "deny", "acceptance_score": acceptance_score, "narrator_states": [request_cue["state"], decision_cue["state"]] + ([] if accepts_first else [result_cue["state"]])}, "reward": dict(request.get("reward", {})), "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
             self.world_sessions[battle_id] = engine
             self.world.setdefault("active_battles", []).append(battle)
             self.world.setdefault("simulation_events", []).append({"type": "battle_activated", "battle": battle["id"], "request": request["id"], "sim_time": float(self.world.get("simulation_time", 0.0))})
@@ -1972,10 +2113,12 @@ class ContentStore:
         house_id = battle.get("house") or battle.get("accepted_by") or battle.get("to") or battle.get("from")
         guest_id = battle.get("guest") or (battle.get("to") if house_id == battle.get("from") else battle.get("from"))
         battle["house"], battle["guest"] = house_id, guest_id
-        session = DuelEngine(self, house_id, guest_id, battle["place"], True)
+        first_side = battle.get("first_side") if battle.get("first_side") in ["player", "opponent"] else "opponent"
+        session = DuelEngine(self, house_id, guest_id, battle["place"], True, first_side=first_side)
         session.match_recorded = True
         checkpoint = battle.get("engine_checkpoint")
         if checkpoint and not session.restore_state_checkpoint(checkpoint): return None
+        session.set_watchers(list(battle.get("watchers", [])))
         self.world_sessions[battle["id"]] = session
         return session
 
@@ -1988,10 +2131,13 @@ class ContentStore:
         battle["turn"] = session.turn
         battle["hp"] = {battle["from"]: session.player.hp, battle["to"]: session.opponent.hp}
         request = self.request_by_id(battle["request_id"])
+        reward = battle.get("reward", {})
         if request:
             request["status"] = "completed"
             request.setdefault("events", []).append({"status": "completed", "actor": winner_id or "world", "sim_time": float(self.world.get("simulation_time", 0.0))})
-        self.record_duel(winner_id, loser_id, session.turn, "engine_simulation")
+            reward = request.get("reward", reward)
+            self.transition_interaction("request", request, "completed", winner_id or "world", "completed", {"winner": winner_id, "loser": loser_id, "reward": reward})
+        self.record_duel(winner_id, loser_id, session.turn, "engine_simulation", reward)
         self.release_place(battle["place"])
         for character_id in [battle["from"], battle["to"]]:
             character = self.characters.get(character_id)
@@ -2003,6 +2149,10 @@ class ContentStore:
         self.world.setdefault("simulation_events", []).append({"type": "battle_completed", "battle": battle["id"], "winner": winner_id or "draw", "loser": loser_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
 
     def _simulation_action(self, battle):
+        battle.setdefault("actions", [])
+        battle.setdefault("first_side", "opponent")
+        battle.setdefault("spin_dice", {})
+        battle.setdefault("reward", {})
         session = self._world_session(battle)
         if not session: return
         active_before = session.autonomous_actor()
@@ -2053,13 +2203,14 @@ class ContentStore:
             self.save({"runtime_characters", "runtime_teams", "runtime_world"})
         return self.world_context()
 
-    def place_order(self, placer, taker, give, deck_id="", place_id="", reward_policy="random_card", expires_in=10800, intent="duel_order"):
+    def place_order(self, placer, taker, give, deck_id="", place_id="", reward_policy="random_card", expires_in=10800, intent="duel_order", reward=None, preferred_deck_id=""):
+        normalized_reward = self.normalize_duel_reward(reward_policy, reward)
         if placer not in self.characters or taker and taker not in self.characters: return None
         sequence = int(self.world.get("order_sequence", 0)) + 1
         self.world["order_sequence"] = sequence
         order_id = "order_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
-        order = {"id": order_id, "title": f"Order by {placer}: {give}", "placer": placer, "taker": taker or "", "give": give, "deck_id": deck_id if deck_id in self.decks else "", "place": place_id if place_id in self.places else "", "reward_policy": reward_policy, "intent": intent, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1.0, float(expires_in)), "events": [{"status": "open", "actor": placer, "action": "open", "sim_time": now}]}
+        order = {"id": order_id, "title": f"Order by {placer}: {give}", "placer": placer, "taker": taker or "", "give": give, "deck_id": deck_id if deck_id in self.decks else "", "preferred_deck_id": preferred_deck_id if preferred_deck_id in self.decks else "", "place": place_id if place_id in self.places else "", "reward_policy": normalized_reward["mode"], "reward": normalized_reward, "intent": intent, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1.0, float(expires_in)), "events": [{"status": "open", "actor": placer, "action": "open", "sim_time": now}]}
         self.world.setdefault("orders", []).append(order)
         self.register_interaction("order", order)
         self.queue_interaction_media("order", "order_open", placer, taker or "", "opponent", "characters", placer, {"order_id": order_id, "give": give})
@@ -2072,12 +2223,56 @@ class ContentStore:
         if status: records = [item for item in records if item.get("status") == status]
         return sorted(records, key=lambda item: (float(item.get("created_sim_time", 0.0)), item.get("id", "")), reverse=True)
 
+    def world_battle_by_id(self, battle_id):
+        return next((item for item in self.world.setdefault("active_battles", []) if item.get("id") == battle_id), None)
+
+    def add_battle_watcher(self, battle_id, watcher_id):
+        battle = self.world_battle_by_id(battle_id)
+        if not battle or battle.get("status") != "active" or watcher_id not in self.characters: return False
+        house_id = battle.get("house") or battle.get("accepted_by") or battle.get("to") or battle.get("from")
+        guest_id = battle.get("guest") or (battle.get("to") if house_id == battle.get("from") else battle.get("from"))
+        if watcher_id in [house_id, guest_id]: return False
+        watchers = list(battle.setdefault("watchers", []))
+        if watcher_id not in watchers and len(watchers) >= 6: return False
+        if watcher_id not in watchers: watchers.append(watcher_id)
+        battle["watchers"] = watchers[:6]
+        character = self.characters[watcher_id]
+        character.availability = "watching"
+        character.activity = "watching"
+        character.current_place = battle.get("place", character.current_place)
+        relation = self.relationship_for(watcher_id, house_id)
+        self.queue_interaction_media("watching", "watching_in", watcher_id, house_id, relation, "characters", watcher_id, {"battle_id": battle_id, "side": "left" if len(watchers) % 2 else "right"})
+        session = self.world_sessions.get(battle_id) or self._world_session(battle)
+        if session: session.set_watchers(watchers)
+        self.save()
+        return True
+
+    def remove_battle_watcher(self, battle_id, watcher_id):
+        battle = self.world_battle_by_id(battle_id)
+        if not battle: return False
+        watchers = list(battle.setdefault("watchers", []))
+        if watcher_id not in watchers: return False
+        watchers.remove(watcher_id)
+        battle["watchers"] = watchers
+        character = self.characters.get(watcher_id)
+        if character and character.activity == "watching":
+            character.activity = "idle"
+            character.availability = "free"
+        house_id = battle.get("house") or battle.get("accepted_by") or battle.get("to") or battle.get("from")
+        relation = self.relationship_for(watcher_id, house_id)
+        self.queue_interaction_media("watching", "watching_out", watcher_id, house_id, relation, "characters", watcher_id, {"battle_id": battle_id})
+        session = self.world_sessions.get(battle_id)
+        if session: session.set_watchers(watchers)
+        self.save()
+        return True
+
     def respond_order(self, order_id, actor_id, decision):
         order = next((item for item in self.world.setdefault("orders", []) if item.get("id") == order_id), None)
         decision = str(decision or "").lower()
         if not order or order.get("status") != "open": return False
         placer = order.get("placer", "")
         taker = order.get("taker", "")
+        original_taker = taker
         if decision == "cancel":
             if actor_id != placer: return False
             status = "canceled"
@@ -2086,9 +2281,22 @@ class ContentStore:
             status = {"accept": "accepted", "deny": "denied", "ignore": "ignored"}[decision]
             if decision == "accept" and not taker: order["taker"] = actor_id
         else: return False
-        self.transition_interaction("order", order, status, actor_id, decision)
+        if status == "accepted":
+            previous_taker = original_taker
+            request_id = self.add_request(placer, actor_id, "duel order: " + str(order.get("give", "reward")), kind="duel_order", format_name="1v1", preferred_place=order.get("place") or self.role_config()["default_place"], deck_id=order.get("preferred_deck_id") or order.get("deck_id", ""), relationship_intent="stranger", reward_policy=order.get("reward", order.get("reward_policy", "random_card")), expires_in=max(1.0, float(order.get("expires_sim_time", 0.0)) - float(self.world.get("simulation_time", 0.0))))
+            if not request_id:
+                order["taker"] = previous_taker
+                order.pop("accepted_by", None)
+                order["duel_request_id"] = ""
+                self.transition_interaction("order", order, "open", actor_id, "accept_failed")
+                self.save()
+                return False
+            order["accepted_by"] = actor_id
+            order["duel_request_id"] = request_id
+            self.transition_interaction("order", order, "fulfilled", actor_id, "accepted", {"duel_request_id": request_id})
+        else:
+            self.transition_interaction("order", order, status, actor_id, decision)
         self.queue_interaction_media("order", "order_" + status, actor_id, placer, "opponent", "characters", actor_id, {"order_id": order_id, "decision": decision})
-        if status == "accepted": order["accepted_by"] = actor_id
         self.save()
         return True
 
@@ -2264,10 +2472,11 @@ class ContentStore:
         self.save()
         return achievement
 
-    def record_duel(self, winner_id, loser_id, turns, reason):
+    def record_duel(self, winner_id, loser_id, turns, reason, reward_policy=None):
         winner = self.characters.get(winner_id) if winner_id else None
         loser = self.characters.get(loser_id) if loser_id else None
         transferred = ""
+        transferred_cards = []
         participants = [item for item in [winner, loser] if item]
         for character in participants:
             character.experience["duels"] = int(character.experience.get("duels", 0)) + 1
@@ -2278,9 +2487,11 @@ class ContentStore:
             character.learning_state["updates"] = int(character.learning_state.get("updates", 0)) + 1
             character.learning_state["last_update"] = time.time()
         if winner and loser:
-            if loser.library_cards:
-                transferred = loser.library_cards.pop(0)
-                winner.library_cards.append(transferred)
+            if reward_policy is None:
+                reward_policy = {"mode": "random", "source": "library", "count": 1}
+            transferred_cards = self.transfer_duel_reward(winner.id, loser.id, reward_policy, int(self.world.get("duel_sequence", 0)) + 1)
+            transferred = transferred_cards[0] if transferred_cards else ""
+            self.world["duel_sequence"] = int(self.world.get("duel_sequence", 0)) + 1
             difficulty = self.save_data.get("difficulty", "normal")
             learning_delta = {"normal": 1, "hard": 2, "extreme": 3}.get(difficulty, 1)
             for character, other in [(winner, loser), (loser, winner)]:
@@ -3161,7 +3372,7 @@ class SelectorRuntime:
 class DuelEngine:
     phases = DUEL_PHASES
 
-    def __init__(self, store, player_id=None, opponent_id=None, place_id=None, cpu=False, team_effect=None, opponent_team_effect=None):
+    def __init__(self, store, player_id=None, opponent_id=None, place_id=None, cpu=False, team_effect=None, opponent_team_effect=None, first_side=None):
         self.store = store
         roles = store.role_config()
         player_id = player_id or roles["player_character"]
@@ -3170,7 +3381,9 @@ class DuelEngine:
         self.player = Duelist(store.characters[player_id], store)
         self.opponent = Duelist(store.characters[opponent_id], store)
         self.place = store.places[place_id]
-        self.active = self.player if not cpu else self.opponent
+        self.first_side = first_side if first_side in ["player", "opponent"] else "opponent" if cpu else "player"
+        self.active = self.player if self.first_side == "player" else self.opponent
+        self.watcher_ids = []
         self.phase_index = 0
         self.turn = 1
         self.events = []
@@ -3236,6 +3449,19 @@ class DuelEngine:
 
     def side_key(self, side):
         return "player" if side is self.player else "opponent"
+
+    def set_watchers(self, watcher_ids):
+        self.watcher_ids = list(dict.fromkeys(str(item) for item in list(watcher_ids or []) if str(item) in self.store.characters))[:6]
+        return list(self.watcher_ids)
+
+    def watcher_pressure(self, actor):
+        pressure = 0.0
+        for watcher_id in self.watcher_ids:
+            relation = self.store.relationship_for(watcher_id, actor.character.id)
+            watcher = self.store.characters.get(watcher_id)
+            if relation == "ally": pressure += float(watcher.behavior_weights.get("ally_bias", 4.0)) * 0.12 if watcher else 0.4
+            elif relation == "enemy": pressure += float(watcher.behavior_weights.get("enemy_bias", 6.0)) * 0.08 if watcher else 0.3
+        return min(3.0, pressure)
 
     def effect_usage_key(self, card, spec):
         return (id(card), spec.effect_id)
@@ -4445,7 +4671,7 @@ class DuelEngine:
         return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
 
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
@@ -4505,6 +4731,8 @@ class DuelEngine:
             self.field_card = self._restore_card(payload["field_card"], self.player if payload.get("field_card_owner") == "player" else self.opponent) if payload.get("field_card") else None
             self.field_card_owner = self.player if payload.get("field_card_owner") == "player" else self.opponent if payload.get("field_card_owner") == "opponent" else None
             self.turn, self.phase_index = int(payload.get("turn", 1)), int(payload.get("phase_index", 0))
+            self.first_side = payload.get("first_side") if payload.get("first_side") in ["player", "opponent"] else "player"
+            self.watcher_ids = list(dict.fromkeys(str(item) for item in payload.get("watchers", []) if str(item) in self.store.characters and str(item) not in [self.player.character.id, self.opponent.character.id]))[:6]
             self.active = self.player if payload.get("active") == "player" else self.opponent
             self.finished, self.reason = bool(payload.get("finished", False)), str(payload.get("reason", ""))
             self.winner = self.player if payload.get("winner") == "player" else self.opponent if payload.get("winner") == "opponent" else None
@@ -5413,6 +5641,7 @@ class DuelEngine:
         phase_weight = float(phase_weights.get(self.phase, 1.0))
         technique = character.technique_profile
         urgency = float(weights.get("risk_tolerance", 3.0)) if mode in ["monster", "set"] else float(weights.get("reward_value", 5.0))
+        watcher_pressure = self.watcher_pressure(actor)
         hp_pressure = max(0, 8000 - actor.hp) / 800.0 if mode == "spell" else 0.0
         effect_score = 0
         for index, raw_effect in enumerate(card.card.effects):
@@ -5428,7 +5657,7 @@ class DuelEngine:
         if mode == "spell": stat_score += float(technique.get("control", 5.0)) * 20 + float(technique.get("resource", 5.0)) * 10
         bias_key = "summon_bias" if mode == "monster" else "set_bias" if mode == "set" else "activation_bias" if mode in ["spell", "trap"] else "summon_bias"
         bias = max(0.1, float(weights.get("duel", {}).get(bias_key, 1.0)))
-        return (stat_score + family_weight * 100 * phase_weight * state_weight + kind_weight * 45 + subtype_weight * 30 + preferred_bonus + learned_weight * 20 + urgency * 25 + hp_pressure * 200 + effect_score) * bias
+        return (stat_score + family_weight * 100 * phase_weight * state_weight + kind_weight * 45 + subtype_weight * 30 + preferred_bonus + learned_weight * 20 + urgency * 25 + watcher_pressure * 18 + hp_pressure * 200 + effect_score) * bias
 
     def ai_activation_spec(self, card):
         return next((EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects) if EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).trigger == "activate"), None)
@@ -5982,7 +6211,7 @@ class BattleScene(Scene):
         elif self.tab == "requests":
             self.items = [(entry.get("title", "Request"), entry.get("from", ""), entry.get("status", "open"), 5, 7, entry.get("id")) for entry in self.app.store.world.get("requests", []) if entry.get("status") in ["open", "queued", "active"]]
         elif self.tab == "orders":
-            self.items = [(entry.get("title", "Order"), entry.get("taker", ""), entry.get("status", "open"), 5, 7, entry.get("id")) for entry in self.app.store.world.get("orders", []) if entry.get("status") == "open"]
+            self.items = [(entry.get("title", "Order"), entry.get("taker", ""), entry.get("reward", {}).get("label", entry.get("reward_policy", "random")), 5, 7, entry.get("id")) for entry in self.app.store.world.get("orders", []) if entry.get("status") == "open"]
         elif self.tab == "championship":
             self.items = [(f"Level {level} championship", self.app.store.role_config()["default_opponent_character"], "hostable", level + 3, level + 4, level) for level in range(1, 4)]
         else:
@@ -6028,7 +6257,9 @@ class BattleScene(Scene):
             accent = COLORS["red"] if target == self.app.store.role_config()["default_opponent_character"] else COLORS["cyan"]
             rounded(surface, (62, y, 676, 70), (132, 94, 73), COLORS["line"], 8, 1)
             draw_text(surface, name, (82, y + 14), self.app.assets.font(16, True), COLORS["cream"])
-            draw_text(surface, f"Status: {relation}   |   Star level: {stars}   |   Smartness: {smartness}/10", (82, y + 42), self.app.assets.font(12), COLORS["muted"])
+            status_text = f"Status: {relation}   |   Star level: {stars}   |   Smartness: {smartness}/10"
+            if self.tab == "orders": status_text = "Reward: " + str(relation)
+            draw_text(surface, status_text, (82, y + 42), self.app.assets.font(12), COLORS["muted"])
             if self.tab == "requests":
                 main_index, ignore_index = self.request_button_indices[index]
                 if main_index is not None: self.buttons[main_index].draw(surface, self.app.assets.font(9, True))
@@ -6040,8 +6271,11 @@ class BattleScene(Scene):
 
     def add_world_entry(self):
         roles = self.app.store.role_config()
-        if self.tab == "orders": self.app.store.place_order(roles["player_character"], roles["default_opponent_character"], "a card by type")
-        elif self.tab in ["free", "requests"]: self.app.store.add_request(roles["player_character"], roles["default_opponent_character"], "friendly duel", kind="duel", format_name="1v1", preferred_place=roles["default_place"], relationship_intent="stranger")
+        if self.tab == "orders":
+            self.app.push(DuelOrderScene(self.app))
+            return
+        if self.tab in ["free", "requests"]:
+            self.app.store.add_request(roles["player_character"], roles["default_opponent_character"], "friendly duel", kind="duel", format_name="1v1", preferred_place=roles["default_place"], relationship_intent="stranger")
         self.refresh_content()
 
     def select_opponent(self, target, entry_id=None):
@@ -6058,84 +6292,239 @@ class BattleScene(Scene):
                 self.app.notify("Request moved to " + ("the real-time queue." if decision == "accept" else decision + "."))
             self.refresh_content()
             return
-        if self.tab == "orders" and entry_id: self.app.store.close_world_entry("orders", entry_id)
+        if self.tab == "orders" and entry_id:
+            if not self.app.store.respond_order(entry_id, self.app.store.role_config()["player_character"], "accept"):
+                self.app.notify("That order could not be converted into a duel request.")
+                self.refresh_content()
+                return
+            self.app.notify("Order accepted and converted into a real duel request.")
+            self.refresh_content()
+            return
         if target == "watch": self.app.push(WatchScene(self.app))
         elif self.tab == "free": self.app.push(PreDuelScene(self.app, target, self.duel_format))
         else: self.app.push(PreDuelScene(self.app, target))
 
 
+class DuelOrderScene(Scene):
+    def __init__(self, app):
+        super().__init__(app)
+        roles = app.store.role_config()
+        self.placer_id = roles["player_character"]
+        character = app.store.characters.get(self.placer_id)
+        owned_decks = {character.deck_id} if character and character.deck_id else set()
+        owned_decks.update(deck_id for deck_id, deck in app.store.decks.items() if isinstance(deck, dict) and deck.get("owner_id") == self.placer_id)
+        self.deck_ids = sorted(deck_id for deck_id in owned_decks if deck_id in app.store.decks)
+        self.deck_index = 0
+        preferred_places = list(app.store.characters.get(self.placer_id).preferred_places if self.placer_id in app.store.characters else [])
+        self.place_ids = list(dict.fromkeys(preferred_places + sorted(app.store.places)))
+        self.place_index = 0
+        self.reward_modes = ["random library", "random deck", "named card", "no card"]
+        self.reward_index = 0
+        character = app.store.characters.get(self.placer_id)
+        self.card_ids = list(dict.fromkeys((character.best_cards if character else []) + (character.library_cards if character else [])))
+        self.card_ids = [card_id for card_id in self.card_ids if card_id in app.store.cards]
+        self.card_index = 0
+        self.taker_ids = [""] + sorted(item.id for item in app.store.characters.values() if item.id != self.placer_id)
+        self.taker_index = 0
+
+    def enter(self):
+        self.buttons = [Button((54, 476, 132, 38), "DECK", lambda: self.cycle_deck(), COLORS["cyan"]), Button((194, 476, 132, 38), "PLACE", lambda: self.cycle_place(), COLORS["green"]), Button((334, 476, 132, 38), "REWARD", lambda: self.cycle_reward(), COLORS["gold"]), Button((474, 476, 132, 38), "CARD", lambda: self.cycle_card(), COLORS["violet"]), Button((614, 476, 132, 38), "TARGET", lambda: self.cycle_taker(), COLORS["red"]), Button((286, 526, 228, 40), "PUBLISH ORDER", lambda: self.publish(), COLORS["cyan"]), Button((650, 526, 110, 40), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def cycle_deck(self):
+        if self.deck_ids: self.deck_index = (self.deck_index + 1) % len(self.deck_ids)
+
+    def cycle_place(self):
+        if self.place_ids: self.place_index = (self.place_index + 1) % len(self.place_ids)
+
+    def cycle_reward(self):
+        self.reward_index = (self.reward_index + 1) % len(self.reward_modes)
+
+    def cycle_card(self):
+        if self.card_ids: self.card_index = (self.card_index + 1) % len(self.card_ids)
+
+    def cycle_taker(self):
+        self.taker_index = (self.taker_index + 1) % len(self.taker_ids)
+
+    def selected_deck(self):
+        return self.deck_ids[self.deck_index] if self.deck_ids else ""
+
+    def selected_place(self):
+        return self.place_ids[self.place_index] if self.place_ids else self.app.store.role_config()["default_place"]
+
+    def selected_taker(self):
+        return self.taker_ids[self.taker_index] if self.taker_ids else ""
+
+    def reward_policy(self):
+        mode = self.reward_modes[self.reward_index]
+        if mode == "random deck": return {"mode": "random", "source": "deck", "count": 1, "giver_id": self.placer_id, "trigger": "placer_loss", "label": "one random card from the order placer deck if the placer loses"}
+        if mode == "named card" and self.card_ids: return {"mode": "preset", "source": "library", "card_ids": [self.card_ids[self.card_index]], "count": 1, "giver_id": self.placer_id, "trigger": "placer_loss", "label": "the selected card if the order placer loses and owns it"}
+        if mode == "no card": return {"mode": "none", "source": "library", "count": 0, "giver_id": self.placer_id, "trigger": "placer_loss", "label": "no card transfer"}
+        return {"mode": "random", "source": "library", "count": 1, "giver_id": self.placer_id, "trigger": "placer_loss", "label": "one random card from the order placer library if the placer loses"}
+
+    def publish(self):
+        deck_id = self.selected_deck()
+        place_id = self.selected_place()
+        target_id = self.selected_taker()
+        order_id = self.app.store.place_order(self.placer_id, target_id, "duel order", deck_id=deck_id, preferred_deck_id=deck_id, place_id=place_id, reward=self.reward_policy())
+        if order_id:
+            self.app.notify("Duel order published with a " + self.reward_policy()["label"] + ".")
+            self.app.pop()
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        self.draw_panel(surface, (42, 40, 716, 492), "DUEL ORDER COMPOSER", COLORS["gold"])
+        character = self.app.store.characters.get(self.placer_id)
+        draw_text(surface, "Order placer: " + (character.name if character else self.placer_id), (70, 102), self.app.assets.font(18, True), COLORS["cream"])
+        deck_id = self.selected_deck()
+        deck = self.app.store.decks.get(deck_id, {}) if deck_id else {}
+        draw_text(surface, "Preset deck: " + (str(deck.get("name", deck_id)) if isinstance(deck, dict) else deck_id or "automatic"), (70, 145), self.app.assets.font(13), COLORS["cyan"])
+        draw_text(surface, "Duel place: " + (self.app.store.places.get(self.selected_place()).name if self.selected_place() in self.app.store.places else "default"), (70, 175), self.app.assets.font(13), COLORS["green"])
+        draw_text(surface, "Reward on loss: " + self.reward_policy()["label"], (70, 205), self.app.assets.font(13), COLORS["gold"])
+        selected_card = self.app.store.cards.get(self.card_ids[self.card_index]) if self.card_ids else None
+        draw_text(surface, "Named card: " + (selected_card.name if selected_card else "none selected"), (70, 235), self.app.assets.font(13), COLORS["violet"])
+        taker = self.app.store.characters.get(self.selected_taker()) if self.selected_taker() else None
+        draw_text(surface, "Target: " + (taker.name if taker else "any compatible character"), (70, 265), self.app.assets.font(13), COLORS["red"])
+        draw_text(surface, "The loser supplies the configured reward only if the duel completes with a winner.", (400, 330), self.app.assets.font(12), COLORS["muted"], "center")
+        draw_text(surface, "Random deck/library choices are resolved from real owned cards; named choices fail safely when unavailable.", (400, 360), self.app.assets.font(10), COLORS["muted"], "center")
+        self.draw_buttons(surface, 11)
+
+
 class PreDuelScene(Scene):
-    def __init__(self, app, opponent_id, format_name="1v1"):
+    def __init__(self, app, opponent_id, format_name="1v1", place_id=None):
         super().__init__(app)
         self.opponent_id = opponent_id
         self.format_name = format_name
+        self.place_id = place_id or app.store.role_config()["default_place"]
         self.requester_id = opponent_id
         self.acceptor_id = app.store.role_config()["player_character"]
         self.requested_first_side = "opponent"
         self.dice_launcher_id = self.acceptor_id
         self.choice = ""
-        self.decision = "request"
+        self.decision = "request_first"
         self.dice_value = None
         self.dice_owner = ""
         self.dice_clock = 0.0
         self.dice_rolling = False
-        self.elapsed = 0
+        self.dice_roll_value = 1
+        self.dice_roll_count = 0
+        self.dice_result_delay = 0.0
+        self.dice_rng = random.Random(time.time_ns() ^ sum(ord(char) for char in str(opponent_id)))
+        self.narrator_text = ""
+        self.narrator_audio = ""
+        self.narrator_state = ""
+        self.interaction_sequence = 0
+        self.elapsed = 0.0
 
     def enter(self):
-        self.buttons = [Button((90, 496, 180, 44), "ACCEPT FIRST", lambda: self.accept_first(), COLORS["cyan"]), Button((290, 496, 180, 44), "DENY / ROLL", lambda: self.deny_first(), COLORS["gold"]), Button((490, 496, 120, 44), "BACK", lambda: self.app.pop(), COLORS["muted"])]
-        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "pre-duel")
+        self.buttons = [Button((90, 496, 180, 44), "ACCEPT FIRST", lambda: self.accept_first(), COLORS["cyan"]), Button((290, 496, 180, 44), "SPIN DICE", lambda: self.deny_first(), COLORS["gold"]), Button((490, 496, 120, 44), "BACK", lambda: self.cancel(), COLORS["muted"])]
+        self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "pre-duel")
+        self.narrate("request_first")
+
+    def narrate(self, state):
+        cue = self.app.store.narrator_cue(state, self.requester_id, self.acceptor_id, {"format": self.format_name, "launcher": self.dice_launcher_id, "value": self.dice_value or 0})
+        self.narrator_state = cue["state"]
+        self.narrator_text = cue["text"]
+        self.narrator_audio = cue.get("audio", "")
+        if self.narrator_audio and self.app.store.save_data.get("vocals", True): self.app.assets.play_reaction_audio(self.narrator_audio, True, 0.8, "narrator")
+        return cue
+
+    def record_decision(self, mode):
+        self.interaction_sequence += 1
+        event = {"type": "first_play_decision", "sequence": self.interaction_sequence, "mode": mode, "requester": self.requester_id, "acceptor": self.acceptor_id, "launcher": self.dice_launcher_id, "first": self.choice, "value": self.dice_value, "sim_time": float(self.app.store.world.get("simulation_time", 0.0)), "time": time.time()}
+        self.app.store.world.setdefault("simulation_events", []).append(event)
+        self.app.store.save()
+        return event
+
+    def cancel(self):
+        if self.decision in ["request_first", "dice_intro", "rolling", "result"]:
+            self.decision = "canceled"
+            self.record_decision("canceled")
+        self.app.pop()
 
     def accept_first(self):
-        self.choice = self.requested_first_side
+        if self.decision != "request_first": return
+        self.choice = "opponent"
         self.decision = "accepted"
-        self.app.store.world.setdefault("simulation_events", []).append({"type": "first_play_decision", "mode": "accepted", "requester": self.requester_id, "acceptor": self.acceptor_id, "first": self.choice, "time": time.time()})
-        self.app.store.save()
+        self.narrate("ready")
+        self.record_decision("accepted")
         self.launch()
 
     def deny_first(self):
-        self.decision = "denied"
-        self.app.assets.play_duel_music(self.app.store.role_config()["default_place"], self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "spin-dice")
+        if self.decision != "request_first": return
+        self.decision = "rolling"
+        self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "spin-dice")
         self.dice_rolling = True
         self.dice_clock = 0.0
+        self.dice_result_delay = 0.0
         self.dice_value = None
+        self.dice_roll_value = self.dice_rng.randint(1, 6)
+        result = self.app.store.spin_dice_result(self.dice_launcher_id, self.requester_id)
+        self.final_dice_value = result["value"]
+        self.final_dice_side = result["first"]
+        self.dice_roll_count = 0
         self.dice_owner = self.dice_launcher_id
-        self.buttons = [Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.narrate("dice_intro")
+        self.buttons = [Button((650, 530, 110, 38), "CANCEL", lambda: self.cancel(), COLORS["muted"])]
 
     def roll_result(self):
-        self.dice_value = random.randint(1, 6)
-        self.choice = self.dice_launcher_id if self.dice_value <= 3 else self.requester_id
-        self.decision = "rolled"
+        self.dice_value = self.final_dice_value
+        self.dice_roll_value = self.dice_value
+        self.choice = "player" if self.dice_value <= 3 else "opponent"
+        self.final_dice_side = self.acceptor_id if self.choice == "player" else self.requester_id
+        self.decision = "result"
         self.dice_rolling = False
-        self.app.store.world.setdefault("simulation_events", []).append({"type": "first_play_decision", "mode": "dice", "requester": self.requester_id, "acceptor": self.acceptor_id, "launcher": self.dice_launcher_id, "value": self.dice_value, "first": self.choice, "time": time.time()})
-        self.app.store.save()
+        self.dice_result_delay = 0.0
+        self.narrate("result_launcher" if self.dice_value <= 3 else "result_requester")
+        self.record_decision("dice")
         self.app.notify(f"Dice result {self.dice_value}: {self.choice} goes first.")
-        self.buttons = [Button((170, 496, 180, 44), "START DUEL", lambda: self.launch(), COLORS["cyan"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((170, 496, 180, 44), "START DUEL", lambda: self.launch(), COLORS["cyan"]), Button((650, 530, 110, 38), "CANCEL", lambda: self.cancel(), COLORS["muted"])]
 
     def launch(self):
-        place_id = self.app.store.role_config()["default_place"]
+        if self.decision not in ["accepted", "ready", "result"]: return
+        place_id = self.place_id
         place = self.app.store.places[place_id]
         if not self.app.store.reserve_place(place_id):
             self.app.notify(place.name + " is full. This duel must wait or choose another place.")
             return
-        if self.format_name == "1v1": self.app.push(DuelScene(self.app, self.opponent_id, self.choice or self.acceptor_id, place_id, True))
-        else: self.app.push(TeamDuelScene(self.app, self.format_name, self.opponent_id, self.choice or self.acceptor_id, True))
+        starter = self.choice or "player"
+        if self.format_name == "1v1": self.app.push(DuelScene(self.app, self.opponent_id, starter, place_id, True))
+        else: self.app.push(TeamDuelScene(self.app, self.format_name, self.opponent_id, starter, True))
 
     def update(self, dt):
         self.elapsed += dt
         if self.dice_rolling:
             self.dice_clock += dt
-            if self.dice_clock >= 0.8: self.roll_result()
+            while self.dice_clock >= 0.09:
+                self.dice_clock -= 0.09
+                self.dice_roll_value = self.dice_rng.randint(1, 6)
+                self.dice_roll_count += 1
+            if self.dice_roll_count >= 18: self.roll_result()
+        elif self.decision == "result":
+            self.dice_result_delay += dt
+            if self.dice_result_delay >= 0.65:
+                self.decision = "ready"
+                self.narrate("ready")
 
     def draw_dice(self, surface):
-        rounded(surface, (328, 150, 144, 144), (238, 241, 252), COLORS["gold"], 18, 4)
-        value = random.randint(1, 6) if self.dice_rolling else self.dice_value or 0
-        if value:
-            points = {1: [(400, 222)], 2: [(374, 196), (426, 248)], 3: [(374, 196), (400, 222), (426, 248)], 4: [(374, 196), (426, 196), (374, 248), (426, 248)], 5: [(374, 196), (426, 196), (400, 222), (374, 248), (426, 248)], 6: [(374, 190), (426, 190), (374, 222), (426, 222), (374, 254), (426, 254)]}[value]
-            for point in points: ui_draw_circle(surface, COLORS["ink"], point, 9)
-        else: draw_text(surface, "?", (400, 222), self.app.assets.font(48, True), COLORS["ink"], "center")
+        if not self.dice_rolling and not self.dice_value: return
+        value = self.dice_roll_value if self.dice_rolling else self.dice_value
+        image = self.app.assets.dice_face(value, (144, 144))
+        if image:
+            angle = math.sin(self.elapsed * 32.0) * 13.0 if self.dice_rolling else 0.0
+            bounce = math.sin(self.elapsed * 27.0) * 18.0 if self.dice_rolling else 0.0
+            rotated = pygame.transform.rotozoom(image, angle, 1.0)
+            rect = rotated.get_rect(center=(400, int(320 + bounce)))
+            ui_blit(surface, rotated, rect.topleft)
+        else:
+            rounded(surface, (328, 248, 144, 144), (238, 241, 252), COLORS["gold"], 18, 4)
+            draw_text(surface, str(value), (400, 320), self.app.assets.font(48, True), COLORS["ink"], "center")
 
     def draw(self, surface):
-        self.draw_background(surface, self.app.store.places[self.app.store.role_config()["default_place"]].background)
+        place = self.app.store.places[self.place_id]
+        night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
+        background = self.app.assets.place_visual(self.place_id, "pre_duel", night, self.elapsed, (W, H), "pre-duel") or self.app.assets.image(place.background, (W, H))
+        if background: ui_blit(surface, background, (0, 0))
+        else: surface.fill(COLORS["deep"])
         veil = ui_surface((W, H), pygame.SRCALPHA)
         veil.fill((247, 227, 177, 36))
         ui_blit(surface, veil, (0, 0))
@@ -6143,7 +6532,7 @@ class PreDuelScene(Scene):
         player = self.app.store.characters[roles["player_character"]]
         rival = self.app.store.characters.get(self.opponent_id, self.app.store.characters[roles["default_opponent_character"]])
         self.draw_panel(surface, (54, 74, 692, 375), "PRE-DUEL  |  " + self.format_name, COLORS["gold"])
-        draw_text(surface, self.app.store.places[self.app.store.role_config()["default_place"]].name, (400, 115), self.app.assets.font(17, True), COLORS["cyan"], "center")
+        draw_text(surface, place.name, (400, 115), self.app.assets.font(17, True), COLORS["cyan"], "center")
         if self.format_name == "1v1":
             draw_text(surface, f"REQUESTER: {rival.name}", (86, 138), self.app.assets.font(10, True), COLORS["red"])
             draw_text(surface, f"ACCEPTOR: {player.name}", (506, 138), self.app.assets.font(10, True), COLORS["cyan"], "topright")
@@ -6157,9 +6546,19 @@ class PreDuelScene(Scene):
             self.draw_team_card(surface, opponent_team, (506, 159), COLORS["red"])
         draw_text(surface, "VS", (400, 270), self.app.assets.font(32, True), COLORS["gold"], "center")
         requester_name, acceptor_name = self.side_labels()
-        if self.decision == "request": draw_text(surface, f"{requester_name} requests first play. Accept or deny to trigger the GDD dice rule.", (400, 403), self.app.assets.font(12), COLORS["muted"], "center")
-        elif self.decision == "denied" or self.dice_rolling: draw_text(surface, f"{requester_name} denied the request. Launcher: {acceptor_name}. Launcher owns 1–3; {requester_name} owns 4–6.", (400, 403), self.app.assets.font(11), COLORS["gold"], "center"); self.draw_dice(surface)
-        else: draw_text(surface, f"Dice result {self.dice_value}: {acceptor_name if self.choice == 'player' else requester_name} goes first.", (400, 403), self.app.assets.font(13), COLORS["gold"], "center"); self.draw_dice(surface)
+        if self.decision == "request_first":
+            draw_text(surface, f"{requester_name} requests the first move. {acceptor_name} may accept or spin the dice.", (400, 388), self.app.assets.font(11), COLORS["muted"], "center")
+        elif self.decision == "rolling":
+            draw_text(surface, f"Spin-Dicer: {acceptor_name} launched the roll. Faces 1–3 belong to the launcher; faces 4–6 belong to {requester_name}.", (400, 388), self.app.assets.font(10), COLORS["gold"], "center")
+            self.draw_dice(surface)
+        elif self.decision in ["result", "ready", "accepted"]:
+            first_name = acceptor_name if self.choice == "player" else requester_name
+            draw_text(surface, f"Dice result {self.dice_value}: {first_name} goes first.", (400, 388), self.app.assets.font(12, True), COLORS["gold"], "center")
+            self.draw_dice(surface)
+        if self.narrator_text:
+            rounded(surface, (110, 414, 580, 30), (35, 28, 52, 210), COLORS["gold"], 8, 1)
+            narrator_line = wrap(self.app.assets.font(9), "NARRATOR: " + self.narrator_text, 550)[0]
+            draw_text(surface, narrator_line, (400, 429), self.app.assets.font(9), COLORS["cream"], "center")
         self.draw_buttons(surface, 12)
 
     def side_labels(self):
@@ -6211,6 +6610,7 @@ class DuelScene(Scene):
         place_id = place_id or roles["default_place"]
         self.spectator = bool(spectator_battle)
         self.watched_battle = spectator_battle or {}
+        self.watcher_id = ""
         if spectator_engine:
             self.engine = spectator_engine
         elif self.spectator:
@@ -6218,9 +6618,12 @@ class DuelScene(Scene):
             guest_id = self.watched_battle.get("guest") or (self.watched_battle.get("to") if house_id == self.watched_battle.get("from") else self.watched_battle.get("from"))
             self.engine = app.store._world_session(self.watched_battle) or DuelEngine(app.store, house_id, guest_id, place_id, True)
         else:
-            self.engine = DuelEngine(app.store, roles["player_character"], opponent_id, place_id, starter == "opponent")
+            self.engine = DuelEngine(app.store, roles["player_character"], opponent_id, place_id, starter == "opponent", first_side=starter)
         self.layout = DuelLayout()
         self.place_id = place_id
+        if self.spectator:
+            watcher_id = roles["player_character"]
+            if app.store.add_battle_watcher(self.watched_battle.get("id", ""), watcher_id): self.watcher_id = watcher_id
         self.place_reserved = reserved
         self.reaction_player = ReactionPlayer()
         self.media_scope = "duel_scene_" + str(id(self))
@@ -6240,6 +6643,8 @@ class DuelScene(Scene):
         self.hover_hand_rect = None
         self.hover_attacker = None
         self.hover_target = None
+        self.watcher_media = {}
+        self.watcher_seen = set()
         self.hover_set = None
         self.hover_procedure = None
         self.action_mode = "summon"
@@ -6264,6 +6669,7 @@ class DuelScene(Scene):
     def leave(self):
         pygame.mixer.stop()
         self.app.assets.release_media_scope(self.media_scope)
+        if self.spectator and self.watcher_id: self.app.store.remove_battle_watcher(self.watched_battle.get("id", ""), self.watcher_id)
         self.reaction_player.selection = None
         self.reaction_player.finished = True
         self.reaction_queue.clear()
@@ -6612,6 +7018,20 @@ class DuelScene(Scene):
     def surrender(self):
         self.engine.finish(self.engine.opponent, "surrender")
 
+    def sync_watcher_media(self):
+        watcher_ids = list(self.watched_battle.get("watchers", [])) if self.spectator else list(getattr(self.engine, "watcher_ids", []))
+        house_id = self.engine.player.character.id
+        for watcher_id in watcher_ids[:6]:
+            if watcher_id not in self.app.store.characters: continue
+            if watcher_id not in self.watcher_media:
+                relation = self.app.store.relationship_for(watcher_id, house_id)
+                selection = self.app.store.media.resolve("watching_in", watcher_id, house_id, relation, "characters", watcher_id, self.place_id, "loop", metadata={"watcher": True})
+                self.watcher_media[watcher_id] = selection
+                self.watcher_seen.add(watcher_id)
+                if selection.audio and self.app.store.save_data.get("vocals", True): self.app.assets.play_reaction_audio(selection.audio, True, 0.7, self.media_scope)
+        for watcher_id in list(self.watcher_media):
+            if watcher_id not in watcher_ids: self.watcher_media.pop(watcher_id, None)
+
     def start_reaction(self, record):
         selection = ReactionSelection.from_dict(record.get("selection", {}))
         self.reaction_player.start(selection)
@@ -6631,6 +7051,7 @@ class DuelScene(Scene):
             if self.reaction_player.finished and self.reaction_queue: self.start_reaction(self.reaction_queue.pop(0))
             self.reaction_player.update(dt)
             if self.attack_presentation and self.reaction_player.finished: self.attack_presentation = None
+            self.sync_watcher_media()
             self.sync_duel_music()
             return
         if self.engine.pending_discard is self.engine.player and self.question is None:
@@ -6653,6 +7074,7 @@ class DuelScene(Scene):
         if self.reaction_player.finished and self.reaction_queue: self.start_reaction(self.reaction_queue.pop(0))
         self.reaction_player.update(dt)
         if self.attack_presentation and self.reaction_player.finished: self.attack_presentation = None
+        self.sync_watcher_media()
         self.attack_preview_clock = self.attack_preview_clock + dt if self.engine.selected_monster and not self.engine.finished else 0.0
         self.sync_duel_music()
         if self.engine.finished and self.stage == "battle":
@@ -6669,6 +7091,7 @@ class DuelScene(Scene):
         self.draw_opponent_hand(surface)
         self.draw_board(surface)
         self.draw_duel_header(surface)
+        self.draw_watchers(surface)
         if self.spectator:
             draw_text(surface, "LIVE HOUSE POV  |  " + self.engine.player.character.name.upper(), (400, 74), self.app.assets.font(10, True), COLORS["gold"], "center")
         self.draw_reaction(surface)
@@ -6679,6 +7102,30 @@ class DuelScene(Scene):
         self.draw_question(surface)
         self.draw_card_list_popup(surface)
         if self.engine.finished: self.draw_result(surface)
+
+    def draw_watchers(self, surface):
+        watcher_ids = list(self.watched_battle.get("watchers", [])) if self.spectator else list(getattr(self.engine, "watcher_ids", []))
+        for index, watcher_id in enumerate(watcher_ids[:6]):
+            character = self.app.store.characters.get(watcher_id)
+            if not character: continue
+            side = "left" if index < 3 else "right"
+            column_index = index if index < 3 else index - 3
+            x = 12 if side == "left" else W - 92
+            y = 155 + column_index * 112
+            relation = self.app.store.relationship_for(watcher_id, self.engine.player.character.id)
+            accent = COLORS["gold"] if relation == "ally" else COLORS["red"] if relation == "enemy" else COLORS["line"]
+            rounded(surface, (x, y, 80, 96), (18, 30, 58, 215), accent, 7, 1)
+            selection = self.watcher_media.get(watcher_id)
+            image = None
+            if selection:
+                frame_index = int(self.time * max(1.0, float(selection.frame_rate or FPS)))
+                if selection.frames: image = self.app.assets.media_image(selection.frames[frame_index % len(selection.frames)], (66, 66), self.media_scope)
+                elif selection.image: image = self.app.assets.media_image(selection.image, (66, 66), self.media_scope)
+            if not image: image = self.app.assets.image(character.portrait, (66, 66))
+            if image and side == "right": image = pygame.transform.flip(image, True, False)
+            if image: ui_blit(surface, image, (x + 7, y + 6))
+            draw_text(surface, character.name[:11], (x + 40, y + 76), self.app.assets.font(8, True), COLORS["cream"], "center")
+            draw_text(surface, relation.upper(), (x + 40, y + 88), self.app.assets.font(7), COLORS["gold"], "center")
 
     def draw_duel_backdrop(self, surface):
         night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
@@ -8227,6 +8674,100 @@ class TeamMakerScene(Scene):
         self.app.draw_notice(surface)
 
 
+class PlaceDuelViewScene(Scene):
+    def __init__(self, app, place_id=None):
+        super().__init__(app)
+        self.place_id = place_id or app.store.role_config()["default_place"]
+        self.mode = "duels"
+        self.battles = []
+        self.media_scope = "place_view_" + str(id(self))
+
+    def enter(self):
+        self.refresh()
+        self.buttons = [Button((40, 530, 130, 38), "DUELS", lambda: self.set_mode("duels"), COLORS["gold"]), Button((180, 530, 130, 38), "LANDSCAPE", lambda: self.set_mode("landscape"), COLORS["green"]), Button((322, 530, 128, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((460, 530, 128, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["cyan"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def leave(self):
+        self.app.assets.release_media_scope(self.media_scope)
+
+    def set_mode(self, mode):
+        self.mode = mode if mode in ["duels", "landscape"] else "duels"
+        self.refresh()
+
+    def refresh(self):
+        self.battles = [item for item in self.app.store.world.setdefault("active_battles", []) if item.get("status") == "active" and item.get("place") == self.place_id][:3]
+        if hasattr(self, "buttons"):
+            self.buttons = self.buttons[:5]
+            if self.mode == "duels":
+                for index, battle in enumerate(self.battles): self.buttons.append(Button((650, 142 + index * 112, 92, 34), "WATCH LIVE", lambda battle=battle: self.open_watch(battle), COLORS["gold"]))
+
+    def advance(self, seconds):
+        self.app.store.advance_world(seconds)
+        self.refresh()
+        self.app.notify("Place simulation advanced by " + str(seconds) + " seconds.")
+
+    def open_watch(self, battle):
+        session = self.app.store._world_session(battle)
+        if not session:
+            self.app.notify("This active place duel has no valid checkpoint.")
+            return
+        house = battle.get("house") or battle.get("accepted_by") or battle.get("to") or battle.get("from")
+        guest = battle.get("guest") or (battle.get("to") if house == battle.get("from") else battle.get("from"))
+        battle["house"], battle["guest"] = house, guest
+        self.app.push(DuelScene(self.app, guest, "player", battle.get("place"), False, battle, session))
+
+    def participant(self, battle, key):
+        identifier = battle.get(key, "")
+        return self.app.store.characters.get(identifier)
+
+    def draw_landscape(self, surface, place, night, now):
+        image = self.app.assets.place_visual(self.place_id, "landscape", night, now, (W, H), self.media_scope) or self.app.assets.place_visual(self.place_id, "background", night, now, (W, H), self.media_scope) or (self.app.assets.image(place.background, (W, H)) if place and place.background else None)
+        if image: ui_blit(surface, image, (0, 0))
+        else: surface.fill(COLORS["deep"])
+        veil = ui_surface((W, H), pygame.SRCALPHA); veil.fill((20, 28, 58, 78)); ui_blit(surface, veil, (0, 0))
+        self.draw_panel(surface, (44, 46, 712, 420), "PLACE LANDSCAPE", COLORS["green"])
+        draw_text(surface, place.name if place else self.place_id, (70, 106), self.app.assets.font(24, True), COLORS["cream"])
+        draw_text(surface, "DAY" if not night else "NIGHT", (730, 112), self.app.assets.font(14, True), COLORS["gold"], "topright")
+        draw_text(surface, "Capacity: " + str(place.capacity if place else 0) + "  |  Active duels: " + str(len(self.battles)), (70, 154), self.app.assets.font(14), COLORS["cyan"])
+        draw_text(surface, "Occupancy and activity", (70, 204), self.app.assets.font(14, True), COLORS["green"])
+        occupants = [item for item in self.app.store.characters.values() if item.current_place == self.place_id and item.activity in ["dueling", "watching"]]
+        if not occupants: draw_text(surface, "No active occupants are currently registered.", (70, 242), self.app.assets.font(13), COLORS["muted"])
+        for index, character in enumerate(occupants[:8]):
+            role = "watching" if character.activity == "watching" else "dueling"
+            draw_text(surface, character.name + "  |  " + role + "  |  " + character.relationship, (70, 242 + index * 28), self.app.assets.font(12), COLORS["cream"])
+        draw_text(surface, "Landscape media is place-scoped and follows the deterministic world day/night clock.", (400, 432), self.app.assets.font(10), COLORS["gold"], "center")
+
+    def draw_duels(self, surface, place, night, now):
+        ground = self.app.assets.place_visual(self.place_id, "ground", night, now, (W, H), self.media_scope) or (self.app.assets.image(place.background, (W, H)) if place and place.background else None)
+        if ground: ui_blit(surface, ground, (0, 0))
+        else: surface.fill(COLORS["deep"])
+        veil = ui_surface((W, H), pygame.SRCALPHA); veil.fill((20, 28, 58, 92)); ui_blit(surface, veil, (0, 0))
+        draw_text(surface, "PLACE DUELS", (34, 28), self.app.assets.font(28, True), COLORS["gold"])
+        draw_text(surface, (place.name if place else self.place_id) + "  |  " + ("NIGHT" if night else "DAY") + "  |  live engine tables", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        self.draw_panel(surface, (34, 96, 732, 390), "ACTIVE TABLES", COLORS["cyan"])
+        if not self.battles: draw_text(surface, "No active duels are currently running at this place.", (400, 278), self.app.assets.font(15), COLORS["muted"], "center")
+        for index, battle in enumerate(self.battles):
+            y = 132 + index * 112
+            session = self.app.store._world_session(battle)
+            house = self.participant(battle, "house")
+            guest = self.participant(battle, "guest")
+            house_name = house.name if house else battle.get("house", "unknown")
+            guest_name = guest.name if guest else battle.get("guest", "unknown")
+            rounded(surface, (54, y, 570, 92), (132, 94, 73), COLORS["line"], 8, 1)
+            draw_text(surface, "TABLE " + str(index + 1) + "   HOUSE  " + house_name + "  VS  " + guest_name, (72, y + 14), self.app.assets.font(14, True), COLORS["cream"])
+            hp = session and (str(session.player.hp) + " LP  /  " + str(session.opponent.hp) + " LP") or "checkpoint loading"
+            draw_text(surface, "Phase: " + str(battle.get("phase", "duel")) + "  |  Turn: " + str(battle.get("turn", 1)) + "  |  " + hp, (72, y + 42), self.app.assets.font(11), COLORS["cyan"])
+            draw_text(surface, "Watchers: " + str(len(battle.get("watchers", []))) + "/6  |  Steps: " + str(len(battle.get("actions", []))) + "  |  House POV retained", (72, y + 66), self.app.assets.font(10), COLORS["muted"])
+
+    def draw(self, surface):
+        place = self.app.store.places.get(self.place_id)
+        now = float(self.app.store.world.get("simulation_time", 0.0))
+        night = self.app.store.clock.period(now) == "night"
+        if self.mode == "landscape": self.draw_landscape(surface, place, night, now)
+        else: self.draw_duels(surface, place, night, now)
+        self.draw_buttons(surface, 10)
+        self.app.draw_notice(surface)
+
+
 class PlacesScene(Scene):
     def enter(self):
         self.query = TextInput((420, 28, 220, 30), "")
@@ -8259,9 +8800,11 @@ class PlacesScene(Scene):
             draw_text(surface, place.name, (238, y + 18), self.app.assets.font(17, True), COLORS["cream"])
             draw_text(surface, f"Active duels: {place.current_duels}/{place.capacity}", (238, y + 48), self.app.assets.font(12), COLORS["cyan"])
             draw_text(surface, "Day/night: " + ("enabled" if place.day_night else "disabled") + "  |  media: " + ("scaffolded" if place.media_folder else "legacy"), (238, y + 75), self.app.assets.font(10), COLORS["muted"])
-            button = Button((650, y + 34, 92, 34), "DETAIL", lambda place_id=place.id: self.app.push(EntityDetailScene(self.app, "places", place_id)), COLORS["green"])
-            self.row_buttons.append(button)
-            button.draw(surface, self.app.assets.font(10, True))
+            view_button = Button((548, y + 34, 92, 34), "VIEW", lambda place_id=place.id: self.app.push(PlaceDuelViewScene(self.app, place_id)), COLORS["cyan"])
+            detail_button = Button((650, y + 34, 92, 34), "DETAIL", lambda place_id=place.id: self.app.push(EntityDetailScene(self.app, "places", place_id)), COLORS["green"])
+            self.row_buttons.extend([view_button, detail_button])
+            view_button.draw(surface, self.app.assets.font(10, True))
+            detail_button.draw(surface, self.app.assets.font(10, True))
         self.draw_buttons(surface, 11)
 
 

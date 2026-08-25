@@ -1,0 +1,95 @@
+{
+  "schema": "cbp.narrator.spin_dicer.v1",
+  "states": {
+    "request_first": {
+      "texts": [
+        "The accepting side may choose who moves first.",
+        "A first-turn request has been made. The other side may accept or spin the dice.",
+        "Before the duel begins, one side asks for the opening turn.",
+        "The opening decision is waiting for an answer.",
+        "The first move is being negotiated before the field awakens.",
+        "One side has requested the opening turn.",
+        "The duel is ready, but the first move is not yet decided.",
+        "Choose whether to grant the requested opening turn.",
+        "The opening request is now before the opposing duelist.",
+        "The first-turn question must be answered before the duel can begin."
+      ],
+      "audio_root": "audio/request_first"
+    },
+    "dice_intro": {
+      "texts": [
+        "The request was denied. The Spin-Dicer will decide the opening turn.",
+        "No opening turn was granted. The six-faced dice now chooses.",
+        "The dice is ready. Its lower half belongs to the launcher; its upper half belongs to the requester.",
+        "The opening move will be decided by one throw.",
+        "The Spin-Dicer begins. Watch the final face, not the motion before it.",
+        "The first-turn request has become a dice decision.",
+        "The launcher takes faces one through three. The requester takes faces four through six.",
+        "The table is set for the opening roll.",
+        "The duel waits on the dice.",
+        "One throw will settle who acts first."
+      ],
+      "audio_root": "audio/dice_intro"
+    },
+    "rolling": {
+      "texts": [
+        "The dice rises, turns, and falls.",
+        "The Spin-Dicer is in motion.",
+        "The face is still changing.",
+        "The throw is being resolved.",
+        "The opening roll continues.",
+        "The dice shakes across the table.",
+        "The final face is approaching.",
+        "The first turn is hidden in the motion.",
+        "The roll has not settled yet.",
+        "Wait for the landing."
+      ],
+      "audio_root": "audio/rolling"
+    },
+    "result_launcher": {
+      "texts": [
+        "The launcher claims the opening turn.",
+        "The final face is in the launcher’s range. The launcher goes first.",
+        "The dice favors the side that threw it.",
+        "Faces one through three give the first move to the launcher.",
+        "The opening turn belongs to the launcher.",
+        "The throw is settled. The launcher begins.",
+        "The first move is decided in the lower half of the dice.",
+        "The launcher wins the opening roll.",
+        "The table has chosen the launcher.",
+        "The duel will begin with the launcher."
+      ],
+      "audio_root": "audio/result_launcher"
+    },
+    "result_requester": {
+      "texts": [
+        "The requester claims the opening turn.",
+        "The final face is in the requester’s range. The requester goes first.",
+        "Faces four through six give the first move to the requester.",
+        "The opening turn belongs to the requester.",
+        "The throw is settled. The requester begins.",
+        "The first move is decided in the requester’s half of the dice.",
+        "The requester wins the opening roll.",
+        "The table has chosen the requester.",
+        "The duel will begin with the requester.",
+        "The final face sends the first move to the requester."
+      ],
+      "audio_root": "audio/result_requester"
+    },
+    "ready": {
+      "texts": [
+        "The opening turn is decided. Start the duel when ready.",
+        "The field awaits the first move.",
+        "The Spin-Dicer has finished. The duel can begin.",
+        "The first turn is locked in.",
+        "The result is recorded. The duel is ready.",
+        "No second roll is needed.",
+        "The opening decision is complete.",
+        "The first player has been selected.",
+        "The table is quiet. The duel may start.",
+        "The Spin-Dicer result will now pass to the duel engine."
+      ],
+      "audio_root": "audio/ready"
+    }
+  }
+}
