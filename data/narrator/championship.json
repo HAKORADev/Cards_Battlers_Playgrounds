@@ -30,6 +30,81 @@
         "The tournament is over. The playground has a new champion."
       ],
       "audio_root": "audio/championship_outro"
+    },
+    "championship_waiting": {
+      "texts": [
+        "The championship is open. The bracket waits for qualified teams.",
+        "The host has opened the field, and enrollment is now underway.",
+        "The tournament remains still until enough teams answer the call.",
+        "Qualified formations are being invited to the waiting championship.",
+        "The next bracket has room. The playground listens for acceptances.",
+        "The host watches the enrollment board as contenders approach.",
+        "No match begins before the required teams are ready.",
+        "The championship waits in real time, keeping every invitation visible.",
+        "The field is reserved for teams that can meet this level.",
+        "The waiting phase turns interest into a real tournament roster."
+      ],
+      "audio_root": "audio/championship_waiting"
+    },
+    "championship_enrollment": {
+      "texts": [
+        "A qualified team has joined the championship roster.",
+        "Another formation accepts its invitation and enters the bracket.",
+        "The enrollment record changes as teams commit to the field.",
+        "A contender joins with its members, rank, and deck history.",
+        "The waiting list moves closer to a complete tournament.",
+        "The host records another accepted championship invitation.",
+        "The roster grows without skipping the team eligibility rules.",
+        "The next entrant brings a different strategy into the bracket.",
+        "Enrollment remains visible to the host and every watcher.",
+        "The championship roster is taking shape one consent at a time."
+      ],
+      "audio_root": "audio/championship_enrollment"
+    },
+    "championship_match_start": {
+      "texts": [
+        "A championship match is scheduled on the real-time field.",
+        "Two qualified teams enter the next bracket round.",
+        "The match begins with the full three-round team rules active.",
+        "The bracket calls its next pair to the place.",
+        "The scheduled teams arrive with their members and histories.",
+        "A new championship session is now visible to its watchers.",
+        "The next round starts without timed or gamble duel terms.",
+        "The field is occupied by two teams ready to resolve the pairing.",
+        "The tournament moves from enrollment into live team play.",
+        "The bracket advances as the next real match opens."
+      ],
+      "audio_root": "audio/championship_match_start"
+    },
+    "championship_round_progress": {
+      "texts": [
+        "The round result is recorded, and the bracket advances.",
+        "One team survives the pairing and carries its lesson forward.",
+        "A championship victory changes the next scheduled match.",
+        "The completed team duel has become part of tournament history.",
+        "The bracket closes one pairing and opens the path ahead.",
+        "Every round result changes rank, memory, and reward progress.",
+        "The winning formation remains in the championship field.",
+        "The tournament records both the victor and the team that fell.",
+        "A new bracket line is drawn from the latest real match.",
+        "The championship is moving toward its final result."
+      ],
+      "audio_root": "audio/championship_round_progress"
+    },
+    "championship_reward": {
+      "texts": [
+        "The championship reward is recorded with the completed round.",
+        "The winning formation receives its earned tournament progression.",
+        "A new reward enters the team and character histories.",
+        "The bracket result changes the champion’s rank record.",
+        "The tournament pays its result without changing a losing team’s ownership incorrectly.",
+        "The winning members carry the reward into their next decisions.",
+        "This championship result becomes visible to future hosts and contenders.",
+        "A reward and achievement now anchor the latest round history.",
+        "The tournament’s progression is saved in the modular world record.",
+        "The championship reward closes this stage of the bracket."
+      ],
+      "audio_root": "audio/championship_reward"
     }
   }
 }

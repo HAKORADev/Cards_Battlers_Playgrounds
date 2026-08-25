@@ -46,21 +46,6 @@
       ],
       "audio_root": "audio/post_duel_draw"
     },
-    "timed_win": {
-      "texts": [
-        "Time has ended. The higher life total wins the timed duel.",
-        "The three-minute clock is complete, and the leading life total decides it.",
-        "The timer reaches zero. The duelist with more life takes the win.",
-        "The timed field closes on a life-point advantage.",
-        "The clock has spoken. The higher total is the winning total.",
-        "The final second ends the match before another phase can begin.",
-        "Time is over, and the scoreboard names the leader.",
-        "The timed duel is decided by remaining life points.",
-        "The countdown is finished. One side is ahead.",
-        "The clock closes the duel with a winner."
-      ],
-      "audio_root": "audio/timed_win"
-    },
     "timed_draw": {
       "texts": [
         "Time has ended with equal life totals. The timed duel is a draw.",
@@ -90,6 +75,36 @@
         "The gamble enters its final selection."
       ],
       "audio_root": "audio/gamble_selection"
+    },
+    "time_end_house_win": {
+      "texts": [
+        "Time is up. The house wins instantly on the higher life total.",
+        "The clock reaches zero. The house takes the timed victory.",
+        "The final second is gone, and the house remains ahead.",
+        "The timed duel ends now. The house has the winning life total.",
+        "No further phase begins. Time grants the house an instant win.",
+        "The countdown closes with the house standing above its opponent.",
+        "Time has ended, and the house is declared the winner.",
+        "The house leads when the timer expires. The result is immediate.",
+        "The clock decides this match for the house.",
+        "The timed duel is over. House victory is recorded instantly."
+      ],
+      "audio_root": "audio/time-end/house-win"
+    },
+    "time_end_house_lose": {
+      "texts": [
+        "Time is up. The house loses instantly on the lower life total.",
+        "The clock reaches zero. The opponent takes the timed victory.",
+        "The final second is gone, and the house is behind.",
+        "The timed duel ends now. The house has the lower life total.",
+        "No further phase begins. Time gives the opponent an instant win.",
+        "The countdown closes with the house behind its opponent.",
+        "Time has ended, and the house is declared the loser.",
+        "The house trails when the timer expires. The result is immediate.",
+        "The clock decides this match against the house.",
+        "The timed duel is over. House defeat is recorded instantly."
+      ],
+      "audio_root": "audio/time-end/house-lose"
     }
   }
 }

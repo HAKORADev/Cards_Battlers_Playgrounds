@@ -46,7 +46,7 @@
       "world_index": "data/runtime/world/index.json",
       "world_collections": "data/runtime/world/collections/<collection>.json",
       "place_occupancy": "data/runtime/world/index.json:place_occupancy",
-      "world_sequences": "data/runtime/world/collections/{dice_sequence,duel_sequence,request_sequence,order_sequence}.json"
+      "world_sequences": "data/runtime/world/collections/{dice_sequence,duel_sequence,request_sequence,order_sequence,team_request_sequence,trade_sequence,borrow_sequence}.json"
     },
     "relationships": {
       "values": [
@@ -176,7 +176,10 @@
         "current_place",
         "destination",
         "activity",
-        "cooldown_until"
+        "cooldown_until",
+        "goals",
+        "memories",
+        "persona_state"
       ],
       "knowledge_rule": "own cards and legally visible cards are known; hidden opponent hand, deck, and facedown identities remain uncertain until observed or learned with confidence",
       "knowledge_provenance": [
@@ -220,7 +223,9 @@
         "behavior_weights",
         "knowledge_state",
         "learning_state",
-        "experience"
+        "experience",
+        "formation_state",
+        "formation_requests"
       ],
       "member_limit": 3,
       "member_order": "preserved; leader must be a member",
@@ -255,13 +260,115 @@
       "import_rule": "only manifest-listed categories and IDs are imported; world state is never merged unless the package explicitly includes world and the caller requests it; requested categories are selective and support replace, skip, and reject conflicts",
       "media": "nested entity media is preserved under data/<category>/... with path traversal rejected"
     },
+    "real_time_world": {
+      "clock_mode": "wall_clock",
+      "persisted_fields": [
+        "simulation_time",
+        "last_wall_time",
+        "clock_epoch"
+      ],
+      "runtime_rule": "advance_world() consumes non-negative computer-clock delta; explicit seconds are reserved for external controlled test harnesses",
+      "restart_rule": "next runtime tick advances by elapsed time since the persisted last_wall_time; monotonic backward-clock jumps produce zero delta",
+      "background_rendering": false,
+      "checkpoint": "modular world collections and world index; no authored world.json mutation"
+    },
+    "trading": {
+      "offer_limit": "one through three cards",
+      "request_forms": [
+        "explicit_card_ids",
+        "requested_family",
+        "requested_kind"
+      ],
+      "states": [
+        "deferred",
+        "open",
+        "countered",
+        "accepted",
+        "canceled",
+        "expired",
+        "escalated"
+      ],
+      "expiry": "three simulated real-time hours via expires_sim_time",
+      "valuation": "relationship-aware card value using stars, stats, preferences, knowledge, risk, and social relation",
+      "transaction": "ownership changes atomically after both sides have available cards; every card movement is journaled and discovered",
+      "media": "text-like negotiation state does not require vocal playback; optional scene media remains separate"
+    },
+    "borrowing": {
+      "states": [
+        "deferred",
+        "requested",
+        "active",
+        "denied",
+        "canceled",
+        "expired",
+        "returned"
+      ],
+      "duration": "one through five completed duels",
+      "consent": "borrower opens a request and lender explicitly accepts, denies, ignores, or the borrower cancels",
+      "constraints": "lender cards are reserved while requested or active; borrower deck copy limits are checked; active loans are injected into runtime deck preparation without changing authored deck ownership",
+      "return": "loan marker is removed after the agreed completed-duel count and lender ownership remains conserved",
+      "team_scope": "team-member borrowing and trade records carry team_id and team history"
+    },
+    "championships": {
+      "levels": 5,
+      "difficulties": [
+        "easy",
+        "medium",
+        "hard",
+        "extreme",
+        "legendary"
+      ],
+      "team_counts": {
+        "level_1": 4,
+        "level_2": 8,
+        "level_3": 16,
+        "level_4": 32,
+        "level_5": 128
+      },
+      "lifecycle": [
+        "waiting",
+        "invited",
+        "enrolled",
+        "active",
+        "complete"
+      ],
+      "narrator_states": [
+        "championship_intro",
+        "championship_waiting",
+        "championship_enrollment",
+        "championship_match_start",
+        "championship_round_progress",
+        "championship_reward",
+        "championship_outro"
+      ],
+      "host_rule": "host rank, five decks of at least fifty cards, and level-scaled library minimum are checked before creation",
+      "match_rule": "current TEAMvTEAM TeamDuelEngine sessions are scheduled into available places on the real-time world timeline; timed and gamble modes are rejected",
+      "progression": "completed rounds populate the next bracket, distribute round-scaled rewards, update histories/ranks/achievements, and emit narrator intro/outro cues",
+      "observation": "watcher IDs are carried into active championship battle records without rendering background media"
+    },
+    "persona_runtime": {
+      "inputs": [
+        "relationship_history",
+        "duel_history",
+        "trade_history",
+        "borrow_history",
+        "championship_history",
+        "place_preferences",
+        "card_knowledge",
+        "risk_and_reward_weights"
+      ],
+      "rule": "decisions use only owned or legally visible information; hidden cards and hidden deck contents are never read as knowledge",
+      "evolution": "social outcomes and observed results update durable behavior weights, memories, goals, and relationship direction"
+    },
     "interaction_lifecycle": {
       "catalog": "data/runtime/world/collections/interactions.json",
       "families": [
         "request",
         "order",
         "trade",
-        "borrow"
+        "borrow",
+        "team_request",
+        "championship"
       ],
       "envelope": [
         "id",
@@ -439,10 +546,16 @@
         "post_duel_win",
         "post_duel_loss",
         "post_duel_draw",
-        "timed_win",
+        "time_end_house_win",
+        "time_end_house_lose",
         "timed_draw",
         "gamble_selection",
         "championship_intro",
+        "championship_waiting",
+        "championship_enrollment",
+        "championship_match_start",
+        "championship_round_progress",
+        "championship_reward",
         "championship_outro"
       ]
     },
@@ -490,7 +603,7 @@
         "format": "1v1 only",
         "default_seconds": 180,
         "configurable_seconds": "bounded authored/request/order term",
-        "expiry": "higher LP wins; equal LP is a draw; no reward transfer on draw",
+        "expiry": "higher LP resolves as timed-instant-win or timed-instant-lose for the house; equal LP is a timed draw with no winner and no reward transfer",
         "checkpoint": [
           "time_limit",
           "duel_elapsed",

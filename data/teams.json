@@ -4,16 +4,20 @@
     "name": "The Duelers",
     "members": [
       "rival_echo",
-      "mystery_arc"
+      "ember_sage",
+      "tide_courier"
     ],
     "leader": "rival_echo",
     "preferred_places": [
       "neon_playground"
     ],
-    "media_folder": "teams/the_duelers_1787428876584_the_duelers",
+    "media_folder": "teams/the_duelers_1787673582813_the_duelers",
     "portrait": "team_placeholder",
-    "description": "",
-    "preferred_families": [],
+    "description": "An original adaptive team built around echoes, tempo, and elemental pressure.",
+    "preferred_families": [
+      "aqua",
+      "fire"
+    ],
     "preferred_card_kinds": [],
     "preferred_cards": [],
     "logic_graph": ""
@@ -30,10 +34,58 @@
     "preferred_places": [
       "mystery_void"
     ],
-    "media_folder": "teams/trio_mysterio_1787428876585_trio_team",
+    "media_folder": "teams/trio_mysterio_1787673582822_trio_team",
     "portrait": "team_placeholder",
-    "description": "",
-    "preferred_families": [],
+    "description": "A mysterious original team that introduces unknown cards through play.",
+    "preferred_families": [
+      "fiend",
+      "aqua"
+    ],
+    "preferred_card_kinds": [],
+    "preferred_cards": [],
+    "logic_graph": ""
+  },
+  {
+    "id": "iron_garden",
+    "name": "Iron Garden",
+    "members": [
+      "iron_mason",
+      "moss_keeper",
+      "forge_watcher"
+    ],
+    "leader": "forge_watcher",
+    "preferred_places": [
+      "neon_playground"
+    ],
+    "media_folder": "teams/iron_garden_1787673582831_iron_garden",
+    "portrait": "team_placeholder",
+    "description": "A patient defensive team that converts durable resources into pressure.",
+    "preferred_families": [
+      "warrior",
+      "plant"
+    ],
+    "preferred_card_kinds": [],
+    "preferred_cards": [],
+    "logic_graph": ""
+  },
+  {
+    "id": "aqua_archives",
+    "name": "Aqua Archives",
+    "members": [
+      "aqua_scribe",
+      "pearl_guard",
+      "coral_scout"
+    ],
+    "leader": "aqua_scribe",
+    "preferred_places": [
+      "mystery_void"
+    ],
+    "media_folder": "teams/aqua_archives_1787673582839_aqua_archives",
+    "portrait": "team_placeholder",
+    "description": "A research-minded team that learns from public card information.",
+    "preferred_families": [
+      "aqua"
+    ],
     "preferred_card_kinds": [],
     "preferred_cards": [],
     "logic_graph": ""

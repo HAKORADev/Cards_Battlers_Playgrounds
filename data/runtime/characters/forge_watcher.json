@@ -1,0 +1,189 @@
+{
+  "schema": 2,
+  "id": "forge_watcher",
+  "category": "characters",
+  "state": {
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
+    },
+    "availability": "free",
+    "current_place": "",
+    "learned_opponents": {},
+    "memories": [],
+    "goals": [
+      {
+        "id": "master_warrior",
+        "kind": "master_family",
+        "target": "warrior",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 1.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 1.0,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "family_weights": {
+        "warrior": 2.0,
+        "aqua": 0.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 0.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 0.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0
+      },
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {},
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      }
+    },
+    "cooldown_until": 0.0,
+    "movement_progress": 0.0,
+    "enemies": [],
+    "activity": "idle",
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
+    "learning_state": {
+      "observations": 0,
+      "updates": 0,
+      "last_update": 0.0
+    },
+    "world_status": "in_playground",
+    "library_cards": [
+      "cinder_knight",
+      "storm_lancer",
+      "solar_burst",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "echo_bolt",
+      "sunlit_field",
+      "ember_chimera",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard"
+    ],
+    "rank": 1,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {}
+    },
+    "history": [],
+    "learned_cards": {},
+    "borrowed_cards": [],
+    "mood": "neutral",
+    "out_of_game_until": 0.0,
+    "destination": "",
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    },
+    "relationship_history": [],
+    "allies": [],
+    "relationship": "stranger"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema": 2,
+  "id": "aqua_archives",
+  "category": "teams",
+  "state": {
+    "history": [],
+    "team_effect": {},
+    "behavior_weights": {
+      "coordination": 5.0,
+      "risk": 5.0,
+      "resource": 5.0,
+      "switching": 5.0,
+      "adaptation": 5.0
+    },
+    "formation_state": "complete",
+    "effect_locked": false,
+    "formation_requests": [],
+    "relationship": "neutral",
+    "knowledge_state": {},
+    "learning_state": {},
+    "rank": 1,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0
+    }
+  }
+}

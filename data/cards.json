@@ -1016,5 +1016,697 @@
     "subtypes": [
       "insect"
     ]
+  },
+  {
+    "id": "storm_lancer",
+    "name": "Storm Lancer",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 4,
+    "atk": 1700,
+    "defense": 1300,
+    "family": "warrior",
+    "description": "When summoned, this lancer gains 150 attack until the end of the turn.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "boost",
+        "amount": 150
+      }
+    ],
+    "art_color": [
+      74,
+      134,
+      214
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "starter_logic",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/storm_lancer_1787673581164_storm_lancer",
+    "art_folder": "cards/storm_lancer",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "warrior"
+    ]
+  },
+  {
+    "id": "tide_oracle",
+    "name": "Tide Oracle",
+    "kind": "effect",
+    "frame": "orange",
+    "stars": 4,
+    "atk": 1500,
+    "defense": 1700,
+    "family": "aqua",
+    "description": "When summoned, restore 200 life points to its controller.",
+    "effects": [
+      {
+        "trigger": "summon",
+        "action": "heal",
+        "amount": 200
+      }
+    ],
+    "art_color": [
+      56,
+      168,
+      184
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "starter_logic",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/tide_oracle_1787673581216_tide_oracle",
+    "art_folder": "cards/tide_oracle",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "aqua"
+    ]
+  },
+  {
+    "id": "garden_sentinel",
+    "name": "Garden Sentinel",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1600,
+    "defense": 1800,
+    "family": "plant",
+    "description": "A patient guardian that turns every opening into a stronger defense.",
+    "effects": [],
+    "art_color": [
+      92,
+      168,
+      96
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/garden_sentinel_1787673581286_garden_sentinel",
+    "art_folder": "cards/garden_sentinel",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "plant"
+    ]
+  },
+  {
+    "id": "archive_signal",
+    "name": "Archive Signal",
+    "kind": "spell",
+    "frame": "sky-blue",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "spell",
+    "description": "Draw one card and reveal the next strategic possibility.",
+    "effects": [
+      {
+        "trigger": "activate",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "art_color": [
+      116,
+      190,
+      220
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "starter_logic",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/archive_signal_1787673581351_archive_signal",
+    "art_folder": "cards/archive_signal",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": []
+  },
+  {
+    "id": "iron_oath",
+    "name": "Iron Oath",
+    "kind": "trap",
+    "frame": "dark-pink",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "trap",
+    "description": "When an opposing monster attacks, weaken that attacker by 300.",
+    "effects": [
+      {
+        "trigger": "attack",
+        "action": "boost",
+        "amount": -300
+      }
+    ],
+    "art_color": [
+      190,
+      92,
+      132
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "starter_logic",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "opponent_turn",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/iron_oath_1787673581422_iron_oath",
+    "art_folder": "cards/iron_oath",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": []
+  },
+  {
+    "id": "aurora_bridge",
+    "name": "Aurora Bridge",
+    "kind": "field",
+    "frame": "sky-blue",
+    "stars": 0,
+    "atk": 0,
+    "defense": 0,
+    "family": "field",
+    "description": "A shared field that rewards careful transitions between battle phases.",
+    "effects": [
+      {
+        "trigger": "activate",
+        "action": "boost",
+        "amount": 100
+      }
+    ],
+    "art_color": [
+      164,
+      204,
+      232
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "starter_logic",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {
+      "atk": 100
+    },
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/aurora_bridge_1787673581504_aurora_bridge",
+    "art_folder": "cards/aurora_bridge",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": []
+  },
+  {
+    "id": "copper_gryphon",
+    "name": "Copper Gryphon",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1650,
+    "defense": 1450,
+    "family": "beast",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      180,
+      132,
+      74
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/copper_gryphon_1787673581552_copper_gryphon",
+    "art_folder": "cards/copper_gryphon",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "beast"
+    ]
+  },
+  {
+    "id": "moonlit_drake",
+    "name": "Moonlit Drake",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1750,
+    "defense": 1400,
+    "family": "dragon",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      100,
+      122,
+      194
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/moonlit_drake_1787673581655_moonlit_drake",
+    "art_folder": "cards/moonlit_drake",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "dragon"
+    ]
+  },
+  {
+    "id": "quiet_alchemist",
+    "name": "Quiet Alchemist",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1450,
+    "defense": 1750,
+    "family": "spellcaster",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      174,
+      108,
+      194
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/quiet_alchemist_1787673581733_quiet_alchemist",
+    "art_folder": "cards/quiet_alchemist",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "spellcaster"
+    ]
+  },
+  {
+    "id": "grave_bloom",
+    "name": "Grave Bloom",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1550,
+    "defense": 1500,
+    "family": "zombie",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      116,
+      146,
+      92
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/grave_bloom_1787673581793_grave_bloom",
+    "art_folder": "cards/grave_bloom",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "zombie"
+    ]
+  },
+  {
+    "id": "clockwork_mite",
+    "name": "Clockwork Mite",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 3,
+    "atk": 1300,
+    "defense": 1200,
+    "family": "machine",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      148,
+      154,
+      164
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/clockwork_mite_1787673581869_clockwork_mite",
+    "art_folder": "cards/clockwork_mite",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "machine"
+    ]
+  },
+  {
+    "id": "thunder_kite",
+    "name": "Thunder Kite",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1600,
+    "defense": 1300,
+    "family": "thunder",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      232,
+      198,
+      72
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/thunder_kite_1787673581928_thunder_kite",
+    "art_folder": "cards/thunder_kite",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "thunder"
+    ]
+  },
+  {
+    "id": "river_colossus",
+    "name": "River Colossus",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 5,
+    "atk": 2050,
+    "defense": 1800,
+    "family": "aqua",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      64,
+      158,
+      184
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/river_colossus_1787673582019_river_colossus",
+    "art_folder": "cards/river_colossus",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "aqua"
+    ]
+  },
+  {
+    "id": "sunforge_guard",
+    "name": "Sunforge Guard",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 5,
+    "atk": 2100,
+    "defense": 1900,
+    "family": "warrior",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      224,
+      154,
+      62
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/sunforge_guard_1787673582070_sunforge_guard",
+    "art_folder": "cards/sunforge_guard",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "warrior"
+    ]
+  },
+  {
+    "id": "briar_runner",
+    "name": "Briar Runner",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 3,
+    "atk": 1250,
+    "defense": 1450,
+    "family": "plant",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      74,
+      170,
+      94
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/briar_runner_1787673582164_briar_runner",
+    "art_folder": "cards/briar_runner",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "plant"
+    ]
+  },
+  {
+    "id": "veil_hound",
+    "name": "Veil Hound",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1800,
+    "defense": 1200,
+    "family": "fiend",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      126,
+      86,
+      154
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/veil_hound_1787673582232_veil_hound",
+    "art_folder": "cards/veil_hound",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "fiend"
+    ]
+  },
+  {
+    "id": "skyglass_owl",
+    "name": "Skyglass Owl",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1500,
+    "defense": 1600,
+    "family": "winged_beast",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      120,
+      184,
+      218
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/skyglass_owl_1787673582281_skyglass_owl",
+    "art_folder": "cards/skyglass_owl",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "winged_beast"
+    ]
+  },
+  {
+    "id": "basalt_keeper",
+    "name": "Basalt Keeper",
+    "kind": "normal",
+    "frame": "yellow",
+    "stars": 4,
+    "atk": 1400,
+    "defense": 2000,
+    "family": "rock",
+    "description": "An original authored creature for the CBP simulation cohort.",
+    "effects": [],
+    "art_color": [
+      126,
+      122,
+      112
+    ],
+    "legendary": false,
+    "limit": 3,
+    "logic_graph": "",
+    "targets": [
+      "none"
+    ],
+    "target_count": 0,
+    "timing": "main",
+    "field_effect": {},
+    "materials": [],
+    "ritual_cost": 0,
+    "summon_method": "normal",
+    "media_folder": "cards/basalt_keeper_1787673582326_basalt_keeper",
+    "art_folder": "cards/basalt_keeper",
+    "art_variant": 1,
+    "frame_schema": "classic_card_v1",
+    "summon_procedure": {},
+    "subtypes": [
+      "rock"
+    ]
   }
 ]

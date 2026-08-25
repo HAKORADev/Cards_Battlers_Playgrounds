@@ -3,112 +3,134 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
-    "knowledge_state": {
-      "cards": {
-        "void_titan": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "mystery_arc"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "cinder_knight": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "mystery_arc"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "timed"
-            }
-          ]
-        },
-        "sky_archer": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "mystery_arc"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "iron_fridge": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "mystery_arc"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "timed"
-            }
-          ]
-        }
-      },
-      "opponents": {
-        "mystery_arc": {
-          "cards": {},
-          "effects": {},
-          "sightings": 0
-        }
-      },
-      "effects": {}
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
     },
-    "world_status": "in_playground",
-    "allies": [],
-    "learning_state": {
-      "observations": 0,
-      "updates": 6,
-      "last_update": 1787667089.9696264
-    },
-    "experience": {
-      "duels": 6,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "mystery_arc": {
-          "observed_cards": [],
-          "last_result": "loss",
-          "turns": 1,
-          "updated": 1787667089.969662
-        }
-      },
-      "losss": 6
-    },
-    "destination": "",
+    "availability": "free",
     "current_place": "",
     "learned_opponents": {
-      "mystery_arc": 6
+      "mystery_arc": 3
     },
-    "relationship_history": [],
-    "relationship": "stranger",
+    "memories": [],
+    "goals": [
+      {
+        "id": "master_aqua",
+        "kind": "master_family",
+        "target": "aqua",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 1.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 2.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 2.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 0.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      },
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {}
+    },
+    "cooldown_until": 0.0,
+    "movement_progress": 0.0,
     "enemies": [],
-    "learned_cards": {},
+    "activity": "idle",
+    "mood_state": {
+      "current": "focused",
+      "intensity": 0.0
+    },
+    "learning_state": {
+      "observations": 0,
+      "updates": 3,
+      "last_update": 1787666900.237606
+    },
+    "world_status": "in_playground",
     "library_cards": [
-      "aqua_sentinel",
       "sky_archer",
+      "solar_burst",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
       "cinder_knight",
       "aqua_sentinel",
       "iron_fridge",
@@ -147,80 +169,24 @@
       "trio_relic",
       "aqua_sentinel",
       "iron_fridge",
-      "cinder_knight",
-      "void_titan",
       "cinder_knight"
     ],
     "rank": 1,
-    "movement_progress": 0.0,
-    "borrowed_cards": [],
-    "mood": "focused",
-    "out_of_game_until": 0.0,
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 10.0,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 2.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 2.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "spellcaster": 0.0,
-        "insect": 0.0
+    "experience": {
+      "duels": 3,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "mystery_arc": {
+          "observed_cards": [],
+          "last_result": "loss",
+          "turns": 1,
+          "updated": 1787666900.2376423
+        }
       },
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      },
-      "duel": {
-        "summon_bias": 1.0,
-        "set_bias": 1.0,
-        "activation_bias": 1.0,
-        "removal_bias": 1.0,
-        "defense_bias": 1.0,
-        "attack_bias": 1.0,
-        "trap_threshold": 0.0
-      },
-      "memory": 5.0,
-      "inference": 5.0,
-      "planning": 5.0,
-      "card_kind_weights": {
-        "normal": 0.0,
-        "effect": 0.0,
-        "spell": 0.0,
-        "field": 0.0,
-        "trap": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "legendary": 0.0
-      },
-      "subtype_weights": {}
+      "losss": 3
     },
-    "availability": "free",
-    "mood_state": {
-      "current": "focused",
-      "intensity": 0.0
-    },
-    "activity": "idle",
-    "cooldown_until": 0.0,
     "history": [
       {
         "opponent": "mystery_arc",
@@ -311,97 +277,57 @@
         "transferred_cards": [],
         "sim_time": 0.0,
         "time": 1787666900.2512975
-      },
-      {
-        "opponent": "mystery_arc",
-        "result": "loss",
-        "turns": 1,
-        "reason": "test-win",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "test-win",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787667089.7205932
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "mystery_arc",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "test-win",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "test-win",
-        "deck_ids": {},
-        "transferred_cards": [
-          "sky_archer"
-        ],
-        "sim_time": 0.0,
-        "time": 1787667089.7388575
-      },
-      {
-        "opponent": "mystery_arc",
-        "result": "loss",
-        "turns": 1,
-        "reason": "timed-lowest-lp",
-        "mode": "timed",
-        "place": "neon_playground",
-        "finisher": "timed-lowest-lp",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787667089.832999
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "mystery_arc",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "timed-lowest-lp",
-        "mode": "timed",
-        "place": "neon_playground",
-        "finisher": "timed-lowest-lp",
-        "deck_ids": {},
-        "transferred_cards": [
-          "iron_fridge"
-        ],
-        "sim_time": 0.0,
-        "time": 1787667089.8555424
-      },
-      {
-        "opponent": "mystery_arc",
-        "result": "loss",
-        "turns": 1,
-        "reason": "test-win",
-        "mode": "gamble",
-        "place": "neon_playground",
-        "finisher": "test-win",
-        "deck_id": "",
-        "cards": [
-          "solar_burst"
-        ],
-        "time": 1787667089.9696238
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "mystery_arc",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "test-win",
-        "mode": "gamble",
-        "place": "neon_playground",
-        "finisher": "test-win",
-        "deck_ids": {},
-        "transferred_cards": [],
-        "sim_time": 0.0,
-        "time": 1787667089.9919474
       }
-    ]
+    ],
+    "learned_cards": {},
+    "borrowed_cards": [],
+    "mood": "focused",
+    "out_of_game_until": 0.0,
+    "destination": "",
+    "knowledge_state": {
+      "cards": {
+        "void_titan": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "mystery_arc"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "cinder_knight": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "mystery_arc"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "timed"
+            }
+          ]
+        }
+      },
+      "opponents": {
+        "mystery_arc": {
+          "cards": {},
+          "effects": {},
+          "sightings": 0
+        }
+      },
+      "effects": {}
+    },
+    "relationship_history": [],
+    "allies": [],
+    "relationship": "stranger"
   }
 }

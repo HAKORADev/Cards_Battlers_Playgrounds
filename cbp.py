@@ -66,7 +66,7 @@ DUEL_PHASES = ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"]
 DUEL_PHASE_ABBREVIATIONS = {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}
 DUEL_MODES = ["current", "timed", "gamble"]
 DUEL_MODE_FORMATS = {"current": ["1v1", "1vTEAM", "TEAMv1", "TEAMvTEAM"], "timed": ["1v1"], "gamble": ["1v1"]}
-CHARACTER_RUNTIME_FIELDS = {"mood", "mood_state", "allies", "enemies", "history", "relationship_history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "out_of_game_until", "world_status", "behavior_weights", "learned_cards", "learned_opponents", "knowledge_state", "learning_state", "experience"}
+CHARACTER_RUNTIME_FIELDS = {"mood", "mood_state", "allies", "enemies", "history", "relationship_history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "out_of_game_until", "world_status", "behavior_weights", "learned_cards", "learned_opponents", "knowledge_state", "learning_state", "experience", "goals", "memories", "persona_state"}
 TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked", "behavior_weights", "knowledge_state", "learning_state", "experience", "formation_state", "formation_requests"}
 
 
@@ -804,6 +804,9 @@ class CharacterDef:
     logic_graph: str = ""
     out_of_game_until: float = 0.0
     world_status: str = "in_playground"
+    goals: list = field(default_factory=list)
+    memories: list = field(default_factory=list)
+    persona_state: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1545,9 +1548,10 @@ class ContentStore:
         self.world_checkpoint_elapsed = 0.0
         self.world_checkpoint_interval = 15.0
         self.world_sessions = {}
+        self.world_team_sessions = {}
         self.rules = read_json(DATA / "rules.json", {})
-        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0})
-        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0)]: self.world.setdefault(key, default)
+        self.world = read_json(DATA / "world.json", {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "place_occupancy": {}, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": 0.0, "clock_mode": "wall_clock"})
+        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0)]: self.world.setdefault(key, default)
         self.load()
 
     def spin_dice_result(self, launcher_id, requester_id):
@@ -1616,7 +1620,7 @@ class ContentStore:
         stored = read_json(RUNTIME_WORLD_INDEX, {}) if RUNTIME_WORLD_INDEX.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
         state = dict(state) if isinstance(state, dict) else {}
-        for key in ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "out_of_game", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence", "team_request_sequence"]:
+        for key in ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]:
             path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
             if not path.exists(): continue
             payload = read_json(path, {})
@@ -1648,14 +1652,17 @@ class ContentStore:
         cards_data = read_json(DATA / "cards.json", [])
         character_data = read_json(DATA / "characters.json", [])
         team_data = read_json(DATA / "teams.json", [])
+        fresh_character_ids = {entry.get("id") for entry in character_data if entry.get("id") and not self.runtime_path("characters", entry.get("id")).exists()}
         self.migrate_runtime_state(character_data, "characters", CHARACTER_RUNTIME_FIELDS)
         self.migrate_runtime_state(team_data, "teams", TEAM_RUNTIME_FIELDS)
         self.cards = {entry["id"]: CardDef(**entry) for entry in cards_data}
         for card in self.cards.values(): card.subtypes = self.normalize_profile_list(getattr(card, "subtypes", []), limit=2)
-        self.characters = {entry["id"]: CharacterDef(**self.overlay_runtime_state(entry, "characters", CHARACTER_RUNTIME_FIELDS)) for entry in character_data}
+        self.characters = {entry["id"]: CharacterDef(**self.overlay_runtime_state({**entry, "relationship": entry.get("relationship", "stranger")}, "characters", CHARACTER_RUNTIME_FIELDS)) for entry in character_data}
         self.decks = read_json(DATA / "decks.json", {})
         for character in self.characters.values():
-            if not character.library_cards: character.library_cards = list(self.decks.get(character.deck_id, {}).get("cards", []))[:6]
+            owned_deck_cards = [card_id for deck in self.decks.values() if deck.get("owner_id") == character.id for card_id in list(deck.get("cards", []))]
+            if character.id in fresh_character_ids and owned_deck_cards: character.library_cards = owned_deck_cards
+            elif not character.library_cards: character.library_cards = list(self.decks.get(character.deck_id, {}).get("cards", []))
         for deck_id, deck in self.decks.items():
             deck = dict(deck or {})
             deck.setdefault("name", str(deck_id))
@@ -1671,12 +1678,16 @@ class ContentStore:
         self.places = {entry["id"]: self.place_from_entry(entry) for entry in read_json(DATA / "places.json", [])}
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
         self.ensure_behavior_weights()
-        legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "team_requests": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "place_occupancy": {}, "out_of_game": []})
+        legacy_world = read_json(DATA / "world.json", {"requests": [], "orders": [], "team_requests": [], "championships": [], "trades": [], "borrows": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "place_occupancy": {}, "out_of_game": [], "last_wall_time": 0.0, "clock_mode": "wall_clock"})
         self.world = self.migrate_world_state(legacy_world)
         self.world.setdefault("clock_epoch", int(time.time()))
         try: self.clock.epoch = float(self.world.get("clock_epoch", time.time()))
         except (TypeError, ValueError): self.clock.epoch = time.time(); self.world["clock_epoch"] = int(self.clock.epoch)
-        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("interactions", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0)]: self.world.setdefault(key, default)
+        try: self.world["last_wall_time"] = float(self.world.get("last_wall_time", 0.0) or 0.0)
+        except (TypeError, ValueError): self.world["last_wall_time"] = 0.0
+        if self.world["last_wall_time"] <= 0.0: self.world["last_wall_time"] = time.time()
+        self.world["clock_mode"] = "wall_clock"
+        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0), ("last_wall_time", 0.0), ("clock_mode", "wall_clock")]: self.world.setdefault(key, default)
         occupancy = self.world.get("place_occupancy", {}) if isinstance(self.world, dict) else {}
         for place in self.places.values(): place.current_duels = int(occupancy.get(place.id, place.current_duels) or 0)
         self.sync_place_runtime()
@@ -1688,6 +1699,7 @@ class ContentStore:
         self.ensure_entity_scaffolds()
         self.media.scan()
         self.world_sessions = {}
+        self.world_team_sessions = {}
         self.dirty_domains.clear()
         self.world_checkpoint_elapsed = 0.0
 
@@ -1774,6 +1786,15 @@ class ContentStore:
             character.behavior_weights.setdefault("duel", {"summon_bias": 1.0, "set_bias": 1.0, "activation_bias": 1.0, "removal_bias": 1.0, "defense_bias": 1.0, "attack_bias": 1.0, "trap_threshold": 0.0})
             character.learned_cards = {str(key): max(0, int(value)) for key, value in character.learned_cards.items() if str(key) in self.cards}
             character.learned_opponents = {str(key): max(0, int(value)) for key, value in character.learned_opponents.items() if str(key) in self.characters}
+            character.goals = list(getattr(character, "goals", []) or [])[-20:]
+            if not character.goals:
+                family = character.preferred_families[0] if character.preferred_families else "warrior"
+                character.goals = [{"id": "master_" + family, "kind": "master_family", "target": family, "progress": 0.0, "priority": 1.0}, {"id": "build_trust", "kind": "build_relationship", "target": "ally", "progress": 0.0, "priority": 0.8}, {"id": "earn_rank", "kind": "reach_rank", "target": max(2, min(10, int(character.rank) + 1)), "progress": float(character.rank), "priority": 0.7}, {"id": "challenge_enemy", "kind": "challenge_enemy", "target": "enemy", "progress": 0.0, "priority": 0.4}]
+            character.memories = list(getattr(character, "memories", []) or [])[-100:]
+            character.persona_state = dict(getattr(character, "persona_state", {}) or {})
+            character.persona_state.setdefault("reputation", 0.0)
+            character.persona_state.setdefault("trust", {})
+            character.persona_state.setdefault("confidence", 0.0)
         for team in self.teams.values(): self.normalize_team_profile(team)
 
     def relationship_for(self, character_id, other_id):
@@ -1800,14 +1821,19 @@ class ContentStore:
 
     def _relationship_score(self, character, other):
         relation = self.relationship_for(character.id, other.id)
-        if relation == "enemy": return float(character.behavior_weights.get("enemy_bias", 6.0))
-        if relation == "ally": return float(character.behavior_weights.get("ally_bias", 4.0))
-        return 5.0
+        score = float(character.behavior_weights.get("enemy_bias", 6.0)) if relation == "enemy" else float(character.behavior_weights.get("ally_bias", 4.0)) if relation == "ally" else 5.0
+        score += float(character.persona_state.get("trust", {}).get(other.id, 0.0)) * 0.35
+        score += float(character.behavior_weights.get("state_weights", {}).get(relation, 1.0))
+        return score
+
+    def active_goal(self, character):
+        goals = [goal for goal in getattr(character, "goals", []) if float(goal.get("progress", 0.0)) < 100.0]
+        return max(goals, key=lambda goal: (float(goal.get("priority", 0.0)), str(goal.get("id", "")))) if goals else {}
 
     def choose_ai_opponent(self, character_id):
         character = self.characters.get(character_id)
         player_id = self.role_config()["player_character"]
-        candidates = [other for other in self.characters.values() if other.id != character_id and other.id != player_id and other.availability == "free" and float(other.cooldown_until) <= float(self.world.get("simulation_time", 0.0))]
+        candidates = [other for other in self.characters.values() if other.id != character_id and self.social_available(other.id) and float(other.cooldown_until) <= float(self.world.get("simulation_time", 0.0))]
         if not character or not candidates: return None
         def score(other):
             history = [event for event in character.history if event.get("opponent") == other.id]
@@ -1816,7 +1842,13 @@ class ContentStore:
             known = float(character.learned_opponents.get(other.id, 0))
             challenge = abs(int(other.stars) - int(character.stars)) * float(character.behavior_weights.get("learning_value", 5.0))
             rematch = losses * float(character.behavior_weights.get("rematch_desire", 4.0)) - wins
-            return self._relationship_score(character, other) + challenge + rematch - known * float(character.behavior_weights.get("adaptation", 1.0))
+            goal = self.active_goal(character)
+            goal_score = 0.0
+            if goal.get("kind") == "master_family":
+                goal_score += 3.0 if any(card.family == goal.get("target") for card in self.cards.values()) else 0.0
+            if goal.get("kind") == "build_relationship": goal_score += 4.0 if self.relationship_for(character.id, other.id) == goal.get("target") else 0.0
+            place_score = 2.0 if self.role_config().get("default_place") in character.preferred_places else 0.0
+            return self._relationship_score(character, other) + challenge + rematch + goal_score + place_score - known * float(character.behavior_weights.get("adaptation", 1.0))
         return max(candidates, key=lambda other: (score(other), other.id))
 
     def schedule_ai_request(self, character_id):
@@ -1824,8 +1856,10 @@ class ContentStore:
         target = self.choose_ai_opponent(character_id)
         if not character or not target or character.availability != "free": return None
         if any(entry.get("status") in ["open", "queued", "active"] and entry.get("from") == character_id for entry in self.world.setdefault("requests", [])): return None
-        reason = "rematch study" if character.learned_opponents.get(target.id, 0) else "study duel"
-        return self.add_request(character_id, target.id, reason, kind="learning", format_name="1v1", preferred_place=self.role_config()["default_place"], relationship_intent="stranger", expires_in=10800)
+        goal = self.active_goal(character)
+        reason = "goal pursuit: " + str(goal.get("kind")) if goal else "rematch study" if character.learned_opponents.get(target.id, 0) else "study duel"
+        intent = "ally" if goal.get("kind") == "build_relationship" and self.relationship_for(character_id, target.id) == "stranger" else "enemy" if goal.get("kind") == "challenge_enemy" else "stranger"
+        return self.add_request(character_id, target.id, reason, kind="learning", format_name="1v1", preferred_place=character.preferred_places[0] if character.preferred_places and character.preferred_places[0] in self.places else self.role_config()["default_place"], relationship_intent=intent, expires_in=10800)
 
     def _ai_request_tick(self):
         if float(self.world.get("simulation_time", 0.0)) < float(self.world.get("last_ai_request_time", 0.0)) + 10.0: return
@@ -1856,10 +1890,10 @@ class ContentStore:
             for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
         if "runtime_world" in requested:
             self.sync_place_runtime()
-            world_keys = ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "out_of_game", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence", "team_request_sequence"]
-            defaults = {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0}
+            world_keys = ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]
+            defaults = {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": time.time(), "clock_mode": "wall_clock"}
             for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
-            write_json(RUNTIME_WORLD_INDEX, {"schema": 2, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "collections": world_keys})
+            write_json(RUNTIME_WORLD_INDEX, {"schema": 3, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "last_wall_time": float(self.world.get("last_wall_time", time.time())), "clock_mode": "wall_clock", "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
         if "logic" in requested:
             for key, graph in self.logic.items(): write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
@@ -1921,6 +1955,28 @@ class ContentStore:
         if envelope is not None: envelope["events"] = list(events); envelope["status"] = status
         return event
 
+    def evolve_persona(self, character_id, event, payload=None):
+        character = self.characters.get(character_id)
+        if not character: return
+        payload = dict(payload or {})
+        character.memories.append({"event": str(event), "payload": payload, "sim_time": float(self.world.get("simulation_time", 0.0))})
+        character.memories = character.memories[-100:]
+        state = character.persona_state
+        state["reputation"] = max(-100.0, min(100.0, float(state.get("reputation", 0.0)) + (1.0 if event in ["trade_completed", "borrow_accepted", "championship_won"] else -0.5 if event in ["trade_canceled", "borrow_denied"] else 0.2 if event in ["duel_completed", "team_duel_completed"] else 0.0)))
+        other_id = payload.get("with") or payload.get("to") or payload.get("from") or payload.get("opponent")
+        if other_id and other_id in self.characters:
+            trust = state.setdefault("trust", {})
+            trust[other_id] = max(-10.0, min(10.0, float(trust.get(other_id, 0.0)) + (1.0 if event in ["trade_completed", "borrow_accepted"] else -1.0 if event in ["trade_canceled", "borrow_denied"] else 0.25)))
+        if event in ["duel_completed", "team_duel_completed"]:
+            result = payload.get("result", payload.get("winner", ""))
+            delta = 0.4 if result in [character_id, "win"] or payload.get("winner") == character_id else -0.25 if result in ["loss"] or payload.get("loser") == character_id else 0.0
+            state["confidence"] = max(-10.0, min(10.0, float(state.get("confidence", 0.0)) + delta))
+            character.behavior_weights["adaptation"] = min(10.0, float(character.behavior_weights.get("adaptation", 1.0)) + 0.05)
+        for goal in character.goals:
+            if goal.get("kind") == "reach_rank": goal["progress"] = float(character.rank)
+            if goal.get("kind") == "build_relationship" and event in ["trade_completed", "borrow_accepted"]: goal["progress"] = min(100.0, float(goal.get("progress", 0.0)) + 1.0)
+            if goal.get("kind") == "master_family" and payload.get("family") == goal.get("target"): goal["progress"] = min(100.0, float(goal.get("progress", 0.0)) + 1.0)
+
     def record_history(self, scope, entity_id, event, payload=None):
         record = {"scope": str(scope), "entity_id": str(entity_id), "event": str(event), "payload": dict(payload or {}), "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()}
         self.world.setdefault("histories", []).append(record)
@@ -1930,6 +1986,7 @@ class ContentStore:
             item = {"event": event, "scope": scope, **dict(payload or {}), "sim_time": record["sim_time"], "time": record["time"]}
             entity.history.append(item)
             entity.history = entity.history[-100:]
+        if scope == "character": self.evolve_persona(entity_id, event, payload)
         return record
 
     def discover_card(self, viewer_id, card_id, source="observed", owner_id="", context=None):
@@ -1973,12 +2030,14 @@ class ContentStore:
         character = self.characters.get(character_id)
         if not character: return None
         active_battles = [battle for battle in self.world.setdefault("active_battles", []) if battle.get("status") == "active" and character_id in [battle.get("from"), battle.get("to")]]
-        return {"id": character.id, "name": character.name, "gender": character.gender, "portrait": character.portrait, "relationship": character.relationship, "mood": character.mood, "world_status": character.world_status, "availability": character.availability, "activity": character.activity, "current_place": character.current_place, "team_ids": [team.id for team in self.teams.values() if character_id in team.members], "active_battle_ids": [battle.get("id") for battle in active_battles], "history": self.journal_for("character", character_id), "experience": dict(character.experience), "known_cards": len(character.knowledge_state.get("cards", {}))}
+        persona = dict(getattr(character, "persona_state", {}) or {})
+        public_persona = {"reputation": float(persona.get("reputation", 0.0)), "confidence": float(persona.get("confidence", 0.0)), "active_goal": self.active_goal(character), "preferred_families": list(character.preferred_families), "preferred_card_kinds": list(character.preferred_card_kinds), "preferred_places": list(character.preferred_places)}
+        return {"id": character.id, "name": character.name, "gender": character.gender, "portrait": character.portrait, "relationship": character.relationship, "relationship_history": list(character.relationship_history), "mood": character.mood, "world_status": character.world_status, "availability": character.availability, "activity": character.activity, "current_place": character.current_place, "team_ids": [team.id for team in self.teams.values() if character_id in team.members], "active_battle_ids": [battle.get("id") for battle in active_battles], "active_trade_ids": [trade.get("id") for trade in self.world.setdefault("trades", []) if trade.get("state") in ["open", "countered", "deferred"] and character_id in [trade.get("creator"), trade.get("recipient")]], "borrow_ids": [record.get("id") for record in self.world.setdefault("borrows", []) if record.get("state") in ["requested", "deferred", "active"] and character_id in [record.get("lender"), record.get("borrower")]], "history": self.journal_for("character", character_id), "experience": dict(character.experience), "known_cards": len(character.knowledge_state.get("cards", {})), "goals": list(getattr(character, "goals", [])), "memories": list(getattr(character, "memories", []))[-20:], "persona": public_persona}
 
     def team_summary(self, team_id):
         team = self.teams.get(team_id)
         if not team: return None
-        return {"id": team.id, "name": team.name, "leader": team.leader, "members": list(team.members), "relationship": team.relationship, "formation_state": team.formation_state, "effect_locked": bool(team.effect_locked), "preferred_places": list(team.preferred_places), "history": self.journal_for("team", team_id)}
+        return {"id": team.id, "name": team.name, "leader": team.leader, "members": list(team.members), "relationship": team.relationship, "formation_state": team.formation_state, "effect_locked": bool(team.effect_locked), "preferred_places": list(team.preferred_places), "formation_requests": list(getattr(team, "formation_requests", []))[-20:], "active_championships": [item.get("id") for item in self.world.setdefault("championships", []) if team_id in item.get("teams", []) or team_id in item.get("enrolled", [])], "history": self.journal_for("team", team_id)}
 
     def place_summary(self, place_id):
         snapshot = self.place_snapshot(place_id)
@@ -2098,7 +2157,7 @@ class ContentStore:
         participants = list(dict.fromkeys(participants))
         if leader_id not in self.characters or len(participants) != 3 or any(item not in self.characters for item in participants): return None
         if any(self.characters[item].availability != "free" or self.characters[item].world_status != "in_playground" for item in participants): return None
-        if any(item != leader_id and self.relationship_for(leader_id, item) != "ally" for item in participants): return None
+        if any(item != leader_id and (self.relationship_for(leader_id, item) != "ally" or self.relationship_for(item, leader_id) != "ally") for item in participants): return None
         if preferred_place and preferred_place not in self.places: return None
         sequence = int(self.world.get("team_request_sequence", 0)) + 1
         self.world["team_request_sequence"] = sequence
@@ -2124,6 +2183,8 @@ class ContentStore:
             self.save()
             return True
         if decision != "accept" or actor_id == request.get("leader"): return False
+        actor = self.characters.get(actor_id)
+        if not actor or actor.availability != "free" or actor.world_status != "in_playground": return False
         request.setdefault("approvals", {})[actor_id] = True
         request.setdefault("events", []).append({"status": "in_making", "actor": actor_id, "action": "accept", "sim_time": float(self.world.get("simulation_time", 0.0))})
         if all(bool(request["approvals"].get(item)) for item in request.get("participants", [])):
@@ -2146,8 +2207,66 @@ class ContentStore:
         team.members = [item for item in team.members if item != member_id]
         team.formation_state = "complete" if len(team.members) == 3 else "broken"
         if team.leader == member_id and team.members: team.leader = team.members[0]
+        team.formation_requests.append({"kind": "departure", "member": member_id, "reason": reason, "sim_time": float(self.world.get("simulation_time", 0.0))})
+        team.formation_requests = team.formation_requests[-50:]
         self.record_history("team", team_id, "member_left", {"member": member_id, "reason": reason, "formation_state": team.formation_state})
         self.record_history("character", member_id, "left_team", {"team_id": team_id, "reason": reason})
+        self.save()
+        return True
+
+    def create_team_reshape_request(self, team_id, requester_id, add_members=None, remove_members=None, name=""):
+        team = self.teams.get(team_id)
+        if not team or requester_id != team.leader or team.formation_state not in ["complete", "broken"]: return None
+        current = list(team.members)
+        removed = [item for item in dict.fromkeys(remove_members or []) if item in current]
+        desired = [item for item in current if item not in removed]
+        for item in dict.fromkeys(add_members or []):
+            if item in self.characters and item not in desired and len(desired) < 3: desired.append(item)
+        if len(desired) != 3 or any(item not in self.characters for item in desired): return None
+        if any(self.characters[item].availability != "free" or self.characters[item].world_status != "in_playground" for item in desired): return None
+        if any(left != right and (self.relationship_for(left, right) != "ally" or self.relationship_for(right, left) != "ally") for left in desired for right in desired): return None
+        sequence = int(self.world.get("team_request_sequence", 0)) + 1
+        self.world["team_request_sequence"] = sequence
+        request_id = "team_reshape_request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
+        now = float(self.world.get("simulation_time", 0.0))
+        approvers = [item for item in desired if item != requester_id]
+        request = {"id": request_id, "kind": "reshape", "team_id": team_id, "leader": requester_id, "current_members": current, "desired_members": desired, "add_members": [item for item in desired if item not in current], "remove_members": removed, "name": str(name or team.name).strip() or team.name, "approvals": {requester_id: True, **{item: False for item in approvers}}, "state": "reshaping", "created_sim_time": now, "events": [{"status": "reshaping", "actor": requester_id, "action": "opened", "sim_time": now}]}
+        self.world.setdefault("team_requests", []).append(request)
+        self.register_interaction("team_request", request)
+        self.record_history("team", team_id, "reshape_request_opened", {"request_id": request_id, "current_members": current, "desired_members": desired})
+        self.save()
+        return request_id
+
+    def respond_team_reshape_request(self, request_id, actor_id, decision):
+        request = next((item for item in self.world.setdefault("team_requests", []) if item.get("id") == request_id and item.get("kind") == "reshape"), None)
+        if not request or request.get("state") != "reshaping" or actor_id not in request.get("desired_members", []): return False
+        decision = str(decision or "").lower()
+        now = float(self.world.get("simulation_time", 0.0))
+        if decision in ["deny", "cancel"]:
+            if decision == "cancel" and actor_id != request.get("leader"): return False
+            request["state"] = "denied" if decision == "deny" else "canceled"
+            request.setdefault("events", []).append({"status": request["state"], "actor": actor_id, "action": decision, "sim_time": now})
+            self.transition_interaction("team_request", request, request["state"], actor_id, decision)
+            self.record_history("team", request.get("team_id", ""), "reshape_request_" + request["state"], {"request_id": request_id, "actor": actor_id})
+            self.save()
+            return True
+        if decision != "accept": return False
+        actor = self.characters.get(actor_id)
+        if not actor or actor.availability != "free" or actor.world_status != "in_playground": return False
+        request.setdefault("approvals", {})[actor_id] = True
+        request.setdefault("events", []).append({"status": "reshaping", "actor": actor_id, "action": "accept", "sim_time": now})
+        if not all(bool(request["approvals"].get(item)) for item in request.get("desired_members", [])): self.save(); return True
+        team = self.teams.get(request.get("team_id", ""))
+        if not team: return False
+        team.members = list(request["desired_members"])
+        team.leader = request.get("leader") if request.get("leader") in team.members else team.members[0]
+        team.name = request.get("name", team.name)
+        team.formation_state = "complete"
+        request["state"] = "accepted"
+        request["team_id"] = team.id
+        self.transition_interaction("team_request", request, "accepted", actor_id, "accepted")
+        self.record_history("team", team.id, "team_reshaped", {"request_id": request_id, "members": list(team.members)})
+        for member_id in team.members: self.record_history("character", member_id, "team_reshaped", {"team_id": team.id, "members": list(team.members)})
         self.save()
         return True
 
@@ -2537,9 +2656,62 @@ class ContentStore:
         self.world.setdefault("simulation_events", []).append({"type": "battle_engine_step", "battle": battle["id"], "actor": active_before.character.id, "phase": session.phase, "sim_time": float(self.world.get("simulation_time", 0.0))})
         if session.finished: self._complete_world_battle(battle, session)
 
+    def _world_team_session(self, battle):
+        session = self.world_team_sessions.get(battle.get("id", ""))
+        if session: return session
+        player_team = self.teams.get(battle.get("player_team", ""))
+        opponent_team = self.teams.get(battle.get("opponent_team", ""))
+        if not player_team or not opponent_team or battle.get("place", "") not in self.places: return None
+        session = TeamDuelEngine(self, player_team_id=player_team.id, opponent_team_id=opponent_team.id, place_id=battle.get("place", ""), player_team=player_team, opponent_team=opponent_team, format_name="TEAMvTEAM", starter=battle.get("starter", "opponent"), reserved=True)
+        self.world_team_sessions[battle["id"]] = session
+        return session
+
+    def _complete_world_team_battle(self, battle, session):
+        winner_id = session.winner.id if session.winner else ""
+        loser_id = session.opponent_team.id if session.winner is session.player_team else session.player_team.id if session.winner else ""
+        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "turn": session.round, "rounds": list(session.results), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
+        championship_id = battle.get("championship_id", "")
+        championship = self.championship_by_id(championship_id) if championship_id else None
+        if championship:
+            championship["active_battle_ids"] = [item for item in championship.get("active_battle_ids", []) if item != battle.get("id", "")]
+        if championship_id and winner_id:
+            self.resolve_championship_match(championship_id, int(battle.get("championship_round", 0)), int(battle.get("championship_pair", 0)), winner_id)
+        for team_id in [battle.get("player_team", ""), battle.get("opponent_team", "")]:
+            team = self.teams.get(team_id)
+            if team:
+                for member_id in team.members:
+                    character = self.characters.get(member_id)
+                    if character:
+                        character.availability = "free"
+                        character.activity = "idle"
+                        character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
+        self.release_place(battle.get("place", ""))
+        self.world_team_sessions.pop(battle.get("id", ""), None)
+        completion_event = {"type": "team_battle_completed", "battle": battle.get("id", ""), "winner": winner_id or "draw", "loser": loser_id, "championship": championship_id, "watchers": list(battle.get("watchers", [])), "sim_time": float(self.world.get("simulation_time", 0.0))}
+        self.world.setdefault("simulation_events", []).append(completion_event)
+
+    def _advance_team_battles(self, seconds):
+        for battle in list(self.world.setdefault("active_battles", [])):
+            if battle.get("status") != "active" or battle.get("engine_type") != "team": continue
+            previous_elapsed = float(battle.get("elapsed", 0.0))
+            battle["elapsed"] = previous_elapsed + seconds
+            if battle.get("phase") == "pre_duel" and battle["elapsed"] >= 3.0: battle["phase"] = "duel"
+            session = self._world_team_session(battle)
+            if not session: continue
+            steps = 0
+            while battle["elapsed"] >= float(battle.get("next_action", 3.0)) and battle.get("status") == "active" and steps < 3:
+                session.step()
+                battle["round"] = session.round
+                battle["rounds"] = list(session.results)
+                battle["next_action"] = float(battle.get("next_action", 3.0)) + 2.0
+                steps += 1
+                if session.finished:
+                    self._complete_world_team_battle(battle, session)
+                    break
+
     def _advance_battles(self, seconds):
         for battle in list(self.world.setdefault("active_battles", [])):
-            if battle.get("status") != "active": continue
+            if battle.get("status") != "active" or battle.get("engine_type") == "team": continue
             previous_elapsed = float(battle.get("elapsed", 0.0))
             battle["elapsed"] = previous_elapsed + seconds
             duel_seconds = max(0.0, battle["elapsed"] - max(previous_elapsed, 3.0))
@@ -2556,8 +2728,15 @@ class ContentStore:
                 battle["next_action"] = float(battle.get("next_action", 3.0)) + 2.0
                 actions += 1
 
-    def advance_world(self, seconds):
-        seconds = max(0.0, min(30.0, float(seconds)))
+    def advance_world(self, seconds=None):
+        if seconds is None:
+            current_wall_time = time.time()
+            try: previous_wall_time = float(self.world.get("last_wall_time", current_wall_time) or current_wall_time)
+            except (TypeError, ValueError): previous_wall_time = current_wall_time
+            seconds = max(0.0, current_wall_time - previous_wall_time)
+            self.world["last_wall_time"] = current_wall_time
+        else:
+            seconds = max(0.0, float(seconds))
         checkpoint = False
         self.world_tick_active = True
         try:
@@ -2571,8 +2750,14 @@ class ContentStore:
                 if order.get("status") == "open" and float(order.get("expires_sim_time", 0.0)) > 0 and self.world["simulation_time"] >= float(order.get("expires_sim_time", 0.0)):
                     self.transition_interaction("order", order, "expired", "world", "expired")
             self._advance_battles(seconds)
+            self._advance_team_battles(seconds)
+            self._advance_trades()
+            self._advance_borrow_requests()
+            self._advance_championships()
             self._activate_queued_requests()
             self._ai_request_tick()
+            self._ai_trade_tick()
+            self._ai_borrow_tick()
             self.world["simulation_events"] = self.world.setdefault("simulation_events", [])[-200:]
             self.dirty_domains.update({"runtime_characters", "runtime_teams", "runtime_world"})
             self.world_checkpoint_elapsed += seconds
@@ -2694,12 +2879,12 @@ class ContentStore:
         return None
 
     def trade_list(self):
-        trades = self.world.setdefault("trades", [])
-        now = time.time()
-        for trade in trades:
-            if trade.get("state") in ["open", "countered"] and now >= trade.get("expires", 0): self.transition_interaction("trade", trade, "expired", "world", "expired")
-        self.save()
-        return trades
+        self._advance_trades()
+        return list(self.world.setdefault("trades", []))
+
+    def borrow_list(self):
+        self._advance_borrow_requests()
+        return list(self.world.setdefault("borrows", []))
 
     def card_names(self, card_ids):
         return ", ".join(self.cards[card_id].name for card_id in card_ids if card_id in self.cards) or "none"
@@ -2711,20 +2896,58 @@ class ContentStore:
             for card_id in character.library_cards: counts[card_id] = counts.get(card_id, 0) + 1
         return counts
 
-    def create_trade(self, creator_id, recipient_id, offered_cards, requested_cards=None, requested_family=""):
+    def social_available(self, character_id):
+        character = self.characters.get(character_id)
+        if not character or character.world_status != "in_playground" or character.availability != "free": return False
+        return not any(item.get("status") == "active" and character_id in [item.get("from"), item.get("to")] for item in self.world.setdefault("active_battles", []))
+
+    def shared_team(self, first_id, second_id):
+        return any(first_id in team.members and second_id in team.members and team.formation_state == "complete" for team in self.teams.values())
+
+    def reserved_trade_counts(self, owner_id, exclude_id=""):
+        counts = {}
+        for trade in self.world.setdefault("trades", []):
+            if trade.get("id") == exclude_id or trade.get("creator") != owner_id or trade.get("state") not in ["open", "countered", "deferred"]: continue
+            for card_id in trade.get("offered_cards", []): counts[card_id] = counts.get(card_id, 0) + 1
+        return counts
+
+    def available_card_counts(self, character_id, exclude_trade_id=""):
+        counts = self.owned_counts(character_id)
+        for card_id, amount in self.reserved_trade_counts(character_id, exclude_trade_id).items(): counts[card_id] = max(0, counts.get(card_id, 0) - amount)
+        for record in self.world.setdefault("borrows", []):
+            if record.get("state") == "active" and record.get("lender") == character_id:
+                card_id = record.get("card_id", "")
+                counts[card_id] = max(0, counts.get(card_id, 0) - 1)
+        return counts
+
+    def _card_trade_value(self, character_id, card_id):
+        card = self.cards.get(card_id)
+        character = self.characters.get(character_id)
+        if not card or not character: return 0.0
+        value = float(card.stars) * 1.6 + float(card.atk + card.defense) / 1000.0
+        value += 2.5 if card_id in character.best_cards or card_id in character.preferred_cards else 0.0
+        value += 1.2 if card.family in character.preferred_families else 0.0
+        value += float(character.knowledge_state.get("cards", {}).get(card_id, {}).get("sightings", 0)) * 0.05
+        return value
+
+    def create_trade(self, creator_id, recipient_id, offered_cards, requested_cards=None, requested_family="", requested_kind=""):
         if creator_id not in self.characters or recipient_id not in self.characters or creator_id == recipient_id: return None
-        offered_cards = list(offered_cards)[:3]
-        counts = self.owned_counts(creator_id)
-        if not offered_cards or any(counts.get(card_id, 0) < offered_cards.count(card_id) for card_id in set(offered_cards)): return None
-        requested_cards = list(requested_cards or [])[:3]
+        offered_cards = [str(item) for item in list(offered_cards or [])[:3]]
+        requested_cards = [str(item) for item in list(requested_cards or [])[:3]]
+        if not offered_cards or any(item not in self.cards for item in offered_cards) or any(item not in self.cards for item in requested_cards): return None
+        counts = self.available_card_counts(creator_id)
+        if any(counts.get(card_id, 0) < offered_cards.count(card_id) for card_id in set(offered_cards)): return None
         sequence = int(self.world.get("trade_sequence", 0)) + 1
         self.world["trade_sequence"] = sequence
         trade_id = "trade_" + str(int(time.time() * 1000)) + "_" + str(sequence)
-        created = time.time()
-        trade = {"id": trade_id, "creator": creator_id, "recipient": recipient_id, "offered_cards": offered_cards, "requested_cards": requested_cards, "requested_family": requested_family, "intent": "card_trade", "state": "open", "parent_id": "", "created": created, "expires": created + 10800, "history": [{"actor": creator_id, "action": "opened", "status": "open", "time": created}], "events": [{"actor": creator_id, "action": "opened", "status": "open", "sim_time": float(self.world.get("simulation_time", 0.0))}], "ownership_transferred": False}
+        now = float(self.world.get("simulation_time", 0.0))
+        active = self.social_available(creator_id) and self.social_available(recipient_id)
+        state = "open" if active else "deferred"
+        relation = self.relationship_for(creator_id, recipient_id)
+        trade = {"id": trade_id, "creator": creator_id, "recipient": recipient_id, "offered_cards": offered_cards, "requested_cards": requested_cards, "requested_family": str(requested_family or "").lower(), "requested_kind": str(requested_kind or "").lower(), "intent": "card_trade", "relationship": relation, "state": state, "parent_id": "", "chain_depth": 0, "created": time.time(), "created_sim_time": now, "expires": now + 10800, "expires_sim_time": now + 10800, "history": [{"actor": creator_id, "action": "opened", "status": state, "sim_time": now, "time": time.time()}], "events": [{"actor": creator_id, "action": "opened", "status": state, "sim_time": now}], "ownership_transferred": False, "next_decision_sim_time": now + 15.0}
         self.world.setdefault("trades", []).append(trade)
         self.register_interaction("trade", trade)
-        self.queue_interaction_media("trade", "trade_open", creator_id, recipient_id, "opponent", "characters", creator_id, {"trade_id": trade_id})
+        self.record_history("character", creator_id, "trade_opened", {"trade_id": trade_id, "recipient": recipient_id, "relationship": relation, "state": state})
         self.save()
         return trade
 
@@ -2732,62 +2955,89 @@ class ContentStore:
         return next((trade for trade in self.world.setdefault("trades", []) if trade.get("id") == trade_id), None)
 
     def requested_cards_for(self, trade, character_id):
-        counts = self.owned_counts(character_id)
-        if trade.get("requested_cards"):
-            requested = list(trade["requested_cards"])
+        if character_id not in self.characters: return []
+        counts = self.available_card_counts(character_id)
+        requested = list(trade.get("requested_cards", []))
+        if requested:
             if any(counts.get(card_id, 0) < requested.count(card_id) for card_id in set(requested)): return []
             return requested
-        family = trade.get("requested_family", "")
-        return next(([card_id] for card_id in self.characters[character_id].library_cards if card_id in self.cards and self.cards[card_id].family == family), [])
+        family = str(trade.get("requested_family", "")).lower()
+        kind = str(trade.get("requested_kind", "")).lower()
+        candidates = [card_id for card_id in self.characters[character_id].library_cards if card_id in self.cards and counts.get(card_id, 0) > 0 and (not family or self.cards[card_id].family.lower() == family) and (not kind or self.cards[card_id].kind.lower() == kind)]
+        return [max(candidates, key=lambda item: (self._card_trade_value(character_id, item), item))] if candidates else []
 
     def trade_available(self, trade):
-        if not trade or trade.get("state") not in ["open", "countered"] or time.time() >= trade.get("expires", 0): return False
-        creator_counts = self.owned_counts(trade["creator"])
-        return all(creator_counts.get(card_id, 0) >= trade["offered_cards"].count(card_id) for card_id in set(trade["offered_cards"])) and bool(self.requested_cards_for(trade, trade["recipient"]))
+        if not trade or trade.get("state") not in ["open", "countered"]: return False
+        now = float(self.world.get("simulation_time", 0.0))
+        if now >= float(trade.get("expires_sim_time", 0.0) or 0.0): return False
+        if not self.social_available(trade.get("creator", "")) or not self.social_available(trade.get("recipient", "")): return False
+        counts = self.available_card_counts(trade.get("creator", ""), trade.get("id", ""))
+        if any(counts.get(card_id, 0) < trade.get("offered_cards", []).count(card_id) for card_id in set(trade.get("offered_cards", []))): return False
+        return bool(self.requested_cards_for(trade, trade.get("recipient", "")))
 
-    def counter_trade(self, trade_id, actor_id, offered_cards, requested_cards=None, requested_family=""):
+    def evaluate_trade(self, trade_id, actor_id):
+        trade = self.get_trade(trade_id)
+        if not trade or actor_id != trade.get("recipient"): return {"decision": "invalid", "score": -999.0}
+        requested = self.requested_cards_for(trade, actor_id)
+        if not requested: return {"decision": "refuse", "score": -999.0, "reason": "requested_cards_unavailable"}
+        actor = self.characters[actor_id]
+        relation = self.relationship_for(actor_id, trade.get("creator", ""))
+        incoming = sum(self._card_trade_value(actor_id, card_id) for card_id in trade.get("offered_cards", []))
+        outgoing = sum(self._card_trade_value(actor_id, card_id) for card_id in requested)
+        multiplier = {"ally": 0.82, "stranger": 1.0, "enemy": 1.28}.get(relation, 1.0)
+        score = incoming - outgoing * multiplier + float(actor.behavior_weights.get("risk_tolerance", 3.0)) * 0.12
+        decision = "accept" if score >= 0.0 else "counter" if score >= -2.5 else "refuse"
+        return {"decision": decision, "score": score, "relation": relation, "incoming": incoming, "outgoing": outgoing, "requested": requested}
+
+    def counter_trade(self, trade_id, actor_id, offered_cards, requested_cards=None, requested_family="", requested_kind=""):
         parent = self.get_trade(trade_id)
         if not parent or parent.get("state") not in ["open", "countered"] or parent.get("recipient") != actor_id: return None
-        counter = self.create_trade(actor_id, parent["creator"], offered_cards, requested_cards, requested_family)
-        if counter:
-            counter["state"] = "countered"
-            counter["parent_id"] = parent["id"]
-            counter["history"] = list(parent.get("history", [])) + [{"actor": actor_id, "action": "countered", "status": "countered", "parent_id": parent["id"], "time": time.time()}]
-            counter["events"] = list(parent.get("events", [])) + [{"actor": actor_id, "action": "countered", "status": "countered", "sim_time": float(self.world.get("simulation_time", 0.0))}]
-            parent["state"] = "countered"
-            parent["history"].append({"actor": actor_id, "action": "answered_with_counter", "status": "countered", "child_id": counter["id"], "time": time.time()})
-            self.transition_interaction("trade", parent, "countered", actor_id, "countered", {"child_id": counter["id"]})
-            self.queue_interaction_media("trade", "trade_countered", actor_id, parent.get("creator", ""), "opponent", "characters", actor_id, {"trade_id": counter["id"], "parent_id": parent["id"]})
-            self.register_interaction("trade", counter)
-            self.save()
+        counter = self.create_trade(actor_id, parent["creator"], offered_cards, requested_cards, requested_family, requested_kind)
+        if not counter: return None
+        counter["parent_id"] = parent["id"]
+        counter["chain_depth"] = int(parent.get("chain_depth", 0)) + 1
+        counter["state"] = "countered" if counter.get("state") == "open" else counter.get("state")
+        counter["history"] = list(parent.get("history", [])) + [{"actor": actor_id, "action": "countered", "status": counter["state"], "parent_id": parent["id"], "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()}]
+        counter["events"] = list(parent.get("events", [])) + [{"actor": actor_id, "action": "countered", "status": counter["state"], "sim_time": float(self.world.get("simulation_time", 0.0))}]
+        parent["state"] = "countered"
+        parent.setdefault("history", []).append({"actor": actor_id, "action": "answered_with_counter", "status": "countered", "child_id": counter["id"], "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+        self.transition_interaction("trade", parent, "countered", actor_id, "countered", {"child_id": counter["id"]})
+        self.register_interaction("trade", counter)
+        self.save()
         return counter
 
     def accept_trade(self, trade_id, actor_id):
         trade = self.get_trade(trade_id)
         if not trade or trade.get("recipient") != actor_id or not self.trade_available(trade): return False
         requested = self.requested_cards_for(trade, actor_id)
-        creator = self.characters[trade["creator"]]
-        recipient = self.characters[trade["recipient"]]
-        for card_id in trade["offered_cards"]: creator.library_cards.remove(card_id); recipient.library_cards.append(card_id)
-        for card_id in requested: recipient.library_cards.remove(card_id); creator.library_cards.append(card_id)
-        trade["requested_cards"] = requested
-        trade["state"] = "accepted"
-        trade["ownership_transferred"] = True
-        trade["history"].append({"actor": actor_id, "action": "accepted", "status": "accepted", "time": time.time()})
-        self.transition_interaction("trade", trade, "accepted", actor_id, "accepted", {"received": trade["offered_cards"], "gave": requested})
-        self.queue_interaction_media("trade", "trade_complete", actor_id, trade.get("creator", ""), "opponent", "characters", actor_id, {"trade_id": trade_id})
-        creator.history.append({"event": "trade", "trade_id": trade["id"], "with": recipient.id, "received": requested, "gave": trade["offered_cards"], "time": time.time()})
-        recipient.history.append({"event": "trade", "trade_id": trade["id"], "with": creator.id, "received": trade["offered_cards"], "gave": requested, "time": time.time()})
+        creator = self.characters.get(trade.get("creator", ""))
+        recipient = self.characters.get(trade.get("recipient", ""))
+        if not creator or not recipient: return False
+        offered = list(trade.get("offered_cards", []))
+        if any(creator.library_cards.count(card_id) < offered.count(card_id) for card_id in set(offered)) or any(recipient.library_cards.count(card_id) < requested.count(card_id) for card_id in set(requested)): return False
+        for card_id in offered: creator.library_cards.remove(card_id)
+        for card_id in requested: recipient.library_cards.remove(card_id)
+        recipient.library_cards.extend(offered)
+        creator.library_cards.extend(requested)
+        now = float(self.world.get("simulation_time", 0.0))
+        trade.update({"requested_cards": requested, "state": "accepted", "ownership_transferred": True, "accepted_sim_time": now, "transaction_id": "tx_" + trade["id"]})
+        trade.setdefault("history", []).append({"actor": actor_id, "action": "accepted", "status": "accepted", "received": offered, "gave": requested, "sim_time": now, "time": time.time()})
+        self.transition_interaction("trade", trade, "accepted", actor_id, "accepted", {"received": offered, "gave": requested, "transaction_id": trade["transaction_id"]})
+        self.record_history("character", creator.id, "trade_completed", {"trade_id": trade["id"], "with": recipient.id, "received": requested, "gave": offered})
+        self.record_history("character", recipient.id, "trade_completed", {"trade_id": trade["id"], "with": creator.id, "received": offered, "gave": requested})
+        for card_id in offered + requested:
+            self.discover_card(creator.id, card_id, "traded", recipient.id, {"trade_id": trade["id"]})
+            self.discover_card(recipient.id, card_id, "traded", creator.id, {"trade_id": trade["id"]})
         self.save()
         return True
 
     def cancel_trade(self, trade_id, actor_id):
         trade = self.get_trade(trade_id)
-        if not trade or actor_id not in [trade.get("creator"), trade.get("recipient")] or trade.get("state") in ["accepted", "canceled", "expired", "duel_accepted"]: return False
+        if not trade or actor_id not in [trade.get("creator"), trade.get("recipient")] or trade.get("state") in ["accepted", "canceled", "expired", "escalated"]: return False
         self.transition_interaction("trade", trade, "canceled", actor_id, "canceled")
-        self.queue_interaction_media("trade", "trade_canceled", actor_id, trade.get("creator", "") if actor_id == trade.get("recipient") else trade.get("recipient", ""), "opponent", "characters", actor_id, {"trade_id": trade_id})
         trade["state"] = "canceled"
-        trade["history"].append({"actor": actor_id, "action": "canceled", "status": "canceled", "time": time.time()})
+        trade.setdefault("history", []).append({"actor": actor_id, "action": "canceled", "status": "canceled", "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+        self.record_history("character", actor_id, "trade_canceled", {"trade_id": trade_id})
         self.save()
         return True
 
@@ -2795,42 +3045,209 @@ class ContentStore:
         trade = self.get_trade(trade_id)
         if not trade or actor_id not in [trade.get("creator"), trade.get("recipient")] or trade.get("state") not in ["open", "countered"]: return None
         self.transition_interaction("trade", trade, "escalated", actor_id, "escalated")
-        self.queue_interaction_media("trade", "trade_escalated", actor_id, trade.get("creator", "") if actor_id == trade.get("recipient") else trade.get("recipient", ""), "opponent", "characters", actor_id, {"trade_id": trade_id})
         trade["state"] = "escalated"
         request_id = self.add_request(actor_id, trade["creator"] if actor_id == trade["recipient"] else trade["recipient"], "high-stakes trade duel")
         trade["duel_request_id"] = request_id
-        trade["history"].append({"actor": actor_id, "action": "escalated", "request_id": request_id, "time": time.time()})
+        trade.setdefault("history", []).append({"actor": actor_id, "action": "escalated", "request_id": request_id, "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
         self.save()
         return request_id
 
-    def borrow_card(self, lender_id, borrower_id, card_id, duels=1):
-        if lender_id not in self.characters or borrower_id not in self.characters or lender_id == borrower_id or card_id not in self.cards: return None
-        if self.owned_counts(lender_id).get(card_id, 0) < 1: return None
+    def _advance_trades(self):
+        now = float(self.world.get("simulation_time", 0.0))
+        for trade in self.world.setdefault("trades", []):
+            if trade.get("state") in ["open", "countered", "deferred"] and now >= float(trade.get("expires_sim_time", 0.0) or 0.0):
+                trade["state"] = "expired"
+                self.transition_interaction("trade", trade, "expired", "world", "expired")
+                continue
+            if trade.get("state") == "deferred" and self.social_available(trade.get("creator", "")) and self.social_available(trade.get("recipient", "")):
+                trade["state"] = "open"
+                trade.setdefault("history", []).append({"actor": "world", "action": "resumed", "status": "open", "sim_time": now, "time": time.time()})
+                self.transition_interaction("trade", trade, "open", "world", "resumed")
+
+    def choose_ai_trade_offer(self, creator_id):
+        creator = self.characters.get(creator_id)
+        if not creator or creator.origin == "user" or not self.social_available(creator_id): return None
+        active = any(item.get("creator") == creator_id and item.get("state") in ["open", "countered", "deferred"] for item in self.world.setdefault("trades", []))
+        if active: return None
+        desired = [card for card in self.cards.values() if card.id not in creator.library_cards and card.kind != "fusion"]
+        if not desired: desired = [card for card in self.cards.values() if card.kind != "fusion"]
+        desired.sort(key=lambda card: (1 if card.family in creator.preferred_families else 0, self._card_trade_value(creator_id, card.id), card.id), reverse=True)
+        for target in sorted(self.characters.values(), key=lambda item: (-self._relationship_score(creator, item), item.id)):
+            if target.id == creator_id or target.origin == "user" or not self.social_available(target.id): continue
+            target_counts = self.available_card_counts(target.id)
+            requested = next((card for card in desired if target_counts.get(card.id, 0) > 0), None)
+            if not requested: continue
+            offered = [card_id for card_id in creator.library_cards if self.available_card_counts(creator_id).get(card_id, 0) > 0 and card_id not in creator.preferred_cards]
+            if not offered: offered = [card_id for card_id in creator.library_cards if self.available_card_counts(creator_id).get(card_id, 0) > 0]
+            if not offered: continue
+            offered.sort(key=lambda card_id: (self._card_trade_value(creator_id, card_id), card_id))
+            return target.id, [offered[0]], [requested.id]
+        return None
+
+    def _ai_trade_tick(self):
+        now = float(self.world.get("simulation_time", 0.0))
+        if now < float(self.world.get("last_ai_trade_time", 0.0)) + 15.0: return
+        self.world["last_ai_trade_time"] = now
+        for trade in list(self.world.setdefault("trades", [])):
+            if trade.get("state") != "open" or now < float(trade.get("next_decision_sim_time", 0.0)): continue
+            recipient = self.characters.get(trade.get("recipient", ""))
+            if not recipient or recipient.origin == "user" or not self.social_available(recipient.id): continue
+            decision = self.evaluate_trade(trade["id"], recipient.id)
+            trade["next_decision_sim_time"] = now + 30.0
+            if decision.get("decision") == "accept":
+                self.accept_trade(trade["id"], recipient.id)
+            elif decision.get("decision") == "counter" and int(trade.get("chain_depth", 0)) < 3:
+                candidates = [card_id for card_id in recipient.library_cards if card_id in self.cards and card_id not in trade.get("requested_cards", []) and self.available_card_counts(recipient.id).get(card_id, 0) > 0]
+                if candidates:
+                    target = min(candidates, key=lambda item: abs(self._card_trade_value(recipient.id, item) - decision.get("incoming", 0.0)))
+                    self.counter_trade(trade["id"], recipient.id, [target], trade.get("offered_cards", []))
+            elif decision.get("decision") == "refuse":
+                self.cancel_trade(trade["id"], recipient.id)
+        for creator in sorted(self.characters.values(), key=lambda item: item.id):
+            offer = self.choose_ai_trade_offer(creator.id)
+            if not offer: continue
+            target_id, offered_cards, requested_cards = offer
+            self.create_trade(creator.id, target_id, offered_cards, requested_cards)
+            break
+    def create_team_trade(self, team_id, giver_id, receiver_id, offered_cards, requested_cards=None, requested_family="", requested_kind=""):
+        team = self.teams.get(team_id)
+        if not team or team.formation_state != "complete" or giver_id not in team.members or receiver_id not in team.members or giver_id == receiver_id: return None
+        trade = self.create_trade(giver_id, receiver_id, offered_cards, requested_cards, requested_family, requested_kind)
+        if trade:
+            trade["team_id"] = team_id
+            trade["intent"] = "in_team_trade"
+            trade["relationship"] = "team"
+            trade.setdefault("history", []).append({"actor": giver_id, "action": "team_trade_opened", "team_id": team_id, "status": trade.get("state", "open"), "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+            self.record_history("team", team_id, "trade_opened", {"trade_id": trade.get("id", ""), "giver": giver_id, "receiver": receiver_id, "offered": list(offered_cards or []), "requested": list(requested_cards or [])})
+            self.save()
+        return trade
+
+    def create_team_borrow_request(self, team_id, borrower_id, lender_id, card_id, duels=1):
+        team = self.teams.get(team_id)
+        if not team or team.formation_state != "complete" or borrower_id not in team.members or lender_id not in team.members or borrower_id == lender_id: return None
+        record = self.create_borrow_request(lender_id, borrower_id, card_id, duels, self.characters[borrower_id].deck_id if borrower_id in self.characters else "")
+        if record:
+            record["team_id"] = team_id
+            record["intent"] = "in_team_borrow"
+            record.setdefault("history", []).append({"actor": borrower_id, "action": "team_borrow_opened", "team_id": team_id, "status": record.get("state", "requested"), "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+            self.record_history("team", team_id, "borrow_requested", {"borrow_id": record.get("id", ""), "borrower": borrower_id, "lender": lender_id, "card": card_id})
+            self.save()
+        return record
+
+    def _borrow_reserved_count(self, lender_id, card_id, exclude_id=""):
+        return sum(1 for record in self.world.setdefault("borrows", []) if record.get("id") != exclude_id and record.get("state") in ["requested", "deferred", "active"] and record.get("lender") == lender_id and record.get("card_id") == card_id)
+
+    def create_borrow_request(self, lender_id, borrower_id, card_id, duels=1, deck_id=""):
+        lender = self.characters.get(lender_id)
+        borrower = self.characters.get(borrower_id)
+        if not lender or not borrower or lender_id == borrower_id or card_id not in self.cards: return None
+        if self.relationship_for(borrower_id, lender_id) != "ally" and not self.shared_team(lender_id, borrower_id): return None
+        if self.owned_counts(lender_id).get(card_id, 0) - self._borrow_reserved_count(lender_id, card_id) < 1: return None
+        if deck_id and deck_id != borrower.deck_id: return None
+        deck = self.decks.get(borrower.deck_id, {}) if borrower.deck_id else {}
+        if list(deck.get("cards", [])).count(card_id) >= 3: return None
         sequence = int(self.world.get("borrow_sequence", 0)) + 1
         self.world["borrow_sequence"] = sequence
-        borrow_id = "borrow_" + str(int(time.time() * 1000)) + "_" + str(sequence)
-        created = time.time()
-        record = {"id": borrow_id, "lender": lender_id, "borrower": borrower_id, "card_id": card_id, "remaining_duels": max(1, min(5, int(duels))), "intent": "card_borrow", "state": "active", "created": created, "history": [{"actor": borrower_id, "action": "opened", "status": "active", "time": created}], "events": [{"actor": borrower_id, "action": "opened", "status": "active", "sim_time": float(self.world.get("simulation_time", 0.0))}]}
+        request_id = "borrow_" + str(int(time.time() * 1000)) + "_" + str(sequence)
+        now = float(self.world.get("simulation_time", 0.0))
+        state = "requested" if self.social_available(lender_id) and self.social_available(borrower_id) else "deferred"
+        record = {"id": request_id, "lender": lender_id, "borrower": borrower_id, "requester": borrower_id, "target": lender_id, "card_id": card_id, "deck_id": borrower.deck_id, "remaining_duels": max(1, min(5, int(duels))), "intent": "card_borrow", "state": state, "created": time.time(), "created_sim_time": now, "expires_sim_time": now + 10800, "approvals": {borrower_id: True, lender_id: False}, "history": [{"actor": borrower_id, "action": "opened", "status": state, "sim_time": now, "time": time.time()}], "events": [{"actor": borrower_id, "action": "opened", "status": state, "sim_time": now}]}
         self.world.setdefault("borrows", []).append(record)
         self.register_interaction("borrow", record)
-        self.queue_interaction_media("borrow", "borrow_open", borrower_id, lender_id, "ally", "characters", borrower_id, {"borrow_id": borrow_id, "card_id": card_id})
-        self.characters[borrower_id].borrowed_cards.append(card_id)
-        self.characters[borrower_id].history.append({"event": "borrow_started", "borrow_id": borrow_id, "card": card_id, "from": lender_id, "time": time.time()})
+        self.record_history("character", borrower_id, "borrow_requested", {"borrow_id": request_id, "lender": lender_id, "card": card_id, "state": state})
         self.save()
         return record
+
+    def _activate_borrow(self, record, actor_id):
+        lender_id, borrower_id, card_id = record.get("lender", ""), record.get("borrower", ""), record.get("card_id", "")
+        if self.owned_counts(lender_id).get(card_id, 0) - self._borrow_reserved_count(lender_id, card_id, record.get("id", "")) < 1: return False
+        borrower = self.characters.get(borrower_id)
+        deck = self.decks.get(borrower.deck_id, {}) if borrower and borrower.deck_id else {}
+        if not borrower or list(deck.get("cards", [])).count(card_id) >= 3: return False
+        record["state"] = "active"
+        record["activated_sim_time"] = float(self.world.get("simulation_time", 0.0))
+        record.setdefault("history", []).append({"actor": actor_id, "action": "accepted", "status": "active", "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+        record.setdefault("events", []).append({"actor": actor_id, "action": "accepted", "status": "active", "sim_time": float(self.world.get("simulation_time", 0.0))})
+        borrower.borrowed_cards.append(card_id)
+        self.transition_interaction("borrow", record, "active", actor_id, "accepted", {"deck_id": borrower.deck_id, "card_id": card_id})
+        self.record_history("character", borrower_id, "borrow_started", {"borrow_id": record.get("id", ""), "card": card_id, "from": lender_id, "duels": record.get("remaining_duels", 1)})
+        self.record_history("character", lender_id, "borrow_accepted", {"borrow_id": record.get("id", ""), "card": card_id, "to": borrower_id})
+        self.save()
+        return True
+
+    def respond_borrow_request(self, request_id, actor_id, decision):
+        record = next((item for item in self.world.setdefault("borrows", []) if item.get("id") == request_id), None)
+        decision = str(decision or "").lower()
+        if not record or record.get("state") not in ["requested", "deferred"] or actor_id not in [record.get("lender"), record.get("borrower")]: return False
+        now = float(self.world.get("simulation_time", 0.0))
+        if decision in ["deny", "cancel", "ignore"]:
+            if decision == "cancel" and actor_id != record.get("borrower"): return False
+            state = "canceled" if decision == "cancel" else "denied"
+            record["state"] = state
+            self.transition_interaction("borrow", record, state, actor_id, decision)
+            record.setdefault("history", []).append({"actor": actor_id, "action": decision, "status": state, "sim_time": now, "time": time.time()})
+            self.record_history("character", record.get("borrower", ""), "borrow_" + state, {"borrow_id": request_id, "lender": record.get("lender", ""), "card": record.get("card_id", "")})
+            self.save()
+            return True
+        if decision != "accept" or actor_id != record.get("lender") or not self.social_available(actor_id) or not self.social_available(record.get("borrower", "")): return False
+        return self._activate_borrow(record, actor_id)
+
+    def borrow_card(self, lender_id, borrower_id, card_id, duels=1):
+        return self.create_borrow_request(lender_id, borrower_id, card_id, duels)
+
+    def _ai_borrow_tick(self):
+        now = float(self.world.get("simulation_time", 0.0))
+        if now < float(self.world.get("last_ai_borrow_time", 0.0)) + 20.0: return
+        self.world["last_ai_borrow_time"] = now
+        for record in list(self.world.setdefault("borrows", [])):
+            if record.get("state") != "requested": continue
+            lender = self.characters.get(record.get("lender", ""))
+            borrower = self.characters.get(record.get("borrower", ""))
+            if not lender or lender.origin == "user" or not borrower or not self.social_available(lender.id): continue
+            relation = self.relationship_for(lender.id, borrower.id)
+            utility = float(lender.behavior_weights.get("ally_bias", 4.0)) if relation == "ally" else 1.0 if self.shared_team(lender.id, borrower.id) else -4.0
+            utility += float(lender.behavior_weights.get("resource", 5.0)) * 0.2
+            utility -= self._card_trade_value(lender.id, record.get("card_id", "")) * 0.18
+            if utility >= 0.0: self.respond_borrow_request(record.get("id", ""), lender.id, "accept")
+            else: self.respond_borrow_request(record.get("id", ""), lender.id, "deny")
+        for borrower in sorted(self.characters.values(), key=lambda item: item.id):
+            if borrower.origin == "user" or not self.social_available(borrower.id): continue
+            if any(record.get("borrower") == borrower.id and record.get("state") in ["requested", "deferred", "active"] for record in self.world.setdefault("borrows", [])): continue
+            deck = self.decks.get(borrower.deck_id, {}) if borrower.deck_id else {}
+            deck_cards = list(deck.get("cards", []))
+            desired = [card for card in self.cards.values() if card.id not in deck_cards and card.family in borrower.preferred_families and card.kind != "fusion"]
+            desired.sort(key=lambda card: (self._card_trade_value(borrower.id, card.id), card.id), reverse=True)
+            preferred = desired[0] if desired else None
+            if not preferred: continue
+            lenders = [candidate for candidate in self.characters.values() if candidate.id != borrower.id and self.social_available(candidate.id) and (self.relationship_for(borrower.id, candidate.id) == "ally" or self.shared_team(borrower.id, candidate.id)) and self.available_card_counts(candidate.id).get(preferred.id, 0) > 0]
+            lenders.sort(key=lambda candidate: (-self._relationship_score(borrower, candidate), self._card_trade_value(candidate.id, preferred.id), candidate.id))
+            if lenders:
+                self.create_borrow_request(lenders[0].id, borrower.id, preferred.id, 1, borrower.deck_id)
+                break
+
+    def _advance_borrow_requests(self):
+        now = float(self.world.get("simulation_time", 0.0))
+        for record in self.world.setdefault("borrows", []):
+            if record.get("state") in ["requested", "deferred"] and now >= float(record.get("expires_sim_time", 0.0) or 0.0):
+                record["state"] = "expired"
+                self.transition_interaction("borrow", record, "expired", "world", "expired")
+            elif record.get("state") == "deferred" and self.social_available(record.get("lender", "")) and self.social_available(record.get("borrower", "")):
+                record["state"] = "requested"
+                self.transition_interaction("borrow", record, "requested", "world", "resumed")
 
     def advance_borrows(self, character_id):
         changed = False
         for record in self.world.setdefault("borrows", []):
             if record.get("state") == "active" and record.get("borrower") == character_id:
-                record["remaining_duels"] -= 1
+                record["remaining_duels"] = int(record.get("remaining_duels", 1)) - 1
                 changed = True
                 if record["remaining_duels"] <= 0:
                     self.transition_interaction("borrow", record, "returned", character_id, "returned")
-                    self.queue_interaction_media("borrow", "borrow_returned", character_id, record.get("lender", ""), "ally", "characters", character_id, {"borrow_id": record.get("id", ""), "card_id": record.get("card_id", "")})
                     record["state"] = "returned"
                     borrower = self.characters.get(character_id)
-                    if borrower and record["card_id"] in borrower.borrowed_cards: borrower.borrowed_cards.remove(record["card_id"])
+                    if borrower and record.get("card_id") in borrower.borrowed_cards: borrower.borrowed_cards.remove(record.get("card_id"))
+                    self.record_history("character", character_id, "borrow_returned", {"borrow_id": record.get("id", ""), "card": record.get("card_id", ""), "to": record.get("lender", "")})
+                    self.record_history("character", record.get("lender", ""), "borrow_card_returned", {"borrow_id": record.get("id", ""), "card": record.get("card_id", ""), "from": character_id})
         if changed: self.save()
 
     def calculate_rank(self, entity_id):
@@ -2977,43 +3394,211 @@ class ContentStore:
         self.save()
         return True
 
-    def create_championship(self, level, team_ids):
+    def championship_team_count(self, level):
         level = clamp(int(level), 1, 5)
-        eligible = [team_id for team_id in team_ids if team_id in self.teams and len(self.teams[team_id].members) == 3]
-        required = 2 ** (level + 1)
-        if len(eligible) < required: return None
-        eligible = eligible[:required]
-        rounds = []
-        current = eligible
-        while len(current) > 1:
-            pairs = [[current[index], current[index + 1]] for index in range(0, len(current), 2)]
-            rounds.append({"pairs": pairs, "results": []})
-            current = [pair[0] for pair in pairs]
-        championship = {"id": "championship_" + str(int(time.time() * 1000)), "level": level, "teams": eligible, "rounds": rounds, "state": "open", "host": self.role_config()["player_character"], "created": time.time(), "history": []}
-        intro = self.narrator_cue("championship_intro", championship["host"], "", {"championship_id": championship["id"], "level": level, "teams": list(eligible)})
+        return 128 if level == 5 else 2 ** (level + 1)
+
+    def championship_library_count(self, entity_id):
+        if entity_id in self.characters: return len(self.characters[entity_id].library_cards)
+        team = self.teams.get(entity_id)
+        return sum(len(self.characters[member].library_cards) for member in team.members if member in self.characters) if team else 0
+
+    def championship_decks(self, entity_id):
+        owner_ids = [entity_id]
+        if entity_id in self.teams: owner_ids = list(self.teams[entity_id].members)
+        return [deck for deck in self.decks.values() if deck.get("owner_id") in owner_ids and len(deck.get("cards", [])) >= 50]
+
+    def championship_host_eligible(self, host_id, level):
+        level = clamp(int(level), 1, 5)
+        rank = self.calculate_rank(host_id) if host_id in self.characters or host_id in self.teams else 0
+        decks = self.championship_decks(host_id)
+        library_minimum = 100 * level
+        return bool(rank >= level and len(decks) >= 5 and self.championship_library_count(host_id) >= library_minimum)
+
+    def championship_team_eligible(self, team_id, level):
+        team = self.teams.get(team_id)
+        if not team or team.formation_state != "complete" or len(team.members) != 3 or int(team.rank) < int(level): return False
+        return all(member in self.characters and self.characters[member].world_status == "in_playground" for member in team.members)
+
+    def championship_by_id(self, championship_id):
+        return next((item for item in self.world.setdefault("championships", []) if item.get("id") == championship_id), None)
+
+    def host_championship(self, level, host_id=""):
+        level = clamp(int(level), 1, 5)
+        if not host_id:
+            candidates = [team.id for team in self.teams.values() if self.championship_host_eligible(team.id, level)] + [character.id for character in self.characters.values() if character.origin != "user" and self.championship_host_eligible(character.id, level)]
+            host_id = max(candidates, key=lambda item: (self.calculate_rank(item), item)) if candidates else ""
+        if not host_id or not self.championship_host_eligible(host_id, level): return None
+        return self.create_championship(level, [], host_id)
+
+    def create_championship(self, level, team_ids=None, host_id=""):
+        level = clamp(int(level), 1, 5)
+        host_id = host_id or self.role_config()["player_character"]
+        if not self.championship_host_eligible(host_id, level): return None
+        required = self.championship_team_count(level)
+        candidate_ids = [team_id for team_id in list(team_ids or []) if self.championship_team_eligible(team_id, level)]
+        candidate_ids = list(dict.fromkeys(candidate_ids))[:required]
+        now = float(self.world.get("simulation_time", 0.0))
+        championship = {"id": "championship_" + str(int(time.time() * 1000)), "level": level, "difficulty": ["easy", "medium", "hard", "extreme", "legendary"][level - 1], "required_teams": required, "host": host_id, "host_kind": "team" if host_id in self.teams else "character", "teams": [], "enrolled": [], "invitations": {}, "waitlist": [], "rounds": [], "current_round": -1, "state": "waiting", "mode": "current", "created": time.time(), "created_sim_time": now, "next_schedule_sim_time": now + 5.0, "history": [], "active_battle_ids": [], "rewards": [], "narrator_intro": {}, "narrator_waiting": {}, "narrator_events": []}
+        intro = self.narrator_cue("championship_intro", host_id, "", {"championship_id": championship["id"], "level": level, "difficulty": championship["difficulty"], "required_teams": required})
+        waiting = self.narrator_cue("championship_waiting", host_id, "", {"championship_id": championship["id"], "level": level, "required_teams": required})
         championship["narrator_intro"] = intro
+        championship["narrator_waiting"] = waiting
+        championship["narrator_events"].append(waiting)
         self.world.setdefault("championships", []).append(championship)
-        self.record_history("character", championship["host"], "championship_opened", {"championship_id": championship["id"], "level": level, "teams": list(eligible), "narrator": intro})
+        self.record_history("character" if host_id in self.characters else "team", host_id, "championship_opened", {"championship_id": championship["id"], "level": level, "difficulty": championship["difficulty"], "required_teams": required, "narrator": intro})
+        for team_id in candidate_ids: self.invite_championship(championship["id"], team_id)
         self.save()
         return championship
 
-    def resolve_championship_match(self, championship_id, round_index, pair_index, winner_id):
-        championship = next((item for item in self.world.setdefault("championships", []) if item.get("id") == championship_id), None)
-        if not championship or round_index not in range(len(championship["rounds"])): return False
+    def invite_championship(self, championship_id, team_id):
+        championship = self.championship_by_id(championship_id)
+        if not championship or championship.get("state") != "waiting" or not self.championship_team_eligible(team_id, championship.get("level", 1)): return False
+        if team_id in championship.get("enrolled", []): return True
+        championship.setdefault("invitations", {})[team_id] = {"state": "invited", "sim_time": float(self.world.get("simulation_time", 0.0))}
+        enrollment = self.narrator_cue("championship_enrollment", championship.get("host", ""), team_id, {"championship_id": championship_id, "level": championship.get("level", 1), "team": team_id, "state": "invited"})
+        championship.setdefault("narrator_events", []).append(enrollment)
+        championship.setdefault("history", []).append({"event": "team_invited", "team": team_id, "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time(), "narrator": enrollment})
+        self.record_history("team", team_id, "championship_invited", {"championship_id": championship_id, "level": championship.get("level", 1)})
+        return True
+
+    def _start_championship(self, championship):
+        enrolled = list(dict.fromkeys(championship.get("enrolled", [])))
+        if len(enrolled) != int(championship.get("required_teams", 0)): return False
+        rounds = []
+        current = enrolled
+        while len(current) > 1:
+            pairs = [[current[index], current[index + 1]] for index in range(0, len(current), 2)]
+            rounds.append({"pairs": pairs, "results": [], "scheduled": []})
+            current = [pair[0] for pair in pairs]
+        championship["teams"] = enrolled
+        championship["rounds"] = rounds
+        championship["current_round"] = 0
+        championship["state"] = "active"
+        championship["next_schedule_sim_time"] = float(self.world.get("simulation_time", 0.0))
+        championship.setdefault("history", []).append({"event": "enrollment_complete", "teams": enrolled, "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+        return True
+
+    def join_championship(self, championship_id, team_id):
+        championship = self.championship_by_id(championship_id)
+        if not championship or championship.get("state") != "waiting" or not self.championship_team_eligible(team_id, championship.get("level", 1)): return False
+        if team_id in championship.get("enrolled", []): return True
+        if len(championship.setdefault("enrolled", [])) >= int(championship.get("required_teams", 0)):
+            championship.setdefault("waitlist", []).append(team_id)
+            return False
+        invitation = championship.setdefault("invitations", {}).setdefault(team_id, {"state": "invited", "sim_time": float(self.world.get("simulation_time", 0.0))})
+        invitation["state"] = "accepted"
+        championship["enrolled"].append(team_id)
+        enrollment = self.narrator_cue("championship_enrollment", championship.get("host", ""), team_id, {"championship_id": championship_id, "level": championship.get("level", 1), "team": team_id, "state": "accepted", "position": len(championship["enrolled"])})
+        championship.setdefault("narrator_events", []).append(enrollment)
+        championship.setdefault("history", []).append({"event": "team_joined", "team": team_id, "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time(), "narrator": enrollment})
+        self.record_history("team", team_id, "championship_joined", {"championship_id": championship_id, "level": championship.get("level", 1), "position": len(championship["enrolled"])})
+        if len(championship["enrolled"]) == int(championship.get("required_teams", 0)): self._start_championship(championship)
+        self.save()
+        return True
+
+    def watch_championship(self, championship_id, character_id):
+        championship = self.championship_by_id(championship_id)
+        if not championship or character_id not in self.characters: return False
+        championship.setdefault("watchers", [])
+        if character_id not in championship["watchers"]: championship["watchers"].append(character_id)
+        self.record_history("character", character_id, "championship_watched", {"championship_id": championship_id})
+        self.save()
+        return True
+
+    def _schedule_championship_matches(self, championship):
+        if championship.get("state") != "active": return
+        round_index = int(championship.get("current_round", -1))
+        if round_index not in range(len(championship.get("rounds", []))): return
         round_data = championship["rounds"][round_index]
-        if pair_index not in range(len(round_data["pairs"])) or winner_id not in round_data["pairs"][pair_index]: return False
-        round_data["results"].append({"pair": round_data["pairs"][pair_index], "winner": winner_id, "time": time.time()})
-        championship["history"].append({"event": "match_resolved", "round": round_index, "pair": pair_index, "winner": winner_id, "time": time.time()})
-        if len(round_data["results"]) == len(round_data["pairs"]):
+        scheduled_pairs = {int(item.get("pair_index", -1)) for item in round_data.get("scheduled", [])}
+        resolved_pairs = {int(item.get("pair_index", -1)) for item in round_data.get("results", [])}
+        for pair_index, pair in enumerate(round_data.get("pairs", [])):
+            if pair_index in scheduled_pairs or pair_index in resolved_pairs or len(pair) != 2: continue
+            place = next((item for item in self.places.values() if item.current_duels < item.capacity), None)
+            if not place: break
+            if not self.reserve_place(place.id): continue
+            for team_id in pair:
+                team = self.teams.get(team_id)
+                if team:
+                    for member_id in team.members:
+                        character = self.characters.get(member_id)
+                        if character: character.availability, character.activity = "active", "dueling"
+            battle_id = "champ_battle_" + str(int(time.time() * 1000)) + "_" + str(round_index) + "_" + str(pair_index) + "_" + str(len(championship.get("active_battle_ids", [])))
+            battle = {"id": battle_id, "engine_type": "team", "championship_id": championship["id"], "championship_round": round_index, "championship_pair": pair_index, "player_team": pair[0], "opponent_team": pair[1], "place": place.id, "starter": "opponent", "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "round": 1, "rounds": [], "watchers": list(championship.get("watchers", [])), "started_sim_time": float(self.world.get("simulation_time", 0.0))}
+            self.world.setdefault("active_battles", []).append(battle)
+            round_data.setdefault("scheduled", []).append({"pair_index": pair_index, "battle_id": battle_id, "place": place.id, "sim_time": float(self.world.get("simulation_time", 0.0))})
+            championship.setdefault("active_battle_ids", []).append(battle_id)
+            match_cue = self.narrator_cue("championship_match_start", championship.get("host", ""), pair[0], {"championship_id": championship["id"], "round": round_index, "pair": pair_index, "teams": pair, "place": place.id})
+            championship.setdefault("narrator_events", []).append(match_cue)
+            championship.setdefault("history", []).append({"event": "match_scheduled", "round": round_index, "pair": pair_index, "battle": battle_id, "place": place.id, "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time(), "narrator": match_cue})
+
+    def _advance_championships(self):
+        now = float(self.world.get("simulation_time", 0.0))
+        for championship in self.world.setdefault("championships", []):
+            if championship.get("state") == "waiting":
+                for team in sorted(self.teams.values(), key=lambda item: item.id):
+                    if len(championship.get("enrolled", [])) >= int(championship.get("required_teams", 0)): break
+                    if team.id in championship.get("enrolled", []) or team.id in championship.get("invitations", {}) or not self.championship_team_eligible(team.id, championship.get("level", 1)): continue
+                    self.invite_championship(championship["id"], team.id)
+                for team_id, invitation in list(championship.get("invitations", {}).items()):
+                    team = self.teams.get(team_id)
+                    if team and team_id not in championship.get("enrolled", []) and all(self.social_available(member_id) for member_id in team.members) and any(self.characters[member_id].origin != "user" for member_id in team.members): self.join_championship(championship["id"], team_id)
+                if len(championship.get("enrolled", [])) == int(championship.get("required_teams", 0)): self._start_championship(championship)
+            elif championship.get("state") == "active" and now >= float(championship.get("next_schedule_sim_time", 0.0)):
+                self._schedule_championship_matches(championship)
+                championship["next_schedule_sim_time"] = now + 5.0
+
+    def resolve_championship_match(self, championship_id, round_index, pair_index, winner_id):
+        championship = self.championship_by_id(championship_id)
+        if not championship or round_index not in range(len(championship.get("rounds", []))): return False
+        round_data = championship["rounds"][round_index]
+        if pair_index not in range(len(round_data.get("pairs", []))) or winner_id not in round_data["pairs"][pair_index]: return False
+        if any(int(item.get("pair_index", -1)) == int(pair_index) for item in round_data.get("results", [])): return False
+        pair = list(round_data["pairs"][pair_index])
+        loser_id = pair[1] if winner_id == pair[0] else pair[0]
+        result = {"pair": pair, "pair_index": pair_index, "winner": winner_id, "loser": loser_id, "round": round_index, "time": time.time(), "sim_time": float(self.world.get("simulation_time", 0.0))}
+        round_data.setdefault("results", []).append(result)
+        progress_cue = self.narrator_cue("championship_round_progress", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "pair": pair_index, "winner": winner_id, "loser": loser_id})
+        championship.setdefault("narrator_events", []).append(progress_cue)
+        championship.setdefault("history", []).append({"event": "match_resolved", **result, "narrator": progress_cue})
+        winner_team = self.teams.get(winner_id)
+        loser_team = self.teams.get(loser_id)
+        reward_amount = int(round_index)
+        if winner_team and loser_team and reward_amount > 0:
+            winner_member = winner_team.leader if winner_team.leader in winner_team.members else winner_team.members[0]
+            for member_id in loser_team.members:
+                candidates = list(self.characters.get(member_id).library_cards) if member_id in self.characters else []
+                for card_id in candidates[:reward_amount]:
+                    if card_id in self.characters[member_id].library_cards:
+                        self.characters[member_id].library_cards.remove(card_id)
+                        self.characters[winner_member].library_cards.append(card_id)
+                        championship.setdefault("rewards", []).append({"from": member_id, "to": winner_member, "card": card_id, "round": round_index})
+                        championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id}))
+            host_owner = championship.get("host", "")
+            source_character = self.characters.get(host_owner) if host_owner in self.characters else self.characters.get(self.teams[host_owner].leader) if host_owner in self.teams else None
+            if source_character:
+                for card_id in list(source_character.library_cards)[:reward_amount]:
+                    if card_id in source_character.library_cards:
+                        source_character.library_cards.remove(card_id)
+                        self.characters[winner_member].library_cards.append(card_id)
+                        championship.setdefault("rewards", []).append({"from": source_character.id, "to": winner_member, "card": card_id, "round": round_index, "host_reward": True})
+                        championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id, "host_reward": True}))
+        if len(round_data["results"]) == len(round_data.get("pairs", [])):
             winners = [item["winner"] for item in round_data["results"]]
             next_round = round_index + 1
-            if next_round < len(championship["rounds"]): championship["rounds"][next_round]["pairs"] = [[winners[index], winners[index + 1]] for index in range(0, len(winners), 2)]
+            if next_round < len(championship.get("rounds", [])):
+                championship["rounds"][next_round]["pairs"] = [[winners[index], winners[index + 1]] for index in range(0, len(winners), 2)]
+                championship["current_round"] = next_round
+                championship["next_schedule_sim_time"] = float(self.world.get("simulation_time", 0.0)) + 5.0
             else:
                 championship["state"] = "complete"
                 championship["winner"] = winners[0]
-                outro = self.narrator_cue("championship_outro", championship.get("host", ""), winners[0], {"championship_id": championship_id, "level": championship.get("level", 0), "winner": winners[0]})
+                outro = self.narrator_cue("championship_outro", championship.get("host", ""), winners[0], {"championship_id": championship_id, "level": championship.get("level", 0), "difficulty": championship.get("difficulty", ""), "winner": winners[0], "rewards": list(championship.get("rewards", []))})
                 championship["narrator_outro"] = outro
-                self.record_history("team", winners[0], "championship_won", {"championship_id": championship_id, "level": championship.get("level", 0), "narrator": outro})
+                self.record_history("team", winners[0], "championship_won", {"championship_id": championship_id, "level": championship.get("level", 0), "rewards": list(championship.get("rewards", [])), "narrator": outro})
+                for team_id in championship.get("teams", []): self.calculate_rank(team_id)
+                self.add_achievement(self.teams[winners[0]].leader, "Championship victory", f"Won championship {championship_id}.")
         self.save()
         return True
 
@@ -3641,7 +4226,9 @@ class Duelist:
         self.graveyard = []
         self.banished = []
         self.extra = []
-        deck_ids = DeckRules.normalized(store.decks.get(character.deck_id, {}).get("cards", []), store.cards)
+        deck_ids = list(DeckRules.normalized(store.decks.get(character.deck_id, {}).get("cards", []), store.cards))
+        loan_cards = [record.get("card_id", "") for record in store.world.setdefault("borrows", []) if record.get("state") == "active" and record.get("borrower") == character.id and record.get("card_id") in store.cards]
+        deck_ids = DeckRules.normalized(deck_ids + loan_cards, store.cards)
         for card_id in deck_ids:
             instance = CardInstance(store.cards[card_id], self.name)
             if instance.card.kind == "fusion":
@@ -5949,7 +6536,9 @@ class DuelEngine:
         if self.duel_elapsed >= self.time_limit:
             self.time_expired = True
             if self.player.hp == self.opponent.hp: self.finish(None, "timed-draw")
-            else: self.finish(self.player if self.player.hp > self.opponent.hp else self.opponent, "timed-lowest-lp")
+            else:
+                winner = self.player if self.player.hp > self.opponent.hp else self.opponent
+                self.finish(winner, "timed-instant-win" if winner is self.player else "timed-instant-lose")
 
     def resolve_gamble_selection(self, card_id):
         if self.duel_mode != "gamble" or not self.finished or self.winner is None or not self.gamble_selection_pending: return False
@@ -5983,13 +6572,13 @@ class DuelEngine:
         self.winner = winner
         self.reason = reason
         if winner is None: outcome_state = "timed_draw" if str(reason).startswith("timed-") else "post_duel_draw"
-        elif str(reason).startswith("timed-"): outcome_state = "timed_win"
+        elif str(reason).startswith("timed-"): outcome_state = "time_end_house_win" if winner is self.player else "time_end_house_lose"
         else: outcome_state = "post_duel_win" if winner is self.player else "post_duel_loss"
-        self.outcome_narrator = self.store.narrator_cue(outcome_state, winner.character.id if winner else self.player.character.id, self.other(winner).character.id if winner else self.opponent.character.id, {"mode": self.duel_mode, "reason": reason, "winner": winner.character.id if winner else ""})
+        self.outcome_narrator = self.store.narrator_cue(outcome_state, winner.character.id if winner else self.player.character.id, self.other(winner).character.id if winner else self.opponent.character.id, {"mode": self.duel_mode, "reason": reason, "winner": winner.character.id if winner else "", "time_end": str(reason).startswith("timed-")})
         if winner is None:
             self.react("draw_result", self.player.character.id, self.opponent.character.id, "opponent")
         else:
-            self.react("win" if winner is self.player else "lose", winner.character.id, self.other(winner).character.id, "opponent")
+            self.react("instant_win" if str(reason).startswith("timed-") and winner is self.player else "instant_lose" if str(reason).startswith("timed-") else "win" if winner is self.player else "lose", winner.character.id, self.other(winner).character.id, "opponent")
         if self.duel_mode == "gamble" and winner is not None and self.gamble_state and not self.gamble_state.get("settled"):
             self.gamble_selection_pending = True
             self.gamble_state["state"] = "reveal_pending"
@@ -6674,7 +7263,7 @@ class BattleScene(Scene):
         if tab == "orders": self.utility_button.label, self.utility_button.callback = "OPEN ORDER", self.add_world_entry
         elif tab == "requests": self.utility_button.label, self.utility_button.callback = "NEW REQUEST", self.add_world_entry
         elif tab == "free": self.utility_button.label, self.utility_button.callback = "CHAMPIONSHIP", lambda: self.set_tab("championship")
-        elif tab == "championship": self.utility_button.label, self.utility_button.callback = "HOST LEVEL", lambda: self.select_opponent(self.app.store.role_config()["default_opponent_character"], 1)
+        elif tab == "championship": self.utility_button.label, self.utility_button.callback = "HOST LEVEL", lambda: self.select_opponent("host", 1)
         else: self.utility_button.label, self.utility_button.callback = "REFRESH", self.refresh_content
         self.refresh_content()
 
@@ -6692,7 +7281,9 @@ class BattleScene(Scene):
         elif self.tab == "orders":
             self.items = [(entry.get("title", "Order"), entry.get("taker", ""), entry.get("reward", {}).get("label", entry.get("reward_policy", "random")), 5, 7, entry.get("id")) for entry in self.app.store.world.get("orders", []) if entry.get("status") == "open"]
         elif self.tab == "championship":
-            self.items = [(f"Level {level} championship", self.app.store.role_config()["default_opponent_character"], "hostable", level + 3, level + 4, level) for level in range(1, 4)]
+            self.items = [(f"Level {level} championship", "host", "hostable" if self.app.store.championship_host_eligible(self.app.store.role_config()["player_character"], level) else "not qualified", level, 0, level) for level in range(1, 6)]
+            for championship in self.app.store.world.get("championships", []):
+                self.items.append((f"{championship.get('difficulty', 'level')} championship", "championship", championship.get("state", "waiting"), championship.get("level", 1), len(championship.get("enrolled", [])), championship.get("id")))
         else:
             roles = self.app.store.role_config()
             player_name = self.app.store.characters[roles["player_character"]].name
@@ -6702,7 +7293,7 @@ class BattleScene(Scene):
         self.request_button_indices = []
         for index, item in enumerate(self.items):
             target = item[1]
-            action = "WATCH" if self.tab == "watch" else "ACCEPT" if self.tab == "requests" else "TAKE" if self.tab == "orders" else "HOST" if self.tab == "championship" else "DUEL"
+            action = "WATCH" if self.tab == "watch" else "ACCEPT" if self.tab == "requests" else "TAKE" if self.tab == "orders" else "HOST" if self.tab == "championship" and target == "host" else "VIEW" if self.tab == "championship" else "DUEL"
             if self.tab == "requests":
                 request = self.app.store.request_by_id(item[5])
                 main_index = None
@@ -6760,9 +7351,12 @@ class BattleScene(Scene):
     def select_opponent(self, target, entry_id=None):
         if self.tab == "championship" and entry_id:
             player_id = self.app.store.role_config()["player_character"]
-            self.app.store.world.setdefault("championships", []).append({"id": "champ_" + str(int(time.time() * 1000)), "level": entry_id, "host": player_id, "status": "open", "participants": [player_id]})
-            self.app.store.save()
-            self.app.notify(f"Level {entry_id} championship hosted. The world can now populate its bracket.")
+            if target == "host":
+                championship = self.app.store.create_championship(int(entry_id), [], player_id)
+                self.app.notify(f"Level {entry_id} championship opened for real-time enrollment." if championship else f"The player host is not qualified for level {entry_id}.")
+            elif target == "championship":
+                watched = self.app.store.watch_championship(entry_id, player_id)
+                self.app.notify("Championship observation registered." if watched else "That championship is no longer available.")
             self.refresh_content()
             return
         if self.tab == "requests" and entry_id:
@@ -9577,10 +10171,19 @@ class TradingScene(Scene):
 
     def refresh(self):
         self.deals = self.app.store.trade_list()
-        self.buttons = [Button((34, 530, 160, 38), "NEW TYPE OFFER", lambda: self.new_offer(), COLORS["orange"]), Button((204, 530, 112, 38), "ACCEPT", lambda: self.accept(), COLORS["green"]), Button((326, 530, 112, 38), "COUNTER", lambda: self.counter(), COLORS["gold"]), Button((448, 530, 112, 38), "CANCEL", lambda: self.cancel(), COLORS["red"]), Button((570, 530, 150, 38), "ESCALATE TO DUEL", lambda: self.escalate(), COLORS["violet"]), Button((650, 575, 110, 24), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.loans = self.app.store.borrow_list()
+        self.rows = [("trade", item) for item in self.deals] + [("borrow", item) for item in self.loans]
+        self.buttons = [Button((34, 530, 130, 38), "NEW OFFER", lambda: self.new_offer(), COLORS["orange"]), Button((172, 530, 130, 38), "NEW LOAN", lambda: self.new_borrow(), COLORS["cyan"]), Button((310, 530, 94, 38), "ACCEPT", lambda: self.accept(), COLORS["green"]), Button((412, 530, 94, 38), "COUNTER", lambda: self.counter(), COLORS["gold"]), Button((514, 530, 94, 38), "CANCEL", lambda: self.cancel(), COLORS["red"]), Button((616, 530, 138, 38), "ESCALATE", lambda: self.escalate(), COLORS["violet"]), Button((650, 575, 110, 24), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def selected(self):
-        return self.app.store.get_trade(self.selected_id) if self.selected_id else None
+        for kind, item in self.rows:
+            if item.get("id") == self.selected_id: return item
+        return None
+
+    def selected_kind(self):
+        for kind, item in self.rows:
+            if item.get("id") == self.selected_id: return kind
+        return ""
 
     def new_offer(self):
         roles = self.app.store.role_config()
@@ -9591,18 +10194,40 @@ class TradingScene(Scene):
         trade = self.app.store.create_trade(roles["player_character"], roles["default_opponent_character"], [library[0]], requested_family="aqua")
         self.selected_id = trade["id"] if trade else ""
         recipient_name = self.app.store.characters[roles["default_opponent_character"]].name
-        self.app.notify(f"A three-hour type-based offer was created for {recipient_name}.")
+        self.app.notify(f"A three-hour type-based offer was created for {recipient_name}." if trade else "The recipient or offered card is currently unavailable.")
         self.refresh()
 
+    def new_borrow(self):
+        roles = self.app.store.role_config()
+        borrower = roles["player_character"]
+        candidates = [item for item in self.app.store.characters.values() if item.id != borrower and self.app.store.social_available(item.id) and (self.app.store.relationship_for(borrower, item.id) == "ally" or self.app.store.shared_team(borrower, item.id))]
+        candidates.sort(key=lambda item: (self.app.store._relationship_score(self.app.store.characters[borrower], item), item.id), reverse=True)
+        for lender in candidates:
+            card_id = next((card for card in lender.library_cards if self.app.store.available_card_counts(lender.id).get(card, 0) > 0), "")
+            if not card_id: continue
+            record = self.app.store.create_borrow_request(lender.id, borrower, card_id, 3, self.app.store.characters[borrower].deck_id)
+            if record:
+                self.selected_id = record["id"]
+                self.app.notify(f"A consent-based three-duel loan request was sent to {lender.name}.")
+                self.refresh()
+                return
+        self.app.notify("No allied lender has an available card that fits the player deck.")
+
     def accept(self):
-        trade = self.selected()
-        if trade and self.app.store.accept_trade(trade["id"], trade["recipient"]): self.app.notify("Trade accepted and card ownership transferred.")
-        else: self.app.notify("This trade cannot be accepted: cards may be unavailable or the request is unsatisfied.")
+        item = self.selected()
+        if not item:
+            self.app.notify("Select an interaction first.")
+        elif self.selected_kind() == "borrow":
+            success = self.app.store.respond_borrow_request(item["id"], self.app.store.role_config()["player_character"], "accept")
+            self.app.notify("Loan accepted and added to the borrower’s temporary deck source." if success else "This loan requires lender consent and current availability.")
+        else:
+            success = self.app.store.accept_trade(item["id"], self.app.store.role_config()["player_character"])
+            self.app.notify("Trade accepted and card ownership transferred." if success else "This trade cannot be accepted: cards may be unavailable or the request is unsatisfied.")
         self.refresh()
 
     def counter(self):
         trade = self.selected()
-        if not trade: self.app.notify("Select an open trade first."); return
+        if not trade or self.selected_kind() != "trade": self.app.notify("Select an open trade first."); return
         library = self.app.store.characters[trade["recipient"]].library_cards
         if not library:
             self.app.notify("The recipient has no card available for a counteroffer.")
@@ -9613,14 +10238,16 @@ class TradingScene(Scene):
         self.refresh()
 
     def cancel(self):
-        trade = self.selected()
-        success = bool(trade and self.app.store.cancel_trade(trade["id"], self.app.store.role_config()["player_character"]))
-        self.app.notify("Trade canceled." if success else "Only an active trade can be canceled.")
+        item = self.selected()
+        actor = self.app.store.role_config()["player_character"]
+        if self.selected_kind() == "borrow": success = bool(item and self.app.store.respond_borrow_request(item["id"], actor, "cancel"))
+        else: success = bool(item and self.app.store.cancel_trade(item["id"], actor))
+        self.app.notify("Interaction canceled." if success else "Only an active interaction can be canceled.")
         self.refresh()
 
     def escalate(self):
         trade = self.selected()
-        request_id = self.app.store.escalate_trade(trade["id"], self.app.store.role_config()["player_character"]) if trade else None
+        request_id = self.app.store.escalate_trade(trade["id"], self.app.store.role_config()["player_character"]) if trade and self.selected_kind() == "trade" else None
         if request_id and trade:
             self.app.notify(f"Trade escalated into duel request {request_id}.")
             self.app.push(PreDuelScene(self.app, trade["recipient"]))
@@ -9631,29 +10258,37 @@ class TradingScene(Scene):
     def handle(self, event):
         super().handle(event)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            for index, trade in enumerate(self.deals[-4:]):
-                if pygame.Rect(46, 125 + index * 90, 708, 68).collidepoint(event.pos): self.selected_id = trade["id"]
+            for index, (kind, item) in enumerate(self.rows[-4:]):
+                if pygame.Rect(46, 125 + index * 90, 708, 68).collidepoint(event.pos): self.selected_id = item["id"]
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "TRADING", (34, 28), self.app.assets.font(28, True), COLORS["orange"])
-        draw_text(surface, "Persistent three-hour offers with type requests, counters, transfer, cancellation, and duel escalation.", (36, 65), self.app.assets.font(13), COLORS["muted"])
-        visible = self.deals[-4:]
-        for index, trade in enumerate(visible):
+        draw_text(surface, "Real-time offers and consent-based loans use relationship, availability, and transactional card state.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        visible = self.rows[-4:]
+        for index, (kind, item) in enumerate(visible):
             y = 125 + index * 90
-            accent = COLORS["gold"] if trade["id"] == self.selected_id else COLORS["orange"]
-            rounded(surface, (46, y, 708, 68), (15, 28, 58), accent, 8, 2 if trade["id"] == self.selected_id else 1)
-            creator = self.app.store.characters.get(trade["creator"])
-            recipient = self.app.store.characters.get(trade["recipient"])
-            draw_text(surface, f"{creator.name if creator else trade['creator']} -> {recipient.name if recipient else trade['recipient']}  |  {trade['state'].upper()}", (64, y + 13), self.app.assets.font(13, True), COLORS["cream"])
-            requested = self.app.store.card_names(trade.get("requested_cards", [])) if trade.get("requested_cards") else "family: " + (trade.get("requested_family") or "any")
-            draw_text(surface, f"Gives: {self.app.store.card_names(trade.get('offered_cards', []))}    Wants: {requested}", (64, y + 39), self.app.assets.font(11), COLORS["muted"])
+            accent = COLORS["gold"] if item["id"] == self.selected_id else COLORS["cyan"] if kind == "borrow" else COLORS["orange"]
+            rounded(surface, (46, y, 708, 68), (15, 28, 58), accent, 8, 2 if item["id"] == self.selected_id else 1)
+            if kind == "borrow":
+                lender = self.app.store.characters.get(item.get("lender"))
+                borrower = self.app.store.characters.get(item.get("borrower"))
+                title = f"LOAN  {lender.name if lender else item.get('lender')} -> {borrower.name if borrower else item.get('borrower')}  |  {item.get('state', '').upper()}"
+                detail = f"Card: {self.app.store.card_names([item.get('card_id', '')])}    Duels remaining: {item.get('remaining_duels', 0)}"
+            else:
+                creator = self.app.store.characters.get(item.get("creator"))
+                recipient = self.app.store.characters.get(item.get("recipient"))
+                title = f"TRADE  {creator.name if creator else item.get('creator')} -> {recipient.name if recipient else item.get('recipient')}  |  {item.get('state', '').upper()}"
+                requested = self.app.store.card_names(item.get("requested_cards", [])) if item.get("requested_cards") else "family: " + (item.get("requested_family") or "any")
+                detail = f"Gives: {self.app.store.card_names(item.get('offered_cards', []))}    Wants: {requested}"
+            draw_text(surface, title, (64, y + 13), self.app.assets.font(13, True), COLORS["cream"])
+            draw_text(surface, detail, (64, y + 39), self.app.assets.font(11), COLORS["muted"])
         selected = self.selected()
         if selected:
-            history = selected.get("history", [])[-2:]
+            history = selected.get("history", selected.get("events", []))[-2:]
             draw_text(surface, "NEGOTIATION: " + "  |  ".join(item.get("action", "event") for item in history), (400, 505), self.app.assets.font(11), COLORS["cyan"], "center")
         else:
-            draw_text(surface, "Select a trade row to negotiate.", (400, 505), self.app.assets.font(11), COLORS["muted"], "center")
+            draw_text(surface, "Select a trade or loan row to negotiate.", (400, 505), self.app.assets.font(11), COLORS["muted"], "center")
         self.draw_buttons(surface, 11)
         self.app.draw_notice(surface)
 
@@ -9896,9 +10531,8 @@ class Application:
                     self.scenes[-1].handle(event)
             self.simulation_accumulator += dt
             if self.simulation_accumulator >= 1.0:
-                elapsed = min(1.0, self.simulation_accumulator)
-                self.simulation_accumulator -= elapsed
-                self.store.advance_world(elapsed)
+                self.simulation_accumulator -= 1.0
+                self.store.advance_world()
             if self.scenes: self.scenes[-1].update(dt)
             render_surface = self.render_surface
             render_surface.fill((0, 0, 0))

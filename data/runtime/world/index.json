@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "category": "world_index",
   "roles": {
     "player_character": "",
@@ -13,6 +13,8 @@
     "mystery_void": 0
   },
   "clock_epoch": 1787666817,
+  "last_wall_time": 0.0,
+  "clock_mode": "wall_clock",
   "collections": [
     "requests",
     "orders",
@@ -31,11 +33,15 @@
     "active_battles",
     "simulation_events",
     "last_ai_request_time",
+    "last_ai_trade_time",
+    "last_ai_borrow_time",
     "out_of_game",
     "dice_sequence",
     "duel_sequence",
     "request_sequence",
     "order_sequence",
-    "team_request_sequence"
+    "team_request_sequence",
+    "last_wall_time",
+    "clock_mode"
   ]
 }
