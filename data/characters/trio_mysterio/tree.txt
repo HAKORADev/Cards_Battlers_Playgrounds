@@ -1,0 +1,9 @@
+animations/
+audio/
+cards/
+duel/
+logic/
+manifest.json
+pfp/
+tree.txt
+weights/

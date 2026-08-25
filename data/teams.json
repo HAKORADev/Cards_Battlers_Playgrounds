@@ -11,8 +11,8 @@
     "preferred_places": [
       "neon_playground"
     ],
-    "media_folder": "teams/the_duelers_1787673582813_the_duelers",
-    "portrait": "team_placeholder",
+    "media_folder": "teams/the_duelers",
+    "portrait": "",
     "description": "An original adaptive team built around echoes, tempo, and elemental pressure.",
     "preferred_families": [
       "aqua",
@@ -35,8 +35,8 @@
     "preferred_places": [
       "mystery_void"
     ],
-    "media_folder": "teams/trio_mysterio_1787673582822_trio_team",
-    "portrait": "team_placeholder",
+    "media_folder": "teams/trio_team",
+    "portrait": "",
     "description": "A mysterious original team that introduces unknown cards through play.",
     "preferred_families": [
       "fiend",
@@ -68,8 +68,8 @@
     "preferred_places": [
       "neon_playground"
     ],
-    "media_folder": "teams/iron_garden_1787673582831_iron_garden",
-    "portrait": "team_placeholder",
+    "media_folder": "teams/iron_garden",
+    "portrait": "",
     "description": "A patient defensive team that converts durable resources into pressure.",
     "preferred_families": [
       "warrior",
@@ -92,8 +92,8 @@
     "preferred_places": [
       "mystery_void"
     ],
-    "media_folder": "teams/aqua_archives_1787673582839_aqua_archives",
-    "portrait": "team_placeholder",
+    "media_folder": "teams/aqua_archives",
+    "portrait": "",
     "description": "A research-minded team that learns from public card information.",
     "preferred_families": [
       "aqua"

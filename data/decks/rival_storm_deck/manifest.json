@@ -1,0 +1,15 @@
+{
+  "schema": 4,
+  "id": "rival_storm_deck",
+  "name": "Echo Storm",
+  "category": "decks",
+  "folders": [
+    "logic",
+    "pfp",
+    "pfp/variants",
+    "cards",
+    "experience"
+  ],
+  "asset_contract": "gdd_nested_v2",
+  "portrait_contract": "pfp/variants/1.png"
+}

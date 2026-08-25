@@ -1,0 +1,6 @@
+*.json
+championship.json
+duel_outcomes.json
+idle.json
+spin_dicer.json
+tree.txt

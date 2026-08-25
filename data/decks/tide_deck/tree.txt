@@ -1,0 +1,6 @@
+cards/
+experience/
+logic/
+manifest.json
+pfp/
+tree.txt

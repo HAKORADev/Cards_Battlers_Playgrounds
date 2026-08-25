@@ -2,7 +2,7 @@
   {
     "id": "rival_echo",
     "name": "Rival Echo",
-    "portrait": "rival",
+    "portrait": "",
     "stars": 5,
     "smartness": 10,
     "preferred_families": [
@@ -13,7 +13,7 @@
     "gender": "other",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/rival_echo_1787428876577_rival_echo",
+    "media_folder": "characters/rival_echo",
     "description": "",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -65,7 +65,7 @@
   {
     "id": "trio_mysterio",
     "name": "Trio Mysterio",
-    "portrait": "trio_mysterio",
+    "portrait": "",
     "stars": 10,
     "smartness": 10,
     "preferred_families": [
@@ -76,7 +76,7 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/trio_mysterio_1787428876578_trio_mysterio",
+    "media_folder": "characters/trio_mysterio",
     "description": "",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -128,7 +128,7 @@
   {
     "id": "mystery_veil",
     "name": "Mystery Veil",
-    "portrait": "trio_mysterio",
+    "portrait": "",
     "stars": 9,
     "smartness": 10,
     "preferred_families": [
@@ -139,7 +139,7 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/mystery_veil_1787428876580_mystery_veil",
+    "media_folder": "characters/mystery_veil",
     "description": "",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -191,7 +191,7 @@
   {
     "id": "mystery_arc",
     "name": "Mystery Arc",
-    "portrait": "trio_mysterio",
+    "portrait": "",
     "stars": 8,
     "smartness": 8,
     "preferred_families": [
@@ -202,7 +202,7 @@
     "gender": "other",
     "origin": "human",
     "best_cards": [],
-    "media_folder": "characters/mystery_arc_1787428876582_mystery_arc",
+    "media_folder": "characters/mystery_arc",
     "description": "",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -254,7 +254,7 @@
   {
     "id": "ember_sage",
     "name": "Ember Sage",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 4,
     "smartness": 6,
     "preferred_families": [
@@ -264,7 +264,7 @@
     "gender": "he",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/ember_sage_1787673582453_ember_sage",
+    "media_folder": "characters/ember_sage",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -316,7 +316,7 @@
   {
     "id": "tide_courier",
     "name": "Tide Courier",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 4,
     "smartness": 7,
     "preferred_families": [
@@ -326,7 +326,7 @@
     "gender": "she",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/tide_courier_1787673582509_tide_courier",
+    "media_folder": "characters/tide_courier",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -378,7 +378,7 @@
   {
     "id": "iron_mason",
     "name": "Iron Mason",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 3,
     "smartness": 5,
     "preferred_families": [
@@ -388,7 +388,7 @@
     "gender": "he",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/iron_mason_1787673582563_iron_mason",
+    "media_folder": "characters/iron_mason",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -440,7 +440,7 @@
   {
     "id": "moss_keeper",
     "name": "Moss Keeper",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 3,
     "smartness": 6,
     "preferred_families": [
@@ -450,7 +450,7 @@
     "gender": "other",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/moss_keeper_1787673582620_moss_keeper",
+    "media_folder": "characters/moss_keeper",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -502,7 +502,7 @@
   {
     "id": "forge_watcher",
     "name": "Forge Watcher",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 4,
     "smartness": 7,
     "preferred_families": [
@@ -512,7 +512,7 @@
     "gender": "he",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/forge_watcher_1787673582650_forge_watcher",
+    "media_folder": "characters/forge_watcher",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -564,7 +564,7 @@
   {
     "id": "aqua_scribe",
     "name": "Aqua Scribe",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 4,
     "smartness": 6,
     "preferred_families": [
@@ -574,7 +574,7 @@
     "gender": "she",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/aqua_scribe_1787673582689_aqua_scribe",
+    "media_folder": "characters/aqua_scribe",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -627,7 +627,7 @@
   {
     "id": "pearl_guard",
     "name": "Pearl Guard",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 3,
     "smartness": 5,
     "preferred_families": [
@@ -637,7 +637,7 @@
     "gender": "other",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/pearl_guard_1787673582730_pearl_guard",
+    "media_folder": "characters/pearl_guard",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],
@@ -689,7 +689,7 @@
   {
     "id": "coral_scout",
     "name": "Coral Scout",
-    "portrait": "pfp_placeholder",
+    "portrait": "",
     "stars": 3,
     "smartness": 6,
     "preferred_families": [
@@ -699,7 +699,7 @@
     "gender": "she",
     "origin": "community",
     "best_cards": [],
-    "media_folder": "characters/coral_scout_1787673582755_coral_scout",
+    "media_folder": "characters/coral_scout",
     "description": "An original CBP simulation character with a distinct authored technique profile.",
     "preferred_card_kinds": [],
     "preferred_subtypes": [],

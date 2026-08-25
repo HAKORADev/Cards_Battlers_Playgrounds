@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "id": "narrator",
+  "name": "Narrator",
+  "category": "special_character",
+  "asset_contract": "gdd_nested_v2",
+  "folders": [
+    "audio",
+    "catalogs"
+  ]
+}

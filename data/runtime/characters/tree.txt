@@ -1,0 +1,13 @@
+aqua_scribe.json
+coral_scout.json
+ember_sage.json
+forge_watcher.json
+iron_mason.json
+moss_keeper.json
+mystery_arc.json
+mystery_veil.json
+pearl_guard.json
+rival_echo.json
+tide_courier.json
+tree.txt
+trio_mysterio.json

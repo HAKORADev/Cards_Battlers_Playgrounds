@@ -1,0 +1,15 @@
+aqua_deck/
+coral_deck/
+ember_deck/
+forge_deck/
+iron_deck/
+moss_deck/
+pearl_deck/
+rival_bridge_deck/
+rival_control_deck/
+rival_deck/
+rival_oath_deck/
+rival_storm_deck/
+tide_deck/
+tree.txt
+trio_deck/

@@ -1,0 +1,11 @@
+continuous_spell.png
+direct_spell.png
+effect.png
+fusion.png
+legendary.png
+normal.png
+ritual.png
+spell.png
+star_level.png
+trap.png
+tree.txt

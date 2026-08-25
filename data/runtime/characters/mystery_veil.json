@@ -3,44 +3,45 @@
   "id": "mystery_veil",
   "category": "characters",
   "state": {
-    "cooldown_until": 0.0,
-    "relationship_history": [],
-    "history": [],
-    "learning_state": {
-      "observations": 0,
-      "updates": 0,
-      "last_update": 0.0
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
     },
-    "activity": "idle",
-    "learned_opponents": {},
-    "rank": 2,
     "availability": "free",
-    "out_of_game_until": 0.0,
-    "mood_state": {
-      "current": "watchful",
-      "intensity": 0.0
-    },
-    "destination": "",
-    "world_status": "in_playground",
-    "library_cards": [
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
-    "borrowed_cards": [],
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {}
-    },
-    "allies": [],
+    "current_place": "",
+    "learned_opponents": {},
     "memories": [],
-    "idle_cue_count": 0,
-    "enemies": [],
+    "goals": [
+      {
+        "id": "master_trap",
+        "kind": "master_family",
+        "target": "trap",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 3,
+        "progress": 2.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -69,8 +70,7 @@
         "zombie": 0.0,
         "thunder": 0.0,
         "winged_beast": 0.0,
-        "rock": 0.0,
-        "pyro": 0.0
+        "rock": 0.0
       },
       "state_weights": {
         "stranger": 1.0,
@@ -107,51 +107,48 @@
       },
       "subtype_weights": {}
     },
-    "idle_elapsed": 0.0,
+    "cooldown_until": 0.0,
     "movement_progress": 0.0,
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
+    "enemies": [],
+    "activity": "idle",
+    "mood_state": {
+      "current": "watchful",
+      "intensity": 0.0
     },
-    "mood": "watchful",
-    "learned_cards": {},
-    "relationship": "stranger",
-    "goals": [
-      {
-        "id": "master_trap",
-        "kind": "master_family",
-        "target": "trap",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 3,
-        "progress": 2.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
+    "learning_state": {
+      "observations": 0,
+      "updates": 0,
+      "last_update": 0.0
+    },
+    "world_status": "in_playground",
+    "library_cards": [
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
     ],
+    "rank": 2,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {}
+    },
+    "history": [],
+    "learned_cards": {},
+    "borrowed_cards": [],
+    "mood": "watchful",
+    "out_of_game_until": 0.0,
+    "destination": "",
     "knowledge_state": {
       "cards": {},
       "opponents": {},
       "effects": {}
     },
-    "current_place": ""
+    "relationship_history": [],
+    "allies": [],
+    "relationship": "stranger"
   }
 }

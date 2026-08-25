@@ -1,0 +1,4 @@
+characters/
+teams/
+tree.txt
+world/

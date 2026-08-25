@@ -1,0 +1,3 @@
+anchor.png
+splash/
+tree.txt

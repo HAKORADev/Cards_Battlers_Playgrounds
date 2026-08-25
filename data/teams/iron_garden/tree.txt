@@ -1,0 +1,8 @@
+animations/
+audio/
+effects/
+logic/
+manifest.json
+members/
+pfp/
+tree.txt

@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import wave
 import hashlib
+import struct
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -30,7 +31,9 @@ TEXT_SCALE_CACHE = {}
 FILE_IMAGE_CACHE = {}
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
-ASSETS = DATA / "assets"
+UNIVERSAL_ASSETS = DATA / "universal_assets"
+UNIVERSAL_MAIN = UNIVERSAL_ASSETS / "main"
+UNIVERSAL_PLACEHOLDER = UNIVERSAL_ASSETS / "placeholder"
 SCHEMAS = DATA / "schemas"
 SAVE = DATA / "save.json"
 RUNTIME_DIR = DATA / "runtime"
@@ -71,7 +74,7 @@ TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect
 
 
 def ensure_dirs():
-    paths = [DATA, ASSETS, SCHEMAS, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "logic", DATA / "animations", DATA / "animations" / "universal", DATA / "animations" / "universal" / "attack", DATA / "audio", DATA / "audio" / "universal", DATA / "audio" / "universal" / "attack", DATA / "menu" / "background", DATA / "menu" / "duelers" / "left", DATA / "menu" / "duelers" / "center", DATA / "menu" / "duelers" / "right", DATA / "menu" / "ui", DATA / "menu" / "audio", DATA / "exports", RUNTIME_DIR, RUNTIME_CHARACTERS, RUNTIME_TEAMS, RUNTIME_WORLD, RUNTIME_WORLD_COLLECTIONS]
+    paths = [DATA, UNIVERSAL_ASSETS, UNIVERSAL_MAIN, UNIVERSAL_PLACEHOLDER, SCHEMAS, DATA / "cards", DATA / "characters", DATA / "teams", DATA / "places", DATA / "decks", DATA / "exports", RUNTIME_DIR, RUNTIME_CHARACTERS, RUNTIME_TEAMS, RUNTIME_WORLD, RUNTIME_WORLD_COLLECTIONS]
     for path in paths: path.mkdir(parents=True, exist_ok=True)
 
 
@@ -327,15 +330,13 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     layout_rect = pygame.Rect(rect)
     rect = render_rect(surface, layout_rect)
     if face_down:
-        image = assets.image("card_back")
-        if image:
-            if defense_position: image = pygame.transform.rotate(image, 90)
-            blit_aspect(surface, image, layout_rect)
+        image = assets.image("placeholder/card_back") or assets.critical_image(layout_rect.size)
+        if defense_position: image = pygame.transform.rotate(image, 90)
+        blit_aspect(surface, image, layout_rect)
         return
     field_mode = not compact and layout_rect.width <= 100 and layout_rect.height <= 110
     template_kind = card_template_kind(card)
-    template = assets.card_template(template_kind)
-    if not template: return
+    template = assets.card_template(template_kind) or assets.critical_image(rect.size)
     art_rect = card_art_window(rect)
     art_path = registry.card_art(card, variant or card.art_variant) if registry else ""
     if art_path:
@@ -346,7 +347,7 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
         except pygame.error:
             art_path = ""
     if not art_path:
-        art = assets.image("missing_card_art", art_rect.size)
+        art = assets.image("placeholder/card_art", art_rect.size)
         if art: surface.blit(art, art_rect.topleft)
     surface.blit(scaled_image(template, rect.size), rect.topleft)
 
@@ -372,7 +373,7 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
         total_width = star_count * star_size + max(0, star_count - 1) * star_gap
         if star_count and total_width <= available_width:
             native_star_size = render_size(surface, (star_size, star_size))
-            star_image = assets.image("star_level", native_star_size)
+            star_image = assets.image("card_frames/badges/star_level", native_star_size)
             if star_image:
                 start_x = layout_rect.centerx - total_width // 2
                 for star_index in range(star_count):
@@ -420,7 +421,7 @@ class AssetBank:
         self.load_sounds()
 
     def cursor(self, pressed=False):
-        key = "cursor_click" if pressed else "cursor_normal"
+        key = "cursor/click" if pressed else "cursor/normal"
         image = self.images.get(key)
         if image is None: return None, (0, 0)
         cached = self.cursor_cache.get(key)
@@ -456,7 +457,7 @@ class AssetBank:
         roots = []
         external_root = os.environ.get("CBP_EXTERNAL_ASSET_ROOT", "").strip()
         if external_root: roots.append(Path(external_root))
-        roots.append(ASSETS)
+        roots.extend([UNIVERSAL_MAIN, UNIVERSAL_PLACEHOLDER])
         return list(dict.fromkeys(roots))
 
     def manifest_path(self, role):
@@ -466,15 +467,15 @@ class AssetBank:
         path = Path(external_root) / str(relative)
         return path if path.exists() else None
 
-    def image_candidates(self, name):
-        aliases = {"duel_playmat_cycle9": "duel_playmat", "duel_field": "duel_environment", "card_back": "card_back"}
-        candidates = []
-        manifest = self.manifest_path(aliases.get(name, name))
-        if manifest: candidates.append(manifest)
-        candidates.extend(base / f"{name}.png" for base in self.asset_roots())
-        return candidates
+    def critical_image(self, size):
+        key = ("critical", tuple(size))
+        if key not in self.sized_images:
+            image = pygame.Surface((max(1, int(size[0])), max(1, int(size[1]))), pygame.SRCALPHA)
+            image.fill((255, 255, 255, 255))
+            self.sized_images[key] = image
+        return self.sized_images[key]
 
-    def role_image(self, role, size=None):
+    def role_image(self, role, size=None, critical=False):
         image = self.role_images.get(role)
         if image is None and role not in self.role_images:
             path = self.manifest_path(role)
@@ -482,10 +483,10 @@ class AssetBank:
             if path and path.exists():
                 try: image = pygame.image.load(str(path)).convert_alpha()
                 except pygame.error: image = None
-            fallback_roles = {"place_ground": "duel_field", "duel_environment": "duel_field", "table_frame": "table_frame_cycle12", "duel_frame": "duel_frame_cycle12", "field_surface": "field_surface_cycle12"}
-            if image is None: image = self.images.get(fallback_roles.get(role, role))
+            fallback_roles = {"place_ground": "duel/place_ground", "duel_environment": "duel/duel_environment", "table_frame": "duel/surfaces/table_frame", "duel_frame": "duel/surfaces/duel_frame", "field_surface": "duel/surfaces/field_surface"}
+            if image is None: image = self.images.get(fallback_roles.get(role, role)) or self.images.get("placeholder/" + role)
             self.role_images[role] = image
-        if image is None: return None
+        if image is None: return self.critical_image(size) if critical and size else None
         if size and image.get_size() != size:
             key = (role, tuple(size))
             if key not in self.sized_images: self.sized_images[key] = scaled_image(image, size)
@@ -512,19 +513,15 @@ class AssetBank:
         kinds = ["normal", "effect", "spell", "trap", "fusion", "ritual", "legendary"]
         for kind in kinds:
             for base in self.asset_roots():
-                path = base / "card_frames" / f"{kind}_card_transparent.png"
-                if path.exists():
-                    try:
-                        self.card_templates[kind] = pygame.image.load(str(path)).convert_alpha()
-                        break
-                    except pygame.error:
-                        pass
-                badge = base / "card_frames" / "badges" / f"{kind}.png"
-                if badge.exists():
-                    try:
-                        self.card_badges[kind] = pygame.image.load(str(badge)).convert_alpha()
-                    except pygame.error:
-                        pass
+                template_path = base / "card_frames" / f"{kind}_card_transparent.png"
+                badge_path = base / "card_frames" / "badges" / f"{kind}.png"
+                if kind not in self.card_templates and template_path.exists():
+                    try: self.card_templates[kind] = pygame.image.load(str(template_path)).convert_alpha()
+                    except pygame.error: pass
+                if kind not in self.card_badges and badge_path.exists():
+                    try: self.card_badges[kind] = pygame.image.load(str(badge_path)).convert_alpha()
+                    except pygame.error: pass
+                if kind in self.card_templates and kind in self.card_badges: break
     def card_template(self, kind):
         return self.card_templates.get("spell" if kind == "field" else kind) or self.card_templates.get("normal")
     def card_badge(self, kind):
@@ -533,18 +530,20 @@ class AssetBank:
     def load_images(self):
         self.splash_names = []
         for base in self.asset_roots():
+            prefix = "placeholder/" if base == UNIVERSAL_PLACEHOLDER else ""
             for path in sorted(base.rglob("*.png")):
-                name = path.stem
+                relative = path.relative_to(base).with_suffix("")
+                name = prefix + str(relative).replace(os.sep, "/")
                 if name in self.images: continue
                 try: self.images[name] = pygame.image.load(str(path)).convert_alpha()
                 except pygame.error: continue
-                if name.startswith("splash"): self.splash_names.append(name)
+                if name.startswith("menu/splash/"): self.splash_names.append(name)
         self.splash_names = sorted(set(self.splash_names))
 
     def menu_layer(self, name, size=None):
         key = (name, tuple(size) if size else None)
         if key in self.menu_layers: return self.menu_layers[key]
-        candidates = [base / "menu" / f"{name}.png" for base in self.asset_roots()] + [base / f"{name}.png" for base in self.asset_roots()]
+        candidates = [UNIVERSAL_MAIN / "menu" / f"{name}.png", UNIVERSAL_MAIN / f"{name}.png"]
         for path in candidates:
             if path.exists():
                 image = cached_file_image(path)
@@ -559,12 +558,14 @@ class AssetBank:
         candidates = []
         manifest = self.manifest_path(name)
         if manifest: candidates.append(manifest)
-        for base in self.asset_roots():
-            candidates.extend(base / f"{name}{extension}" for extension in MediaRegistry.audio_extensions)
+        sound_roots = {"menu_music": UNIVERSAL_MAIN / "audio" / "menu", "music_duel": UNIVERSAL_MAIN / "audio" / "duel"}
+        root = sound_roots.get(name)
+        if root:
+            candidates.extend(sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions))
         return candidates
 
     def load_sounds(self):
-        for name in ["menu_music", "voice_attack", "sfx_attack", "music_duel"]:
+        for name in ["menu_music", "music_duel"]:
             for path in self.sound_candidates(name):
                 if path.exists():
                     try:
@@ -577,16 +578,32 @@ class AssetBank:
         key = (size, bold)
         if key not in self.fonts:
             family = "Noto Serif Display" if bold and size >= 20 else "DejaVu Sans"
-            self.fonts[key] = pygame.font.SysFont(family, size, bold=bold)
+            try: self.fonts[key] = pygame.font.SysFont(family, size, bold=bold)
+            except pygame.error: self.fonts[key] = pygame.font.Font(None, max(1, int(size)))
         return self.fonts[key]
 
     def display_font(self, size, bold=True):
         key = ("display", size, bold)
         if key not in self.fonts:
-            self.fonts[key] = pygame.font.SysFont("Noto Serif Display", size, bold=bold)
+            try: self.fonts[key] = pygame.font.SysFont("Noto Serif Display", size, bold=bold)
+            except pygame.error: self.fonts[key] = pygame.font.Font(None, max(1, int(size)))
         return self.fonts[key]
 
-    def loop_music(self, path, enabled, volume):
+    def fallback_sine(self, key="required"):
+        cache_key = "__sine__" + str(key)
+        if cache_key in self.sounds: return self.sounds[cache_key]
+        if not pygame.mixer.get_init(): return None
+        try:
+            rate = 22050
+            samples = int(rate * 0.18)
+            raw = b"".join(struct.pack("<h", int(9000 * math.sin(2.0 * math.pi * 440.0 * index / rate))) for index in range(samples))
+            sound = pygame.mixer.Sound(buffer=raw)
+            self.sounds[cache_key] = sound
+            return sound
+        except (pygame.error, ValueError):
+            return None
+
+    def loop_music(self, path, enabled, volume, required=False):
         if not pygame.mixer.get_init():
             self.current_music_path = ""
             return False
@@ -595,7 +612,14 @@ class AssetBank:
                 pygame.mixer.music.stop()
                 self.current_music_path = ""
                 return False
-            if not path or not path.exists(): return False
+            if not path or not path.exists():
+                if not required: return False
+                fallback = self.fallback_sine("music")
+                if fallback is None: return False
+                fallback.set_volume(volume)
+                fallback.play(-1)
+                self.current_music_path = "__fallback_music__"
+                return True
             if pygame.mixer.music.get_busy() and self.current_music_path == str(path):
                 pygame.mixer.music.set_volume(volume)
                 return True
@@ -610,9 +634,9 @@ class AssetBank:
     def play_music(self, enabled, volume):
         candidates = self.sound_candidates("menu_music")
         path = next((item for item in candidates if item.exists()), None)
-        self.loop_music(path, enabled, volume)
+        self.loop_music(path, enabled, volume, True)
     def place_music_paths(self, place_id, state="duel", night=False):
-        folder_candidates = sorted((DATA / "places").glob(f"*_{place_id}"))
+        folder_candidates = [DATA / "places" / str(place_id)]
         period = "night" if night else "day"
         state_key = slug(state).replace("_", "-")
         aliases = {"duel": ["duel", "in-duel", "normal"], "in-duel": ["in-duel", "duel", "normal"], "pre-duel": ["pre-duel", "pre_duel"], "post-duel-win": ["post-duel-win", "post_duel/win", "win"], "post-duel-lose": ["post-duel-lose", "post_duel/lose", "lose"]}
@@ -627,7 +651,7 @@ class AssetBank:
             tracks = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions and self._numeric_media_index(path) is not None)
             if not tracks: tracks = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
             if tracks: return tracks[:10]
-        universal_roots = [DATA / "audio" / "duel" / period / state_key, DATA / "audio" / "duel" / state_key, ASSETS]
+        universal_roots = [UNIVERSAL_MAIN / "audio" / "duel" / period / state_key, UNIVERSAL_MAIN / "audio" / "duel" / state_key, UNIVERSAL_MAIN / "audio" / "duel"]
         for root in universal_roots:
             tracks = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
             if tracks: return tracks[:10]
@@ -645,12 +669,11 @@ class AssetBank:
         return random.choice(paths)
 
     def play_duel_music(self, place_id, enabled, volume=0.35, night=False, state="duel", variant=None):
-        return self.loop_music(self.place_music_path(place_id, night, state, variant), enabled, volume)
+        return self.loop_music(self.place_music_path(place_id, night, state, variant), enabled, volume, False)
 
     def place_media_roots(self, place_id):
         direct = DATA / "places" / str(place_id)
-        if direct.exists(): return [direct]
-        return sorted((DATA / "places").glob(f"*_{place_id}"))
+        return [direct] if direct.exists() else []
 
     def place_visual_path(self, place_id, kind="background", night=False):
         period = "night" if night else "day"
@@ -706,6 +729,33 @@ class AssetBank:
             self.media_sounds[key] = sound
         if scope: self.media_scopes.setdefault(scope, set()).add(key)
         return sound
+
+    def character_portrait(self, character, size=None):
+        root = DATA / getattr(character, "media_folder", "")
+        candidates = [root / "pfp" / "variants" / f"1{extension}" for extension in MediaRegistry.image_extensions] + [root / "pfp" / f"1{extension}" for extension in MediaRegistry.image_extensions]
+        image = None
+        for path in candidates:
+            image = self.media_image(path, size, "portrait")
+            if image is not None: break
+        if image is None: image = self.image("placeholder/character_pfp", size)
+        return image
+
+    def team_portrait(self, team, size=None):
+        root = DATA / getattr(team, "media_folder", "")
+        candidates = [root / "pfp" / "variants" / f"1{extension}" for extension in MediaRegistry.image_extensions] + [root / "pfp" / f"1{extension}" for extension in MediaRegistry.image_extensions]
+        image = None
+        for path in candidates:
+            image = self.media_image(path, size, "portrait")
+            if image is not None: break
+        return image or self.image("placeholder/deck_pfp", size) or self.image("placeholder/character_pfp", size)
+
+    def deck_portrait(self, deck, size=None):
+        folder = deck.get("media_folder", "") if isinstance(deck, dict) else ""
+        root = DATA / folder
+        for path in [root / "pfp" / "variants" / "1.png", root / "pfp" / "1.png"]:
+            image = self.media_image(path, size, "portrait")
+            if image is not None: return image
+        return self.image("placeholder/deck_pfp", size) or self.image("placeholder/character_pfp", size)
 
     def release_media_scope(self, scope):
         keys = self.media_scopes.pop(scope, set())
@@ -857,7 +907,7 @@ class TeamDef:
     rank: int = 1
     history: list = field(default_factory=list)
     media_folder: str = ""
-    portrait: str = "team_placeholder"
+    portrait: str = ""
     description: str = ""
     preferred_families: list = field(default_factory=list)
     preferred_card_kinds: list = field(default_factory=list)
@@ -1035,12 +1085,8 @@ class MediaRegistry:
         return pairs
 
     def event_aliases(self, event):
-        raw = str(event or "idle").strip().lower().replace(" ", "_")
-        aliases = {raw}
-        aliases.update({raw.replace("_", "-"), raw.replace("-", "_")})
-        groups = {"attack": ["attack", "attacking", "attack_start"], "attacking": ["attacking", "attack", "attack_start"], "attack_travel": ["attack_travel", "attack-flight", "attack_flight", "attack"], "hit": ["hit", "damage", "damage_taken"], "damage": ["damage", "hit", "damage_dealt"], "damage_dealt": ["damage_dealt", "damage", "hit"], "damage_received": ["damage_received", "damage_taken", "damage", "hit"], "destroy": ["destroy", "destroyed", "die", "death"], "flip": ["flip", "flip_reveal", "reveal"], "return": ["return", "return_to_hand", "returned"], "send_to_graveyard": ["send_to_graveyard", "graveyard", "movement"], "banish": ["banish", "banished"], "activate": ["activate", "effect", "effect_start"], "switch_position": ["switch_position", "position_change"], "stat_change": ["stat_change", "boost", "effect"], "special_summon": ["special_summon", "summon"], "direct_damage": ["direct_damage", "damage", "hit"], "idle": ["idle"]}
-        aliases.update(groups.get(raw, []))
-        return list(dict.fromkeys(aliases))
+        raw = str(event or "idle").strip().lower().replace(" ", "-").replace("_", "-")
+        return [raw]
 
     def candidate_pairs(self, event, relation, entity_type, entity_id, place_id, actor_id=""):
         pairs = []
@@ -1093,11 +1139,11 @@ class MediaRegistry:
             root = self.entity_path("places", place_id)
             add(root / "presentation" / event / "animations", root / "presentation" / event / "audio")
             add(root / "animations" / event, root / "audio" / event)
-        add(self.data_root / "animations" / event, self.data_root / "audio" / event)
+        add(self.data_root / "universal_assets" / "main" / "duel" / event, self.data_root / "universal_assets" / "main" / "duel" / event / "audio")
         return list(dict.fromkeys(pairs))
 
     def vfx_path(self, effect="attack", card_id="", actor_id=""):
-        effect = str(effect or "attack").strip().lower().replace(" ", "_").replace("-", "_")
+        effect = str(effect or "attack").strip().lower().replace(" ", "-").replace("_", "-")
         candidates = []
         if card_id:
             card_root = self.entity_path("cards", card_id)
@@ -1107,7 +1153,7 @@ class MediaRegistry:
         if actor_id:
             actor_root = self.entity_path("characters", actor_id)
             candidates.extend([actor_root / "duel" / "vfx" / effect / "1.png", actor_root / "duel" / "effects" / effect / "1.png"])
-        candidates.extend([self.data_root / "animations" / "universal" / effect / "sword.png", self.data_root / "animations" / "universal" / effect / "1.png", self.data_root / "animations" / effect / "universal.png"])
+        candidates.extend([self.data_root / "universal_assets" / "main" / "duel" / effect / "sword.png", self.data_root / "universal_assets" / "main" / "duel" / effect / "1.png", self.data_root / "universal_assets" / "main" / "duel" / effect / "universal.png"])
         for path in candidates:
             if path.exists() and path.is_file() and path.suffix.lower() in self.image_extensions: return str(path)
         return ""
@@ -1526,7 +1572,7 @@ class ContentStore:
         self.save_data = {key: stored_profile.get(key, default) for key, default in profile_defaults.items()}
         self.media = MediaRegistry(ROOT)
         self.narrator_data = {"states": {}}
-        for narrator_path in sorted((DATA / "narrator").glob("*.json")):
+        for narrator_path in sorted((DATA / "characters" / "narrator" / "catalogs").glob("*.json")):
             catalog = read_json(narrator_path, {})
             if isinstance(catalog, dict) and isinstance(catalog.get("states"), dict): self.narrator_data["states"].update(catalog["states"])
         self.narrator_sequence = 0
@@ -1562,7 +1608,7 @@ class ContentStore:
         audio_root = str(entry.get("audio_root", "")) if isinstance(entry, dict) else ""
         audio_paths = []
         if audio_root:
-            root = DATA / "narrator" / audio_root
+            root = DATA / "characters" / "narrator" / audio_root
             audio_paths = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
         audio = str(audio_paths[index % len(audio_paths)]) if audio_paths else ""
         cue = {"type": "narrator_cue", "state": str(state), "text": text, "audio": audio, "variant": index + 1, "actor": actor_id, "target": target_id, "context": dict(context or {}), "sim_time": float(self.world.get("simulation_time", 0.0))}
@@ -1651,7 +1697,7 @@ class ContentStore:
             deck = dict(deck or {})
             deck.setdefault("name", str(deck_id))
             deck.setdefault("description", "")
-            deck.setdefault("portrait", "deck_placeholder")
+            deck.setdefault("portrait", "")
             deck.setdefault("owner_id", "")
             deck.setdefault("best_cards", [])
             deck.setdefault("preferred_families", [])
@@ -1682,8 +1728,13 @@ class ContentStore:
         self.card_registry_errors = self.validate_card_registry()
         if self.card_registry_errors: raise ValueError("Card registry invalid: " + "; ".join(self.card_registry_errors))
         self.logic = {}
-        for path in (DATA / "logic").glob("*.json"):
-            self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
+        self.logic_owners = {}
+        for category, registry in [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]:
+            for entity in registry.values():
+                logic_root = DATA / getattr(entity, "media_folder", "") / "logic"
+                for path in logic_root.glob("*.json"):
+                    self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
+                    self.logic_owners[path.stem] = logic_root
         self.ensure_entity_scaffolds()
         self.media.scan()
         self.world_sessions = {}
@@ -1884,7 +1935,9 @@ class ContentStore:
             write_json(RUNTIME_WORLD_INDEX, {"schema": 3, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "last_wall_time": float(self.world.get("last_wall_time", time.time())), "clock_mode": "wall_clock", "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
         if "logic" in requested:
-            for key, graph in self.logic.items(): write_json(DATA / "logic" / f"{key}.json", graph.to_dict())
+            for key, graph in self.logic.items():
+                owner = self.logic_owners.get(key)
+                if owner: write_json(owner / f"{key}.json", graph.to_dict())
         self.dirty_domains.difference_update(requested)
         return True
 
@@ -2222,7 +2275,7 @@ class ContentStore:
         request.setdefault("approvals", {})[actor_id] = True
         request.setdefault("events", []).append({"status": "in_making", "actor": actor_id, "action": "accept", "sim_time": float(self.world.get("simulation_time", 0.0))})
         if all(bool(request["approvals"].get(item)) for item in request.get("participants", [])):
-            team = self.create_team(request.get("name", "New Team"), request["participants"], request.get("preferred_place", ""), "team_placeholder", "", request.get("leader", ""), [request.get("preferred_place", "")] if request.get("preferred_place") else [])
+            team = self.create_team(request.get("name", "New Team"), request["participants"], request.get("preferred_place", ""), "", "", request.get("leader", ""), [request.get("preferred_place", "")] if request.get("preferred_place") else [])
             if not team: return False
             request["team_id"] = team.id
             request["state"] = "complete"
@@ -3440,7 +3493,7 @@ class ContentStore:
         if not procedure and kind == "ritual": procedure = {"kind": "ritual", "min_stars": int(ritual_cost), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": False, "material_destination": "graveyard", "source_selector": {"zone": "hand", "card_kind": "ritual"}, "source_method": "ritual", "enabler": {"card_kinds": ["spell", "effect"]}}
         if not procedure and kind == "legendary": procedure = {"kind": "legendary", "source_zones": ["hand", "graveyard"], "source_selector": {"zone": ["hand", "graveyard"], "card_kind": "legendary"}, "source_method": "legendary_special", "special": True, "enabler": {"card_kinds": ["spell", "effect"]}}
         card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, legendary_type=str(legendary_type or (family if kind == "legendary" else "")), non_removable=bool(non_removable))
-        card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card", ["images", "interactions", "logic", "animations", "audio"])
+        card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card")
         card.art_folder = card.media_folder
         source = Path(str(art_path)).expanduser() if art_path else None
         if source and source.exists() and source.is_file() and source.suffix.lower() in MediaRegistry.image_extensions:
@@ -3688,38 +3741,79 @@ class ContentStore:
         return True
 
     def entity_tree(self, category):
+        events = ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"]
         trees = {
-            "cards": ["logic", "art", "art/variants", "art/metadata", "animations/idle", "animations/summon", "animations/special_summon", "animations/set", "animations/flip", "animations/attack", "animations/damage", "animations/destroy", "audio/idle", "audio/summon", "audio/special_summon", "audio/set", "audio/flip", "audio/attack", "audio/damage", "audio/destroy", "interactions/summon/animations", "interactions/summon/audio", "interactions/set/animations", "interactions/set/audio", "interactions/flip/animations", "interactions/flip/audio", "interactions/activate/animations", "interactions/activate/audio", "characters"],
-            "characters": ["logic", "weights", "pfp/variants", "animations/idle", "animations/about", "animations/pre-duel", "animations/win", "animations/lose", "animations/draw", "animations/shocked", "animations/happy", "animations/sad", "animations/left/watching-in", "animations/left/watching-out", "animations/right/watching-in", "animations/right/watching-out", "audio/idle", "audio/about", "audio/pre-duel", "audio/win", "audio/lose", "audio/draw", "audio/shocked", "audio/happy", "audio/sad", "duel/reactions/stranger", "duel/reactions/ally", "duel/reactions/enemy", "duel/reactions/opponent", "duel/interactions", "cards"],
-            "teams": ["logic", "effects", "members/1", "members/2", "members/3", "animations/idle", "animations/pre-duel", "animations/win", "animations/lose", "animations/draw", "audio/idle", "audio/pre-duel", "audio/win", "audio/lose", "audio/draw", "members/1/animations", "members/2/animations", "members/3/animations"],
-            "places": ["logic", "background/day", "background/night", "animations/pre-duel", "animations/spin-dice", "animations/in-duel", "animations/win", "animations/lose", "animations/draw", "audio/pre-duel", "audio/spin-dice", "audio/in-duel", "audio/near-win", "audio/near-lose", "audio/win", "audio/lose", "audio/draw", "music"],
-            "decks": ["logic", "cards", "experience"]
+            "cards": ["logic", "art", "art/variants", "art/metadata"],
+            "characters": ["logic", "weights", "pfp", "pfp/variants", "cards", "cards/best-class"],
+            "teams": ["logic", "effects", "members", "members/1", "members/2", "members/3", "pfp", "pfp/variants"],
+            "places": ["logic", "background/day", "background/night", "field/day", "field/night", "ground/day", "ground/night", "presentation"],
+            "decks": ["logic", "pfp", "pfp/variants", "cards", "experience"]
         }
-        events = ["idle", "about", "pre-duel", "pre_duel", "spin-dice", "spin_dice", "draw", "standby", "turn-start", "turn_start", "turn-end", "turn_end", "summon", "special-summon", "special_summon", "set", "flip", "flip-reveal", "flip_reveal", "activate", "effect", "effect-start", "effect_start", "attack", "attacking", "attack-travel", "attack_travel", "hit", "damage", "switch-position", "switch_position", "stat-change", "stat_change", "damage-dealt", "damage_dealt", "damage-received", "damage_received", "direct-damage", "direct_damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "return_to_hand", "banish", "banished", "turn-start", "turn_start", "turn-end", "turn_end", "best-card", "best_card", "near-win", "near_win", "near-lose", "near_lose", "win", "lose", "draw-result", "draw_result", "instant-win", "instant_win", "instant-lose", "instant_lose"]
-        for relation_name in ["stranger", "ally", "enemy", "opponent"]:
-            trees["characters"].extend(f"duel/reactions/{relation_name}/{event}" for event in events)
-        trees["characters"].extend(f"duel/interactions/{event}" for event in events)
-        trees["cards"].extend(f"interactions/{event}/animations" for event in events)
-        trees["cards"].extend(f"interactions/{event}/audio" for event in events)
-        trees["cards"].extend(f"interactions/{event}/vfx" for event in events)
-        trees["characters"].extend(f"duel/vfx/{event}" for event in events)
-        trees["characters"].extend(f"duel/effects/{event}" for event in events)
-        trees["places"].extend(f"music/{period}/{state}" for period in ["day", "night"] for state in ["pre-duel", "duel", "near-win", "near-lose", "post-duel-win", "post-duel-lose", "draw"])
-        return trees.get(category, ["logic", "animations", "audio"])
+        if category == "cards":
+            trees[category].extend(f"interactions/{event}/{part}" for event in events for part in ["animations", "audio", "vfx"])
+            trees[category].append("characters")
+        if category == "characters":
+            trees[category].extend(f"animations/{event}" for event in events)
+            trees[category].extend(f"audio/{event}" for event in events)
+            trees[category].extend(f"duel/reactions/{relation}/{event}/{part}" for relation in ["stranger", "ally", "enemy", "opponent"] for event in events for part in ["animations", "audio"])
+            trees[category].extend(f"duel/interactions/{event}/{part}" for event in events for part in ["animations", "audio"])
+            trees[category].extend(f"duel/vfx/{event}" for event in events)
+            trees[category].extend(f"duel/effects/{event}" for event in events)
+        if category == "teams":
+            trees[category].extend(f"animations/{event}" for event in events)
+            trees[category].extend(f"audio/{event}" for event in events)
+            trees[category].extend(f"members/{member}/animations" for member in ["1", "2", "3"])
+            trees[category].extend(f"members/{member}/audio" for member in ["1", "2", "3"])
+        if category == "places":
+            trees[category].extend(f"presentation/{event}/{part}" for event in ["pre-duel", "spin-dice", "in-duel", "win", "lose", "draw", "landscape"] for part in ["animations", "audio"])
+            trees[category].extend(f"music/{period}/{state}" for period in ["day", "night"] for state in ["pre-duel", "in-duel", "near-win", "near-lose", "post-duel-win", "post-duel-lose", "draw", "landscape"])
+        return sorted(set(trees.get(category, ["logic"])))
+
+    def write_tree_contract(self, root, folders, root_files=None):
+        root = Path(root)
+        directories = {Path(".")}
+        for folder in folders:
+            parts = Path(folder).parts
+            directories.update(Path(*parts[:index]) for index in range(1, len(parts) + 1))
+        for directory in sorted(directories, key=lambda item: (len(item.parts), str(item))):
+            current = root / directory
+            current.mkdir(parents=True, exist_ok=True)
+            legal = set(root_files or []) if directory == Path(".") else set()
+            for child in directories:
+                if child.parent == directory and child != directory: legal.add(child.name + "/")
+            for child in current.iterdir():
+                if child.name == "tree.txt": continue
+                if child.is_file() and child.name == "manifest.json" and directory == Path("."): legal.add("manifest.json")
+            if directory.parts and directory.parts[-1] in {"logic", "weights", "metadata", "experience"}: legal.update(["*.json"])
+            if directory.parts and directory.parts[-1] in {"art", "pfp"}: legal.update(["variants/"])
+            if directory.parts and directory.parts[-1] == "variants": legal.update([f"{index}.png" for index in range(1, 11)])
+            if directory.parts and directory.parts[-1] in {"animations", "audio", "vfx"}: legal.update([f"{index}/" for index in range(1, 11)] if directory.parts[-1] == "animations" else ["1..10.*"])
+            (current / "tree.txt").write_text("\n".join(sorted(legal | {"tree.txt"})) + "\n", encoding="utf-8")
 
     def scaffold_entity(self, category, entity_id, display_name, folders=None, created=None, folder_name=""):
-        folder_name = folder_name or f"{slug(display_name)}_{int((created or time.time()) * 1000)}_{slug(entity_id)}"
+        folder_name = folder_name or slug(entity_id)
         root = DATA / category / folder_name
         paths = sorted(set(self.entity_tree(category) + list(folders or [])))
         for folder in paths:
             folder_path = root / folder
             folder_path.mkdir(parents=True, exist_ok=True)
-            if (folder.startswith("animations/") and folder.count("/") == 1) or folder.endswith("/animations"):
+            if folder.startswith("animations/") or folder.endswith("/animations"):
                 for variant in range(1, 11): (folder_path / str(variant)).mkdir(exist_ok=True)
-        manifest = {"schema": 3, "id": entity_id, "name": display_name, "category": category, "created": created or time.time(), "folders": paths, "asset_contract": "gdd_nested_v1"}
+        manifest = {"schema": 4, "id": entity_id, "name": display_name, "category": category, "created": created or time.time(), "folders": paths, "asset_contract": "gdd_nested_v2"}
         if category == "cards": manifest["frame_contract"] = "engine_owned"; manifest["art_contract"] = "user_owned_optional"
         write_json(root / "manifest.json", manifest)
+        self.write_tree_contract(root, paths, ["manifest.json"])
         return str(root.relative_to(DATA))
+
+    def import_entity_image(self, value, media_folder):
+        source = Path(str(value or "")).expanduser()
+        if not source.exists(): source = DATA / str(value or "")
+        if not source.exists() or not source.is_file() or source.suffix.lower() not in MediaRegistry.image_extensions: return ""
+        target_root = DATA / media_folder / "pfp" / "variants"
+        target_root.mkdir(parents=True, exist_ok=True)
+        target = target_root / ("1" + source.suffix.lower())
+        shutil.copy2(source, target)
+        return str(target.relative_to(DATA))
 
     def ensure_entity_scaffolds(self):
         changed = False
@@ -3737,11 +3831,14 @@ class ContentStore:
                     for item in paths:
                         item_path = root / item
                         item_path.mkdir(parents=True, exist_ok=True)
-                        if (item.startswith("animations/") and item.count("/") == 1) or item.endswith("/animations"):
+                        if item.startswith("animations/") or item.endswith("/animations"):
                             for variant in range(1, 11): (item_path / str(variant)).mkdir(exist_ok=True)
+                    self.write_tree_contract(root, paths, ["manifest.json"])
                     manifest = read_json(root / "manifest.json", {})
-                    manifest.update({"schema": 3, "id": entity.id, "name": entity.name, "category": category, "folders": sorted(set(manifest.get("folders", []) + paths)), "asset_contract": "gdd_nested_v1"})
+                    manifest.update({"schema": 4, "id": entity.id, "name": entity.name, "category": category, "folders": sorted(set(manifest.get("folders", []) + paths)), "asset_contract": "gdd_nested_v2"})
                     if category == "cards": manifest.update({"frame_contract": "engine_owned", "art_contract": "user_owned_optional"})
+                    write_json(root / "manifest.json", manifest)
+                    self.write_tree_contract(root, paths, ["manifest.json"])
                     if category == "cards" and not getattr(entity, "art_folder", ""):
                         entity.art_folder = entity.media_folder
                         changed = True
@@ -3752,13 +3849,13 @@ class ContentStore:
     def create_place(self, name, capacity=3, background="", day_night=True):
         place_id = "place_" + str(int(time.time() * 1000))
         display_name = name or "New Place"
-        folder = self.scaffold_entity("places", place_id, display_name, ["background", "background/day", "background/night", "background/animation", "music/day", "music/night", "music/pre_duel", "music/duel", "music/near_win", "music/near_lose", "music/post_duel/win", "music/post_duel/lose", "animations/pre_duel", "animations/dice", "animations/win", "animations/lose", "animations/draw"])
+        folder = self.scaffold_entity("places", place_id, display_name)
         place = PlaceDef(place_id, display_name, clamp(int(capacity), 1, 10), 0, background.strip(), bool(day_night), folder)
         self.places[place_id] = place
         self.save()
         return place
 
-    def create_team(self, name, members, preferred_place="", portrait="team_placeholder", description="", leader="", preferred_places=None, preferred_families=None, preferred_card_kinds=None, preferred_cards=None, logic_graph=""):
+    def create_team(self, name, members, preferred_place="", portrait="", description="", leader="", preferred_places=None, preferred_families=None, preferred_card_kinds=None, preferred_cards=None, logic_graph=""):
         team_id = "team_" + str(int(time.time() * 1000))
         display_name = str(name or "New Team").strip() or "New Team"
         selected = [member for member in dict.fromkeys(members if isinstance(members, list) else []) if member in self.characters][:3]
@@ -3767,8 +3864,9 @@ class ContentStore:
         folder = self.scaffold_entity("teams", team_id, display_name)
         places = list(preferred_places or [])
         if preferred_place: places.insert(0, preferred_place)
-        team = TeamDef(team_id, display_name, selected, leader, [item for item in dict.fromkeys(places) if item in self.places][:20], "community", {}, False, 1, [], folder, portrait or "team_placeholder", description or "", self.normalize_profile_list(preferred_families, limit=20), self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10), self.normalize_profile_list(preferred_cards, set(self.cards), 20))
+        team = TeamDef(team_id, display_name, selected, leader, [item for item in dict.fromkeys(places) if item in self.places][:20], "community", {}, False, 1, [], folder, "", description or "", self.normalize_profile_list(preferred_families, limit=20), self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10), self.normalize_profile_list(preferred_cards, set(self.cards), 20))
         team.logic_graph = str(logic_graph or "")
+        self.import_entity_image(portrait, folder)
         self.teams[team_id] = team
         self.normalize_team_profile(team)
         self.save()
@@ -3784,6 +3882,9 @@ class ContentStore:
             if key in ["preferred_families", "preferred_card_kinds", "preferred_subtypes"]: value = value if isinstance(value, list) else [value]
             if key in ["preferred_cards", "best_cards"]: value = [str(item) for item in (value if isinstance(value, list) else [value]) if str(item) in self.cards][:20]
             if key == "preferred_places": value = [str(item) for item in (value if isinstance(value, list) else [value]) if str(item) in self.places][:20]
+            if key == "portrait":
+                self.import_entity_image(value, character.media_folder)
+                value = ""
             setattr(character, key, value)
         self.normalize_character_profile(character)
         self.ensure_behavior_weights()
@@ -3797,7 +3898,11 @@ class ContentStore:
             members = [member for member in dict.fromkeys(values["members"] if isinstance(values["members"], list) else []) if member in self.characters][:3]
             if members: team.members = members
         for key in ["name", "portrait", "description"]:
-            if key in values and values[key] is not None and str(values[key]).strip(): setattr(team, key, str(values[key]).strip())
+            if key in values and values[key] is not None and str(values[key]).strip():
+                if key == "portrait":
+                    self.import_entity_image(values[key], team.media_folder)
+                    setattr(team, key, "")
+                else: setattr(team, key, str(values[key]).strip())
         if "leader" in values and values["leader"] in team.members: team.leader = values["leader"]
         if "preferred_places" in values: team.preferred_places = [place for place in dict.fromkeys(values["preferred_places"] if isinstance(values["preferred_places"], list) else []) if place in self.places]
         if "preferred_families" in values: team.preferred_families = values["preferred_families"]
@@ -3849,9 +3954,9 @@ class ContentStore:
         cards = main + fusion
         counts = {}
         for card_id in cards: counts[card_id] = counts.get(card_id, 0) + 1
-        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", "deck_placeholder"), "owner_id": deck.get("owner_id", ""), "main_cards": main, "fusion_cards": fusion, "counts": counts, "errors": errors, "legal": not errors}
+        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", ""), "owner_id": deck.get("owner_id", ""), "main_cards": main, "fusion_cards": fusion, "counts": counts, "errors": errors, "legal": not errors}
 
-    def create_deck(self, name, owner_id="", main_cards=None, fusion_cards=None, description="", portrait="deck_placeholder", preferred_families=None, preferred_card_kinds=None, best_cards=None):
+    def create_deck(self, name, owner_id="", main_cards=None, fusion_cards=None, description="", portrait="", preferred_families=None, preferred_card_kinds=None, best_cards=None):
         if len(self.decks) >= 10: return None
         deck_id = "deck_" + str(int(time.time() * 1000))
         display_name = str(name or "New Deck").strip() or "New Deck"
@@ -3861,7 +3966,7 @@ class ContentStore:
         fusion_values = list(fusion_cards or [])
         if len(main_values) < DeckRules.minimum: main_values = self.starter_deck_cards(preferred_families, preferred_card_kinds, best_cards)
         folder = self.scaffold_entity("decks", deck_id, display_name)
-        self.decks[deck_id] = {"schema": 2, "name": display_name, "description": str(description or ""), "portrait": portrait or "deck_placeholder", "owner_id": owner_id if owner_id in self.characters else "", "main_cards": DeckRules.normalized(main_values, self.cards), "fusion_cards": DeckRules.normalized_fusion(fusion_values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
+        self.decks[deck_id] = {"schema": 2, "name": display_name, "description": str(description or ""), "portrait": "", "owner_id": owner_id if owner_id in self.characters else "", "main_cards": DeckRules.normalized(main_values, self.cards), "fusion_cards": DeckRules.normalized_fusion(fusion_values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
         self.save()
         return deck_id
 
@@ -3870,7 +3975,9 @@ class ContentStore:
         if not deck: return None
         if "name" in values and str(values["name"]).strip(): deck["name"] = str(values["name"]).strip()
         if "description" in values: deck["description"] = str(values["description"] or "")
-        if "portrait" in values: deck["portrait"] = str(values["portrait"] or "deck_placeholder")
+        if "portrait" in values:
+            self.import_entity_image(values.get("portrait", ""), deck.get("media_folder", ""))
+            deck["portrait"] = ""
         if "owner_id" in values and values["owner_id"] in self.characters: deck["owner_id"] = values["owner_id"]
         candidate_main = list(values["main_cards"] if isinstance(values.get("main_cards"), list) else deck.get("main_cards", []))
         candidate_fusion = list(values["fusion_cards"] if isinstance(values.get("fusion_cards"), list) else deck.get("fusion_cards", []))
@@ -3888,7 +3995,7 @@ class ContentStore:
     def duplicate_deck(self, deck_id, name=""):
         source = self.decks.get(deck_id)
         if not source or len(self.decks) >= 10: return None
-        return self.create_deck(name or str(source.get("name", deck_id)) + " Copy", source.get("owner_id", ""), list(source.get("main_cards", [])), list(source.get("fusion_cards", [])), source.get("description", ""), source.get("portrait", "deck_placeholder"), source.get("preferred_families", []), source.get("preferred_card_kinds", []), source.get("best_cards", []))
+        return self.create_deck(name or str(source.get("name", deck_id)) + " Copy", source.get("owner_id", ""), list(source.get("main_cards", [])), list(source.get("fusion_cards", [])), source.get("description", ""), source.get("portrait", ""), source.get("preferred_families", []), source.get("preferred_card_kinds", []), source.get("best_cards", []))
 
     def delete_deck(self, deck_id, force=False):
         if deck_id not in self.decks: return False
@@ -3931,33 +4038,35 @@ class ContentStore:
         normalized = DeckRules.normalized(result, self.cards)
         return normalized if len(normalized) >= DeckRules.minimum else normalized + [item for item in pool if item not in normalized][:max(0, DeckRules.minimum - len(normalized))]
 
-    def create_character(self, name, stars, smartness, family, portrait="pfp_placeholder", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph=""):
+    def create_character(self, name, stars, smartness, family, portrait="", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph=""):
         char_id = "character_" + str(int(time.time() * 1000))
         display_name = str(name or "New Character").strip() or "New Character"
         families = [str(family or "warrior").lower()]
         if deck_id not in self.decks:
             deck_id = "deck_" + str(int(time.time() * 1000))
             deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck")
-            self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": char_id, "main_cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "fusion_cards": [], "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
+            self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "", "owner_id": char_id, "main_cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "fusion_cards": [], "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
         folder = self.scaffold_entity("characters", char_id, display_name)
-        char = CharacterDef(id=char_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
+        char = CharacterDef(id=char_id, name=display_name, portrait="", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
         char.logic_graph = str(logic_graph or "")
+        self.import_entity_image(portrait, folder)
         self.characters[char_id] = char
         self.normalize_character_profile(char)
         self.ensure_behavior_weights()
         self.save()
         return char
 
-    def register_user(self, name, portrait="pfp_placeholder", gender="other"):
+    def register_user(self, name, portrait="", gender="other"):
         timestamp = int(time.time() * 1000)
         user_id = "user_" + str(timestamp)
         display_name = str(name or "New User").strip() or "New User"
         deck_id = user_id + "_deck"
         card_ids = self.starter_deck_cards(["warrior"])
         deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck", folder_name=deck_id + "_deck")
-        self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "deck_placeholder", "owner_id": user_id, "main_cards": card_ids, "fusion_cards": [], "best_cards": [], "preferred_families": ["warrior"], "preferred_card_kinds": [], "media_folder": deck_folder}
+        self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "", "owner_id": user_id, "main_cards": card_ids, "fusion_cards": [], "best_cards": [], "preferred_families": ["warrior"], "preferred_card_kinds": [], "media_folder": deck_folder}
         character_folder = self.scaffold_entity("characters", user_id, display_name, folder_name=user_id)
-        character = CharacterDef(id=user_id, name=display_name, portrait=portrait or "pfp_placeholder", stars=5, smartness=5, relationship="stranger", preferred_families=["warrior"], deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(card_ids), gender=gender or "other", origin="user", best_cards=[], borrowed_cards=[], rank=1, media_folder=character_folder)
+        character = CharacterDef(id=user_id, name=display_name, portrait="", stars=5, smartness=5, relationship="stranger", preferred_families=["warrior"], deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(card_ids), gender=gender or "other", origin="user", best_cards=[], borrowed_cards=[], rank=1, media_folder=character_folder)
+        self.import_entity_image(portrait, character_folder)
         self.characters[user_id] = character
         self.save_data.update({"active_user_id": user_id, "active_user_folder": character_folder, "setup_complete": True})
         self.world.setdefault("roles", {})["player_character"] = user_id
@@ -4014,9 +4123,9 @@ class ContentStore:
             registry = self.logic if category == "logic" else self.decks if category == "decks" else getattr(self, category, {})
             for entity_id in ids:
                 entity = registry.get(entity_id) if isinstance(registry, dict) else None
-                folder = entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "") if entity else ""
+                folder = str(self.logic_owners.get(entity_id, "")) if category == "logic" else entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "") if entity else ""
                 if not folder: continue
-                root = DATA / folder
+                root = Path(folder) if category == "logic" else DATA / folder
                 if not root.exists() or root == DATA: continue
                 result.append({"category": category, "id": entity_id, "path": str(root.relative_to(DATA))})
         return result
@@ -4032,8 +4141,9 @@ class ContentStore:
             for category, ids in scope["categories"].items():
                 if category == "logic":
                     for logic_id in ids:
-                        path = DATA / "logic" / f"{logic_id}.json"
-                        if path.exists(): archive.write(path, "logic/" + path.name)
+                        owner = self.logic_owners.get(logic_id)
+                        path = owner / f"{logic_id}.json" if owner else None
+                        if path and path.exists(): archive.write(path, "logic/" + path.name)
                 elif category == "decks":
                     archive.writestr("decks.json", json.dumps({key: self.decks[key] for key in ids if key in self.decks}, indent=2))
                 else:
@@ -4117,7 +4227,13 @@ class ContentStore:
                 imported.append("teams")
             if "logic" in requested:
                 for name in available:
-                    if name.startswith("logic/") and name.endswith(".json") and Path(name).stem in set(allowed.get("logic", [])) and can_write("logic", Path(name).stem): self.logic[Path(name).stem] = LogicGraph.from_dict(json.loads(archive.read(name)))
+                    if name.startswith("logic/") and name.endswith(".json") and Path(name).stem in set(allowed.get("logic", [])) and can_write("logic", Path(name).stem):
+                        key = Path(name).stem
+                        owner = UNIVERSAL_MAIN / "logic"
+                        owner.mkdir(parents=True, exist_ok=True)
+                        self.logic[key] = LogicGraph.from_dict(json.loads(archive.read(name)))
+                        self.logic_owners[key] = owner
+                        write_json(owner / f"{key}.json", self.logic[key].to_dict())
                 imported.append("logic")
             if include_experience:
                 for name in available:
@@ -7305,7 +7421,7 @@ class Scene:
 
     def draw_menu_composition(self, surface):
         background = self.app.assets.menu_layer("menu_background", (W, H))
-        if background is None: background = self.app.assets.image("menu_anchor", (W, H))
+        if background is None: background = self.app.assets.image("menu/anchor", (W, H)) or self.app.assets.critical_image((W, H))
         ui_blit(surface, background, (0, 0))
         layers = [("dueler_left", (0, 0, 275, 600)), ("dueler_center", (238, 0, 324, 600)), ("dueler_right", (548, 0, 252, 600))]
         for name, rect in layers:
@@ -7330,7 +7446,7 @@ class FirstRunScene(Scene):
     def __init__(self, app):
         super().__init__(app)
         self.name = TextInput((238, 208, 324, 36), "")
-        self.portrait = TextInput((238, 278, 324, 36), "pfp_placeholder")
+        self.portrait = TextInput((238, 278, 324, 36), "")
         self.gender = "other"
 
     def enter(self):
@@ -7350,7 +7466,7 @@ class FirstRunScene(Scene):
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
-        ui_blit(surface, self.app.assets.image("splash", (W, H)), (0, 0))
+        ui_blit(surface, self.app.assets.image("menu/splash/1", (W, H)) or self.app.assets.critical_image((W, H)), (0, 0))
         veil = ui_surface((W, H), pygame.SRCALPHA); veil.fill((247, 227, 177, 48)); ui_blit(surface, veil, (0, 0))
         self.draw_panel(surface, (170, 92, 460, 430), "WELCOME TO THE PLAYGROUND", COLORS["gold"])
         draw_text(surface, "Set your player identity. Every value can be changed later.", (400, 145), self.app.assets.font(13), COLORS["muted"], "center")
@@ -7933,7 +8049,7 @@ class PreDuelScene(Scene):
     def draw_character_card(self, surface, char, pos, accent):
         x, y = pos
         rounded(surface, (x, y, 210, 190), (12, 21, 47), accent, 2, 12)
-        image = self.app.assets.image(char.portrait, (92, 92)) or self.app.assets.image("pfp_placeholder", (92, 92))
+        image = self.app.assets.character_portrait(char, (92, 92))
         if image: ui_blit(surface, image, (x + 59, y + 14))
         draw_text(surface, char.name, (x + 105, y + 123), self.app.assets.font(17, True), COLORS["cream"], "center")
         draw_text(surface, f"{char.stars} stars  |  {char.mood}", (x + 105, y + 150), self.app.assets.font(12), accent, "center")
@@ -8497,15 +8613,15 @@ class DuelScene(Scene):
 
     def draw_duel_backdrop(self, surface):
         night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
-        ground = self.app.assets.place_visual(self.place_id, "ground", night, self.time, (W, H), self.media_scope) or self.app.assets.role_image("place_ground", (W, H)) or self.app.assets.role_image("duel_environment", (W, H))
+        ground = self.app.assets.place_visual(self.place_id, "ground", night, self.time, (W, H), self.media_scope) or self.app.assets.role_image("place_ground", (W, H), True) or self.app.assets.role_image("duel_environment", (W, H), True)
         if ground: ui_blit(surface, ground, (0, 0))
         else:
             place = self.app.store.places.get(self.place_id)
             image = self.app.assets.image(place.background, (W, H)) if place and place.background else None
             if image: ui_blit(surface, image, (0, 0))
-        table = self.app.assets.role_image("table_frame", (646, 564)) or self.app.assets.image("table_frame_cycle12", (646, 564))
-        frame = self.app.assets.role_image("duel_frame", (552, 480)) or self.app.assets.image("duel_frame_cycle12", (552, 480))
-        field_surface = self.app.assets.place_visual(self.place_id, "field", night, self.time, self.layout.field.size, self.media_scope) or self.app.assets.role_image("field_surface", self.layout.field.size) or self.app.assets.image("field_surface_cycle12", self.layout.field.size)
+        table = self.app.assets.role_image("table_frame", (646, 564), True)
+        frame = self.app.assets.role_image("duel_frame", (552, 480), True)
+        field_surface = self.app.assets.place_visual(self.place_id, "field", night, self.time, self.layout.field.size, self.media_scope) or self.app.assets.role_image("field_surface", self.layout.field.size, True)
         ui_blit(surface, table, self.layout.table.topleft)
         ui_blit(surface, frame, self.layout.duel_frame.topleft)
         ui_blit(surface, field_surface, self.layout.field.topleft)
@@ -8621,10 +8737,8 @@ class DuelScene(Scene):
                 self.hp_display[side] = current
             rounded(surface, plaque, (53, 45, 54), (255, 255, 255), 8, 2)
             ui_draw_line(surface, (255, 255, 255, 255), (plaque.x + 62, plaque.y + 9), (plaque.right - 10, plaque.y + 9), 1)
-            source = self.app.assets.images.get(participant.character.portrait) or self.app.assets.images.get("pfp_placeholder")
-            if source:
-                portrait = pygame.transform.smoothscale(source, pfp.size)
-                ui_blit(surface, portrait, pfp.topleft)
+            portrait = self.app.assets.character_portrait(participant.character, pfp.size)
+            if portrait: ui_blit(surface, portrait, pfp.topleft)
             draw_text(surface, "LP", (plaque.x + 64, plaque.y + 15), self.app.assets.font(7, True), COLORS["gold"], "topleft")
             draw_text(surface, f"{current:04d}", (plaque.right - 10, plaque.y + 22), self.app.assets.font(19, True), COLORS["white"], "topright")
             if self.hp_delta_until[side] > self.time and self.hp_delta[side]:
@@ -8833,7 +8947,7 @@ class DuelScene(Scene):
         for index in range(layers):
             target = self.pile_card_rect(rect, index, rotation)
             if face_down:
-                image = self.app.assets.image("card_back")
+                image = self.app.assets.image("placeholder/card_back")
                 if image:
                     if rotation: image = pygame.transform.rotate(image, rotation)
                     blit_aspect(surface, image, target)
@@ -8856,7 +8970,7 @@ class DuelScene(Scene):
             self.draw_zone_card_back(surface, rect, 180)
 
     def draw_zone_card_back(self, surface, rect, rotation=0):
-        image = self.app.assets.image("card_back")
+        image = self.app.assets.image("placeholder/card_back") or self.app.assets.critical_image(rect.size)
         if image and rotation: image = pygame.transform.rotate(image, rotation)
         if image: blit_aspect(surface, image, rect)
 
@@ -8957,7 +9071,7 @@ class DuelScene(Scene):
                     y = panel.y + 241 + (index // 5) * 74
                     rect = pygame.Rect(x, y, 82, 58)
                     if winner_is_player: self.gamble_rects.append((rect, card_id))
-                    back = self.app.assets.image("card_back")
+                    back = self.app.assets.image("placeholder/card_back")
                     if back: blit_aspect(surface, back, rect)
                     else: rounded(surface, rect, (30, 36, 66), COLORS["gold"] if winner_is_player else COLORS["line"], 5, 1)
                     draw_text(surface, "CARD " + str(index + 1), (rect.centerx, rect.bottom + 8), self.app.assets.font(8, True), COLORS["cream"], "center")
@@ -8984,7 +9098,7 @@ class CardsScene(Scene):
         draw_text(surface, "EFFECTS", (350, 316), self.app.assets.font(16, True), COLORS["green"])
         draw_text(surface, f"{sum(len(card.effects) for card in self.app.store.cards.values())} starter effects", (350, 342), self.app.assets.font(13), COLORS["cream"])
         draw_text(surface, "CONTENT PATH", (350, 388), self.app.assets.font(16, True), COLORS["violet"])
-        draw_text(surface, "data/cards/ and data/logic/", (350, 414), self.app.assets.font(13), COLORS["cream"])
+        draw_text(surface, "data/cards/<entity>/ and data/universal_assets/", (350, 414), self.app.assets.font(13), COLORS["cream"])
         self.draw_buttons(surface, 13)
 
 
@@ -9044,7 +9158,7 @@ class LibraryScene(Scene):
     def draw_library_card(self, surface, card, x, y, known):
         rounded(surface, (x, y, 210, 175), COLORS["panel"], COLORS["line"] if known else COLORS["muted"], 9, 2)
         if not known:
-            blit_aspect(surface, self.app.assets.image("card_back"), pygame.Rect(x + 8, y + 8, 194, 106))
+            blit_aspect(surface, self.app.assets.image("placeholder/card_back"), pygame.Rect(x + 8, y + 8, 194, 106))
             draw_text(surface, "UNKNOWN CARD", (x + 105, y + 128), self.app.assets.font(13, True), COLORS["gold"], "center")
             draw_text(surface, "Not owned or studied", (x + 105, y + 151), self.app.assets.font(11), COLORS["muted"], "center")
             return
@@ -9068,7 +9182,7 @@ class CardDetailScene(Scene):
         draw_text(surface, "The engine generates a readable explanation from structured effect data.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         rounded(surface, (60, 122, 240, 280), (22, 35, 67), COLORS["gold"] if self.card.legendary and self.known else COLORS["line"], 12, 3)
         if not self.known:
-            blit_aspect(surface, self.app.assets.image("card_back"), pygame.Rect(75, 139, 210, 240))
+            blit_aspect(surface, self.app.assets.image("placeholder/card_back"), pygame.Rect(75, 139, 210, 240))
             draw_text(surface, "UNKNOWN CARD", (180, 306), self.app.assets.font(16, True), COLORS["gold"], "center")
             self.draw_panel(surface, (350, 122, 400, 280), "CARD JOURNAL", COLORS["muted"])
             draw_text(surface, "Not owned or studied yet.", (550, 230), self.app.assets.font(18, True), COLORS["cream"], "center")
@@ -9187,7 +9301,7 @@ class DeckEditorScene(Scene):
         deck = self.app.store.decks.get(self.deck_id, {})
         self.name = TextInput((40, 76, 250, 32), deck.get("name", self.deck_id))
         self.description = TextInput((40, 114, 330, 28), deck.get("description", ""))
-        self.portrait = TextInput((400, 76, 170, 32), deck.get("portrait", "deck_placeholder"))
+        self.portrait = TextInput((400, 76, 170, 32), "")
         self.query = TextInput((580, 76, 180, 32), "")
         self.card_buttons = []
         self.page = 0
@@ -9680,7 +9794,7 @@ class CharactersScene(Scene):
             roles = self.app.store.role_config()
             accent = COLORS["cyan"] if char.id == roles["player_character"] else COLORS["red"] if char.id == roles["default_opponent_character"] else COLORS["violet"]
             rounded(surface, (36, y, 728, 82), (14, 24, 52), accent, 8, 2)
-            image = self.app.assets.image(char.portrait, (64, 64)) or self.app.assets.image("pfp_placeholder", (64, 64))
+            image = self.app.assets.character_portrait(char, (64, 64))
             if image: ui_blit(surface, image, (50, y + 9))
             draw_text(surface, char.name, (132, y + 14), self.app.assets.font(16, True), COLORS["cream"])
             draw_text(surface, f"{char.stars} stars  |  rank {char.rank}  |  smartness {char.smartness}/10  |  mood {char.mood}", (132, y + 41), self.app.assets.font(11), accent)
@@ -9727,7 +9841,7 @@ class EntityDetailScene(Scene):
         draw_text(surface, self.entity_type[:-1].upper() + " DETAIL", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (42, 112, 716, 360), "PERSISTENT STATUS", accent)
         if self.entity_type == "characters":
-            image = self.app.assets.image(entity.portrait, (150, 150)) or self.app.assets.image("pfp_placeholder", (150, 150))
+            image = self.app.assets.character_portrait(entity, (150, 150))
             if image: ui_blit(surface, image, (68, 165))
             weights = ", ".join(f"{key}={float(value):.1f}" for key, value in sorted(entity.behavior_weights.items()) if key != "movement_duration" and isinstance(value, (int, float)))
             active_battle = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and entity.id in [battle.get("from"), battle.get("to")]), None)
@@ -9883,7 +9997,7 @@ class CharacterMakerScene(Scene):
     def enter(self):
         character = self.app.store.characters.get(self.character_id) if self.character_id else None
         self.name = TextInput((70, 122, 300, 30), character.name if character else "New Character")
-        self.portrait = TextInput((400, 122, 300, 30), character.portrait if character else "pfp_placeholder")
+        self.portrait = TextInput((400, 122, 300, 30), "")
         self.description = TextInput((70, 160, 630, 30), character.description if character else "")
         self.family = TextInput((70, 198, 300, 30), ", ".join(character.preferred_families) if character else "warrior")
         self.deck = TextInput((400, 198, 300, 30), character.deck_id if character else "")
@@ -10139,7 +10253,7 @@ class TeamMakerScene(Scene):
     def enter(self):
         team = self.app.store.teams.get(self.team_id) if self.team_id else None
         self.name = TextInput((70, 122, 300, 30), team.name if team else "New Team")
-        self.portrait = TextInput((400, 122, 300, 30), team.portrait if team else "team_placeholder")
+        self.portrait = TextInput((400, 122, 300, 30), "")
         self.description = TextInput((70, 160, 630, 30), team.description if team else "")
         self.place = TextInput((70, 198, 300, 30), ", ".join(team.preferred_places) if team else self.app.store.role_config().get("default_place", ""))
         self.leader = TextInput((400, 198, 300, 30), team.leader if team else "")

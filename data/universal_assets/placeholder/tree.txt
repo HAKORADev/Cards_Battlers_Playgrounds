@@ -1,0 +1,5 @@
+card_art.png
+card_back.png
+character_pfp.png
+deck_pfp.png
+tree.txt

@@ -4,7 +4,7 @@
   "architecture": {
     "content_roots": {
       "authored": "data/",
-      "assets": "data/assets/",
+      "universal_assets": "data/universal_assets/main/ and data/universal_assets/placeholder/",
       "schemas": "data/schemas/",
       "runtime": "data/runtime/"
     },
@@ -464,7 +464,7 @@
         "lose"
       ],
       "attack_presentation": {
-        "universal_vfx": "data/animations/universal/attack/sword.png",
+        "universal_vfx": "data/universal_assets/main/duel/attack/sword.png",
         "custom_override": "data/cards/<card_folder>/interactions/attack/vfx/ or equivalent effects tree",
         "anchors": "normalized side, zone, slot index, and card ID; renderer maps anchors to the authored DuelLayout",
         "sequence": [
@@ -500,11 +500,11 @@
         "result_requester",
         "ready"
       ],
-      "faces": "data/assets/dice/faces/1.png through 6.png",
+      "faces": "data/universal_assets/main/dice/faces/1.png through 6.png",
       "ownership": "1-3 launcher/acceptor, 4-6 requester",
       "animation": "authored face images cycle every 0.09 simulated seconds with rotation and bounce presentation",
       "rng": "deterministic from simulation time, monotonic dice sequence, launcher ID, and requester ID",
-      "narrator": "data/narrator/spin_dicer.json with up to ten text variants per state and optional paired audio under data/narrator/audio/<state>/",
+      "narrator": "data/characters/narrator/catalogs/spin_dicer.json with up to ten text variants per state and optional paired audio under data/characters/narrator/audio/<state>/",
       "world_autonomy": "queued battles persist pre_duel requester/acceptor, accept-or-deny decision, narrator states, spin result provenance, and first_side"
     },
     "duel_rewards": {
@@ -570,14 +570,14 @@
       "live_source": "world active battle and reconstructed DuelEngine session, never a replay recording"
     },
     "narrator_tree": {
-      "config": "data/narrator/spin_dicer.json",
-      "audio_root": "data/narrator/audio/<state>/",
+      "config": "data/characters/narrator/catalogs/spin_dicer.json",
+      "audio_root": "data/characters/narrator/audio/<state>/",
       "variant_contract": "state entries support up to ten text variants; selected text/audio variant is deterministic and optional audio never blocks state progression",
       "fallback": "global state variant remains valid when place-specific narrator media is absent",
       "configs": [
-        "data/narrator/spin_dicer.json",
-        "data/narrator/duel_outcomes.json",
-        "data/narrator/championship.json"
+        "data/characters/narrator/catalogs/spin_dicer.json",
+        "data/characters/narrator/catalogs/duel_outcomes.json",
+        "data/characters/narrator/catalogs/championship.json"
       ],
       "states": [
         "post_duel_win",

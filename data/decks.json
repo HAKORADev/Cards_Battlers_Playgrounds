@@ -2,7 +2,7 @@
   "rival_deck": {
     "name": "Echo Defense",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "rival_echo",
     "best_cards": [
       "aqua_sentinel",
@@ -66,12 +66,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/rival_deck"
   },
   "trio_deck": {
     "name": "The Unwritten Deck",
     "description": "",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "",
     "best_cards": [],
     "preferred_families": [],
@@ -121,12 +122,13 @@
       "ember_chimera",
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/trio_deck"
   },
   "rival_control_deck": {
     "name": "Echo Control",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "rival_echo",
     "best_cards": [
       "mirror_trap",
@@ -190,12 +192,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/rival_control_deck"
   },
   "rival_storm_deck": {
     "name": "Echo Storm",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "rival_echo",
     "best_cards": [
       "storm_lancer",
@@ -259,12 +262,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/rival_storm_deck"
   },
   "rival_oath_deck": {
     "name": "Echo Oath",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "rival_echo",
     "best_cards": [
       "iron_oath",
@@ -328,12 +332,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/rival_oath_deck"
   },
   "rival_bridge_deck": {
     "name": "Echo Bridge",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "rival_echo",
     "best_cards": [
       "aurora_bridge",
@@ -397,12 +402,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/rival_bridge_deck"
   },
   "ember_deck": {
     "name": "Ember Circuit",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "ember_sage",
     "best_cards": [
       "storm_lancer",
@@ -456,12 +462,13 @@
       "ember_chimera",
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/ember_deck"
   },
   "tide_deck": {
     "name": "Tide Archive",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "tide_courier",
     "best_cards": [
       "tide_oracle",
@@ -515,12 +522,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/tide_deck"
   },
   "iron_deck": {
     "name": "Iron Garden",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "iron_mason",
     "best_cards": [
       "iron_oath",
@@ -574,12 +582,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/iron_deck"
   },
   "moss_deck": {
     "name": "Moss Current",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "moss_keeper",
     "best_cards": [
       "garden_sentinel",
@@ -633,12 +642,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/moss_deck"
   },
   "forge_deck": {
     "name": "Forge Horizon",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "forge_watcher",
     "best_cards": [
       "cinder_knight",
@@ -692,12 +702,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/forge_deck"
   },
   "aqua_deck": {
     "name": "Aqua Ledger",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "aqua_scribe",
     "best_cards": [
       "tide_oracle",
@@ -751,12 +762,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/aqua_deck"
   },
   "pearl_deck": {
     "name": "Pearl Oath",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "pearl_guard",
     "best_cards": [
       "iron_oath",
@@ -810,12 +822,13 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/pearl_deck"
   },
   "coral_deck": {
     "name": "Coral Bridge",
     "description": "An original authored cohort deck for CBP simulation.",
-    "portrait": "deck_placeholder",
+    "portrait": "",
     "owner_id": "coral_scout",
     "best_cards": [
       "aurora_bridge",
@@ -869,6 +882,7 @@
     "fusion_cards": [
       "ember_chimera"
     ],
-    "schema": 2
+    "schema": 3,
+    "media_folder": "decks/coral_deck"
   }
 }

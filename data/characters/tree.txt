@@ -1,0 +1,14 @@
+aqua_scribe/
+coral_scout/
+ember_sage/
+forge_watcher/
+iron_mason/
+moss_keeper/
+mystery_arc/
+mystery_veil/
+narrator/
+pearl_guard/
+rival_echo/
+tide_courier/
+tree.txt
+trio_mysterio/

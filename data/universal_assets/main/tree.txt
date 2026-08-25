@@ -1,0 +1,8 @@
+audio/
+card_frames/
+cursor/
+dice/
+duel/
+font/
+menu/
+tree.txt

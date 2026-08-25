@@ -1,0 +1,6 @@
+art/
+characters/
+interactions/
+logic/
+manifest.json
+tree.txt

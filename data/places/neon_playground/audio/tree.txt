@@ -1,0 +1,9 @@
+1..10.*
+draw/
+in-duel/
+landscape/
+lose/
+pre-duel/
+spin-dice/
+tree.txt
+win/

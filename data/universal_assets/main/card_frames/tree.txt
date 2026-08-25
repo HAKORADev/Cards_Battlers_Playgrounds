@@ -1,0 +1,11 @@
+artwork_window_mask.png
+artwork_window_metadata.json
+badges/
+effect_card_transparent.png
+fusion_card_transparent.png
+legendary_card_transparent.png
+normal_card_transparent.png
+ritual_card_transparent.png
+spell_card_transparent.png
+trap_card_transparent.png
+tree.txt

@@ -1,0 +1,3 @@
+collections/
+index.json
+tree.txt

@@ -1,0 +1,5 @@
+ally/
+enemy/
+opponent/
+stranger/
+tree.txt
