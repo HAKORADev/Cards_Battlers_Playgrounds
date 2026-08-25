@@ -1729,9 +1729,11 @@ class ContentStore:
         if self.card_registry_errors: raise ValueError("Card registry invalid: " + "; ".join(self.card_registry_errors))
         self.logic = {}
         self.logic_owners = {}
-        for category, registry in [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]:
-            for entity in registry.values():
-                logic_root = DATA / getattr(entity, "media_folder", "") / "logic"
+        for category, registry in [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places), ("decks", self.decks)]:
+            for entity_id, entity in registry.items():
+                media_folder = entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "")
+                logic_root = DATA / media_folder / "logic" if media_folder else None
+                if not logic_root: continue
                 for path in logic_root.glob("*.json"):
                     self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
                     self.logic_owners[path.stem] = logic_root
@@ -3842,7 +3844,6 @@ class ContentStore:
                     if category == "cards" and not getattr(entity, "art_folder", ""):
                         entity.art_folder = entity.media_folder
                         changed = True
-                    write_json(root / "manifest.json", manifest)
         if changed:
             self.save()
 
@@ -4135,32 +4136,47 @@ class ContentStore:
         filename = DATA / "exports" / f"{slug(entity_id or kind)}.cbp"
         includes = {key: sorted(value) for key, value in scope["categories"].items()}
         media_items = self.package_media_items(scope)
-        manifest = {"schema": 4, "kind": scope["kind"], "entity_id": entity_id, "created": time.time(), "asset_contract": "gdd_nested_v1", "experience_included": bool(include_experience), "world_included": bool(scope["world"]), "dependencies_included": bool(include_dependencies), "includes": includes, "required_categories": [key for key, value in includes.items() if value], "entity_media": media_items, "package_contract": "entity_dependency_closure_v1"}
+        manifest = {"schema": 4, "kind": scope["kind"], "entity_id": entity_id, "created": time.time(), "asset_contract": "gdd_nested_v2", "experience_included": bool(include_experience), "world_included": bool(scope["world"]), "dependencies_included": bool(include_dependencies), "includes": includes, "required_categories": [key for key, value in includes.items() if value], "entity_media": media_items, "logic_owners": {logic_id: str(self.logic_owners[logic_id].relative_to(DATA)) for logic_id in includes.get("logic", []) if logic_id in self.logic_owners and self.logic_owners[logic_id].is_relative_to(DATA)}, "package_contract": "entity_dependency_closure_v2"}
         with zipfile.ZipFile(filename, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive_names = {"manifest.json"}
             archive.writestr("manifest.json", json.dumps(manifest, indent=2))
             for category, ids in scope["categories"].items():
                 if category == "logic":
                     for logic_id in ids:
                         owner = self.logic_owners.get(logic_id)
                         path = owner / f"{logic_id}.json" if owner else None
-                        if path and path.exists(): archive.write(path, "logic/" + path.name)
+                        archive_name = "logic/" + path.name if path and path.exists() else ""
+                        if archive_name and archive_name not in archive_names:
+                            archive.write(path, archive_name)
+                            archive_names.add(archive_name)
                 elif category == "decks":
                     archive.writestr("decks.json", json.dumps({key: self.decks[key] for key in ids if key in self.decks}, indent=2))
                 else:
                     registry = getattr(self, category)
                     if category == "places": records = [self.authored_entry(registry[key], {"current_duels"}) for key in ids if key in registry]
                     else: records = [self.authored_entry(registry[key], CHARACTER_RUNTIME_FIELDS if category == "characters" else TEAM_RUNTIME_FIELDS if category == "teams" else set()) for key in ids if key in registry]
-                    archive.writestr(category + ".json", json.dumps(records, indent=2))
-            if scope["world"]: archive.writestr("world.json", json.dumps(self.world, indent=2))
+                    archive_name = category + ".json"
+                    if archive_name not in archive_names:
+                        archive.writestr(archive_name, json.dumps(records, indent=2))
+                        archive_names.add(archive_name)
+            if scope["world"] and "world.json" not in archive_names:
+                archive.writestr("world.json", json.dumps(self.world, indent=2))
+                archive_names.add("world.json")
             if include_experience:
                 for category, ids in [("characters", scope["categories"]["characters"]), ("teams", scope["categories"]["teams"])]:
                     for entity_id in ids:
                         runtime_path = self.runtime_path(category, entity_id)
-                        if runtime_path.exists(): archive.write(runtime_path, f"runtime/{category}/{runtime_path.name}")
+                        archive_name = f"runtime/{category}/{runtime_path.name}"
+                        if runtime_path.exists() and archive_name not in archive_names:
+                            archive.write(runtime_path, archive_name)
+                            archive_names.add(archive_name)
             for item in media_items:
                 root = DATA / item["path"]
                 for media_path in root.rglob("*"):
-                    if media_path.is_file() and media_path != filename and DATA / "exports" not in media_path.parents: archive.write(media_path, "data/" + str(media_path.relative_to(DATA)))
+                    archive_name = "data/" + str(media_path.relative_to(DATA))
+                    if media_path.is_file() and media_path != filename and DATA / "exports" not in media_path.parents and archive_name not in archive_names:
+                        archive.write(media_path, archive_name)
+                        archive_names.add(archive_name)
         return filename
 
     def inspect_cbp(self, path):
@@ -4226,14 +4242,19 @@ class ContentStore:
                     if entry.get("id") in set(allowed.get("teams", [])) and can_write("teams", entry.get("id")): self.teams[entry["id"]] = TeamDef(**entry)
                 imported.append("teams")
             if "logic" in requested:
+                owners = manifest.get("logic_owners", {}) if isinstance(manifest.get("logic_owners", {}), dict) else {}
                 for name in available:
-                    if name.startswith("logic/") and name.endswith(".json") and Path(name).stem in set(allowed.get("logic", [])) and can_write("logic", Path(name).stem):
-                        key = Path(name).stem
-                        owner = UNIVERSAL_MAIN / "logic"
-                        owner.mkdir(parents=True, exist_ok=True)
-                        self.logic[key] = LogicGraph.from_dict(json.loads(archive.read(name)))
-                        self.logic_owners[key] = owner
-                        write_json(owner / f"{key}.json", self.logic[key].to_dict())
+                    if not name.startswith("logic/") or not name.endswith(".json"): continue
+                    key = Path(name).stem
+                    if key not in set(allowed.get("logic", [])) or not can_write("logic", key): continue
+                    owner_relative = Path(str(owners.get(key, "")))
+                    if len(owner_relative.parts) != 3 or owner_relative.parts[0] not in ["cards", "characters", "teams", "places", "decks"] or owner_relative.parts[2] != "logic": continue
+                    owner = DATA / owner_relative
+                    if owner == DATA or any(part in ["", ".", ".."] for part in owner_relative.parts): continue
+                    owner.mkdir(parents=True, exist_ok=True)
+                    self.logic[key] = LogicGraph.from_dict(json.loads(archive.read(name)))
+                    self.logic_owners[key] = owner
+                    write_json(owner / f"{key}.json", self.logic[key].to_dict())
                 imported.append("logic")
             if include_experience:
                 for name in available:
@@ -9681,6 +9702,11 @@ class CardEffectsScene(Scene):
 class LogicManagerScene(Scene):
     def enter(self):
         self.graph_key = next(iter(self.app.store.logic), "")
+        if not self.graph_key:
+            owner_category, owner_id, owner_root = next(((category, entity_id, DATA / (entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "")) / "logic") for category, registry in [("cards", self.app.store.cards), ("characters", self.app.store.characters), ("teams", self.app.store.teams), ("places", self.app.store.places), ("decks", self.app.store.decks)] for entity_id, entity in registry.items() if (entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", ""))), ("", "", DATA))
+            self.graph_key = "editor_" + owner_category + "_" + str(owner_id)
+            owner_root.mkdir(parents=True, exist_ok=True)
+            self.app.store.logic_owners[self.graph_key] = owner_root
         self.graph = self.app.store.logic.get(self.graph_key, LogicGraph("New Logic"))
         for node in self.graph.nodes: node.y = max(180, node.y)
         self.selected = None
@@ -9701,6 +9727,10 @@ class LogicManagerScene(Scene):
         errors = LogicRuntime.validate_graph(self.graph)
         if errors:
             self.app.notify("Logic graph rejected: " + "; ".join(errors[:2]))
+            return
+        owner = self.app.store.logic_owners.get(self.graph_key)
+        if not owner or owner == DATA or not owner.is_relative_to(DATA):
+            self.app.notify("Logic graph requires an entity-owned folder.")
             return
         self.app.store.logic[self.graph_key] = self.graph
         self.app.store.save()
