@@ -15,7 +15,8 @@
     "description": "",
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "preferred_cards": []
+    "preferred_cards": [],
+    "logic_graph": ""
   },
   {
     "id": "trio_team",
@@ -34,6 +35,7 @@
     "description": "",
     "preferred_families": [],
     "preferred_card_kinds": [],
-    "preferred_cards": []
+    "preferred_cards": [],
+    "logic_graph": ""
   }
 ]

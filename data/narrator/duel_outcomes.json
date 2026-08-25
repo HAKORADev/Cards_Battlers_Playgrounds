@@ -1,0 +1,95 @@
+{
+  "schema": "cbp.narrator.duel_outcomes.v1",
+  "states": {
+    "post_duel_win": {
+      "texts": [
+        "The duel is decided. The winner takes the result into history.",
+        "The final field state favors the winning duelist.",
+        "Victory is recorded across the characters and the place.",
+        "The winner stands after the last exchange.",
+        "The duel has closed with a clear victor.",
+        "The final move becomes part of the winner’s lessons.",
+        "One duelist remains ahead when the field goes quiet.",
+        "The result is complete. The winning side may receive its terms.",
+        "The match is over, and the victor is known.",
+        "The playground records another victory."
+      ],
+      "audio_root": "audio/post_duel_win"
+    },
+    "post_duel_loss": {
+      "texts": [
+        "The duel is decided. The losing duelist carries the result forward.",
+        "The final field state has turned against this side.",
+        "A loss is recorded, and its lessons remain available.",
+        "The last exchange has ended the duel for this duelist.",
+        "The match closes with a clear defeat.",
+        "The result will shape future choices and rematches.",
+        "The field goes quiet after the losing side’s final defense.",
+        "The duel is over, and the loss is now part of history.",
+        "One duelist leaves the field behind the winner.",
+        "The playground records a defeat without hiding its lesson."
+      ],
+      "audio_root": "audio/post_duel_loss"
+    },
+    "post_duel_draw": {
+      "texts": [
+        "Neither duelist wins. The duel is recorded as a draw.",
+        "The final state is equal, so no winner is named.",
+        "The field closes without a victor or a loser.",
+        "A draw becomes part of both characters’ histories.",
+        "The duel ends in balance.",
+        "No reward changes hands after this equal result.",
+        "The last exchange leaves both sides level.",
+        "The narrator records a draw for the place and both duelists.",
+        "The match is complete, but neither side takes the win.",
+        "The playground remembers an unresolved result."
+      ],
+      "audio_root": "audio/post_duel_draw"
+    },
+    "timed_win": {
+      "texts": [
+        "Time has ended. The higher life total wins the timed duel.",
+        "The three-minute clock is complete, and the leading life total decides it.",
+        "The timer reaches zero. The duelist with more life takes the win.",
+        "The timed field closes on a life-point advantage.",
+        "The clock has spoken. The higher total is the winning total.",
+        "The final second ends the match before another phase can begin.",
+        "Time is over, and the scoreboard names the leader.",
+        "The timed duel is decided by remaining life points.",
+        "The countdown is finished. One side is ahead.",
+        "The clock closes the duel with a winner."
+      ],
+      "audio_root": "audio/timed_win"
+    },
+    "timed_draw": {
+      "texts": [
+        "Time has ended with equal life totals. The timed duel is a draw.",
+        "The three-minute clock reaches zero without a life-point leader.",
+        "Neither side is ahead when the timer expires.",
+        "The timed duel closes in perfect balance.",
+        "The final second produces no winner and no loser.",
+        "The clock is finished, and the equal score becomes a draw.",
+        "The timer decides that both duelists remain level.",
+        "No reward changes hands after this timed draw.",
+        "The countdown ends with both life totals matched.",
+        "The timed field closes without a victor."
+      ],
+      "audio_root": "audio/timed_draw"
+    },
+    "gamble_selection": {
+      "texts": [
+        "The wager is revealed. The winner must choose one card from the loser’s pool.",
+        "The gamble is open. One face-down card will become the winner’s prize.",
+        "The winning duelist chooses before the remaining wager cards are shown.",
+        "The wagered cards wait for a single dangerous selection.",
+        "One card may change hands. The rest will return to their owners.",
+        "The gamble is not decided until the winner chooses one revealed fate.",
+        "The face-down pool is ready. Select exactly one card.",
+        "The winner now accepts the risk of the wager.",
+        "The loser’s wager is on the table, and one card may be claimed.",
+        "The gamble enters its final selection."
+      ],
+      "audio_root": "audio/gamble_selection"
+    }
+  }
+}

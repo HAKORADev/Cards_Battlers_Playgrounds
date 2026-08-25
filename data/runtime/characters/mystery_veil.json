@@ -3,14 +3,18 @@
   "id": "mystery_veil",
   "category": "characters",
   "state": {
-    "mood_state": {
-      "current": "watchful",
-      "intensity": 0.0
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
     },
-    "cooldown_until": 0.0,
-    "learned_cards": {},
-    "rank": 2,
-    "activity": "idle",
+    "world_status": "in_playground",
+    "allies": [],
+    "learning_state": {
+      "observations": 0,
+      "updates": 0,
+      "last_update": 0.0
+    },
     "experience": {
       "duels": 0,
       "wins": 0,
@@ -18,9 +22,25 @@
       "draws": 0,
       "techniques": {}
     },
-    "movement_progress": 0.0,
-    "enemies": [],
     "destination": "",
+    "current_place": "",
+    "learned_opponents": {},
+    "relationship_history": [],
+    "relationship": "stranger",
+    "enemies": [],
+    "learned_cards": {},
+    "library_cards": [
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ],
+    "rank": 2,
+    "movement_progress": 0.0,
+    "borrowed_cards": [],
+    "mood": "watchful",
+    "out_of_game_until": 0.0,
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -79,31 +99,13 @@
       },
       "subtype_weights": {}
     },
-    "allies": [],
-    "borrowed_cards": [],
     "availability": "free",
-    "relationship": "stranger",
-    "learned_opponents": {},
-    "library_cards": [
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
-    "current_place": "",
-    "history": [],
-    "learning_state": {
-      "observations": 0,
-      "updates": 0,
-      "last_update": 0.0
+    "mood_state": {
+      "current": "watchful",
+      "intensity": 0.0
     },
-    "relationship_history": [],
-    "mood": "watchful",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
-    }
+    "activity": "idle",
+    "cooldown_until": 0.0,
+    "history": []
   }
 }

@@ -8,17 +8,34 @@
     "default_opponent_team": "trio_team",
     "default_place": "neon_playground"
   },
+  "place_occupancy": {
+    "neon_playground": 0,
+    "mystery_void": 0
+  },
+  "clock_epoch": 1787666817,
   "collections": [
     "requests",
     "orders",
+    "team_requests",
+    "team_effect_requests",
+    "place_effects",
     "championships",
     "trades",
     "borrows",
+    "interactions",
     "achievements",
+    "histories",
+    "card_discoveries",
     "ranks",
     "simulation_time",
     "active_battles",
     "simulation_events",
-    "last_ai_request_time"
+    "last_ai_request_time",
+    "out_of_game",
+    "dice_sequence",
+    "duel_sequence",
+    "request_sequence",
+    "order_sequence",
+    "team_request_sequence"
   ]
 }

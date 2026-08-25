@@ -1,6 +1,6 @@
 {
   "schema": 2,
   "category": "world_collection",
-  "id": "simulation_events",
-  "value": []
+  "id": "duel_sequence",
+  "value": 0
 }

@@ -4,7 +4,7 @@
     "name": "Rival Echo",
     "portrait": "rival",
     "stars": 5,
-    "smartness": 7,
+    "smartness": 10,
     "preferred_families": [
       "aqua",
       "trap"
@@ -30,7 +30,7 @@
       "adaptation": 5.0
     },
     "cognition": {
-      "smartness": 7.0,
+      "smartness": 10.0,
       "memory": 5.0,
       "inference": 5.0,
       "planning": 5.0,
@@ -59,7 +59,8 @@
         ]
       },
       "preferred_state": "stranger"
-    }
+    },
+    "logic_graph": ""
   },
   {
     "id": "trio_mysterio",
@@ -121,7 +122,8 @@
         ]
       },
       "preferred_state": "stranger"
-    }
+    },
+    "logic_graph": ""
   },
   {
     "id": "mystery_veil",
@@ -183,7 +185,8 @@
         ]
       },
       "preferred_state": "stranger"
-    }
+    },
+    "logic_graph": ""
   },
   {
     "id": "mystery_arc",
@@ -245,6 +248,7 @@
         ]
       },
       "preferred_state": "stranger"
-    }
+    },
+    "logic_graph": ""
   }
 ]

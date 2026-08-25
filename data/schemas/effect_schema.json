@@ -429,7 +429,95 @@
       "config": "data/narrator/spin_dicer.json",
       "audio_root": "data/narrator/audio/<state>/",
       "variant_contract": "state entries support up to ten text variants; selected text/audio variant is deterministic and optional audio never blocks state progression",
-      "fallback": "global state variant remains valid when place-specific narrator media is absent"
+      "fallback": "global state variant remains valid when place-specific narrator media is absent",
+      "configs": [
+        "data/narrator/spin_dicer.json",
+        "data/narrator/duel_outcomes.json",
+        "data/narrator/championship.json"
+      ],
+      "states": [
+        "post_duel_win",
+        "post_duel_loss",
+        "post_duel_draw",
+        "timed_win",
+        "timed_draw",
+        "gamble_selection",
+        "championship_intro",
+        "championship_outro"
+      ]
+    },
+    "point13_world": {
+      "availability_states": [
+        "free",
+        "traveling",
+        "in_duel",
+        "out_of_game"
+      ],
+      "request_rule": "requests remain visible and answerable while a recipient is in a duel; acceptance queues until both participants are available",
+      "out_of_game": "out_of_game_until and world_status are persisted per character; pending requests remain in modular world collections and activate after return",
+      "journals": {
+        "global": "data/runtime/world/collections/histories.json",
+        "character": "duel, request, discovery, availability, and learning entries keyed by character ID",
+        "team": "formation, consent, team-duel, place-effect, and championship entries keyed by team ID",
+        "place": "occupancy, duel, effect, landscape, and championship entries keyed by place ID"
+      },
+      "summaries": [
+        "character_summary",
+        "team_summary",
+        "place_summary"
+      ],
+      "card_discovery": "knowledge is updated only from owned, public, observed, or learned provenance; hidden cards remain unknown"
+    },
+    "team_formats": {
+      "allowed": [
+        "1v1",
+        "1vTEAM",
+        "TEAMv1",
+        "TEAMvTEAM"
+      ],
+      "rounds": 3,
+      "rotation": "each round selects the next roster member; each member remains an independent character actor",
+      "outcome": "final team winner is determined from round wins; concrete winning and losing members are attributed from resolved rounds",
+      "reward": "only a final concrete team outcome may transfer one reward; timed and gamble terms are restricted to 1v1",
+      "journal": "team_duel_completed is recorded for both teams and the place"
+    },
+    "duel_modes": {
+      "current": {
+        "format": "1v1 or team formats",
+        "resolution": "standard LP and deck-out rules"
+      },
+      "timed": {
+        "format": "1v1 only",
+        "default_seconds": 180,
+        "configurable_seconds": "bounded authored/request/order term",
+        "expiry": "higher LP wins; equal LP is a draw; no reward transfer on draw",
+        "checkpoint": [
+          "time_limit",
+          "duel_elapsed",
+          "time_expired"
+        ]
+      },
+      "gamble": {
+        "format": "1v1 only",
+        "wager": "house and guest reserve equal pools of one through ten owned cards",
+        "selection": "winner selects exactly one card from the loser pool while all cards are face-down; selected card reveals first, then all remaining cards reveal and return",
+        "draw": "all reserved cards return to original owners",
+        "checkpoint": [
+          "gamble_state",
+          "gamble_selection_pending",
+          "selected_card",
+          "revealed",
+          "returned",
+          "settled"
+        ]
+      }
+    },
+    "team_place_effects": {
+      "candidate_count": 3,
+      "cost": "three distinct cards owned by three linked team members",
+      "selection": "one candidate is selected permanently for the linked place",
+      "persistence": "data/runtime/world/collections/place_effects.json",
+      "journal": "candidate creation and permanent selection are recorded for team and place"
     }
   },
   "card": {

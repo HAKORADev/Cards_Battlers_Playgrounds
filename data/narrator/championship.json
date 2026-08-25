@@ -1,0 +1,35 @@
+{
+  "schema": "cbp.narrator.championship.v1",
+  "states": {
+    "championship_intro": {
+      "texts": [
+        "The championship doors open. Every team enters with a history.",
+        "The next championship begins now. Let the strongest formation rise.",
+        "The playground gathers for a contest beyond an ordinary duel.",
+        "The bracket is ready. Each victory will change the record of this world.",
+        "Teams take their places. The championship is about to begin.",
+        "This is the moment where preparation becomes reputation.",
+        "The championship field is open. No ordinary result will be forgotten.",
+        "The contenders arrive, carrying their places, members, and past lessons.",
+        "A new championship chapter starts beneath the playground lights.",
+        "The first match awaits. Let the tournament history be written."
+      ],
+      "audio_root": "audio/championship_intro"
+    },
+    "championship_outro": {
+      "texts": [
+        "The championship has ended. The winning team enters the record.",
+        "The final result is sealed. A new champion stands above the bracket.",
+        "The last match is complete, and the playground remembers its winner.",
+        "The championship closes with one formation carrying the final honor.",
+        "A tournament has become history. The champion now shapes the next season.",
+        "The bracket is finished. Every team leaves with a lesson and a record.",
+        "The final victory is recorded across the teams, characters, and place.",
+        "The championship lights fade, but its result will remain visible.",
+        "The winner is known. The next challenge will begin from this history.",
+        "The tournament is over. The playground has a new champion."
+      ],
+      "audio_root": "audio/championship_outro"
+    }
+  }
+}

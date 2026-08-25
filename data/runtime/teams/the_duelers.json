@@ -3,18 +3,18 @@
   "id": "the_duelers",
   "category": "teams",
   "state": {
-    "team_effect": {},
     "relationship": "stranger",
+    "knowledge_state": {},
+    "effect_locked": false,
+    "learning_state": {},
+    "rank": 1,
+    "formation_state": "complete",
     "experience": {
       "duels": 0,
       "wins": 0,
       "losses": 0,
       "draws": 0
     },
-    "effect_locked": false,
-    "knowledge_state": {},
-    "history": [],
-    "learning_state": {},
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -22,6 +22,137 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "rank": 1
+    "team_effect": {},
+    "formation_requests": [],
+    "history": [
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "mystery_arc",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "mystery_arc"
+        ],
+        "time": 1787666900.0188608
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "mystery_arc",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-lowest-lp",
+        "mode": "timed",
+        "place": "neon_playground",
+        "finisher": "timed-lowest-lp",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "mystery_arc"
+        ],
+        "time": 1787666900.1398907
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "mystery_arc",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "gamble",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "mystery_arc"
+        ],
+        "time": 1787666900.2513072
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "mystery_arc",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "mystery_arc"
+        ],
+        "time": 1787667089.73887
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "mystery_arc",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-lowest-lp",
+        "mode": "timed",
+        "place": "neon_playground",
+        "finisher": "timed-lowest-lp",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_fridge"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "mystery_arc"
+        ],
+        "time": 1787667089.855552
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "mystery_arc",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "gamble",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "mystery_arc"
+        ],
+        "time": 1787667089.9919584
+      }
+    ]
   }
 }

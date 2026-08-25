@@ -9,7 +9,10 @@
     "effects": [],
     "event_response_policies": {},
     "event_window_policies": {},
-    "trigger_order_policies": {}
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "",
+    "linked_teams": []
   },
   {
     "id": "mystery_void",
@@ -21,6 +24,9 @@
     "effects": [],
     "event_response_policies": {},
     "event_window_policies": {},
-    "trigger_order_policies": {}
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "",
+    "linked_teams": []
   }
 ]
