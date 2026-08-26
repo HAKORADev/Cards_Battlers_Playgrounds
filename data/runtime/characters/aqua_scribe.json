@@ -3,93 +3,1022 @@
   "id": "aqua_scribe",
   "category": "characters",
   "state": {
-    "enemies": [],
-    "library_cards": [
-      "archive_signal",
-      "solar_burst",
-      "glass_sphinx",
-      "ember_chimera",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "summoned_skull",
-      "dark_magician",
-      "storm_lancer",
-      "aurora_bridge",
-      "thunder_kite",
-      "sky_archer",
-      "aqua_sentinel",
-      "aqua_sentinel",
-      "sky_archer",
-      "iron_fridge",
-      "iron_fridge",
-      "echo_bolt",
-      "aqua_sentinel",
-      "cinder_knight",
-      "clockwork_mite",
-      "mirror_force",
-      "iron_fridge",
-      "garden_sentinel",
-      "aqua_sentinel",
-      "void_titan",
-      "sky_archer",
-      "mystical_space_typhoon",
-      "cinder_knight",
-      "cinder_knight",
-      "trio_mysterio_card_02",
-      "cinder_knight",
-      "echo_bolt",
-      "aurora_bridge",
-      "trio_mysterio_card_05",
-      "copper_gryphon",
-      "iron_oath",
-      "sunlit_field",
-      "solar_burst",
-      "man_eater_bug",
-      "cinder_knight",
-      "mirror_trap",
-      "grave_bloom",
-      "aqua_sentinel",
-      "aqua_sentinel",
-      "sunforge_guard",
-      "trio_relic",
-      "trio_relic"
-    ],
-    "goals": [
-      {
-        "id": "master_aqua",
-        "kind": "master_family",
-        "target": "aqua",
-        "progress": 0.0,
-        "priority": 1.0
+    "knowledge_state": {
+      "cards": {
+        "aurora_bridge": {
+          "card_id": "aurora_bridge",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 6088,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "coral_scout"
+          ],
+          "contexts": [
+            {
+              "trade_id": "trade_1001000_1"
+            }
+          ]
+        },
+        "glass_sphinx": {
+          "card_id": "glass_sphinx",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3885
+        },
+        "solar_burst": {
+          "card_id": "solar_burst",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4736,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "aqua_sentinel": {
+          "card_id": "aqua_sentinel",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "public",
+          "confidence": 1.0,
+          "sightings": 7024,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "relic_awakening": {
+          "card_id": "relic_awakening",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3761
+        },
+        "repair_matrix": {
+          "card_id": "repair_matrix",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4190,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "tide_mender": {
+          "card_id": "tide_mender",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4899
+        },
+        "moonlit_drake": {
+          "card_id": "moonlit_drake",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4191,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "briar_runner": {
+          "card_id": "briar_runner",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4921
+        },
+        "garden_sentinel": {
+          "card_id": "garden_sentinel",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "public",
+          "confidence": 1.0,
+          "sightings": 4695,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "night_lure": {
+          "card_id": "night_lure",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4191
+        },
+        "grave_bloom": {
+          "card_id": "grave_bloom",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3921,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "echo_bolt": {
+          "card_id": "echo_bolt",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4730,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "coral_scout"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "timed"
+            }
+          ]
+        },
+        "fusion_catalyst": {
+          "card_id": "fusion_catalyst",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3775
+        },
+        "basalt_keeper": {
+          "card_id": "basalt_keeper",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 5511
+        },
+        "clockwork_mite": {
+          "card_id": "clockwork_mite",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3985
+        },
+        "archive_signal": {
+          "card_id": "archive_signal",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "public",
+          "confidence": 1.0,
+          "sightings": 6015
+        },
+        "sunforge_guard": {
+          "card_id": "sunforge_guard",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3807,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "skyglass_owl": {
+          "card_id": "skyglass_owl",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4318
+        },
+        "iron_fridge": {
+          "card_id": "iron_fridge",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4042,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "ritual_convergence": {
+          "card_id": "ritual_convergence",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3617
+        },
+        "ember_drone": {
+          "card_id": "ember_drone",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3886,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "sunlit_field": {
+          "card_id": "sunlit_field",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4447,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "summoned_skull": {
+          "card_id": "summoned_skull",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4395
+        },
+        "cinder_knight": {
+          "card_id": "cinder_knight",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "public",
+          "confidence": 1.0,
+          "sightings": 4381,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "river_colossus": {
+          "card_id": "river_colossus",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4126,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "man_eater_bug": {
+          "card_id": "man_eater_bug",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3697,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "dark_hole": {
+          "card_id": "dark_hole",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4922
+        },
+        "copper_gryphon": {
+          "card_id": "copper_gryphon",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4116,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "storm_lancer": {
+          "card_id": "storm_lancer",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4977
+        },
+        "quiet_alchemist": {
+          "card_id": "quiet_alchemist",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4538,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "trio_relic": {
+          "card_id": "trio_relic",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3768,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "iron_oath": {
+          "card_id": "iron_oath",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3618,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "mirror_trap": {
+          "card_id": "mirror_trap",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4406,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "sky_archer": {
+          "card_id": "sky_archer",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3884,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "mystical_space_typhoon": {
+          "card_id": "mystical_space_typhoon",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4359,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "ritual_warden": {
+          "card_id": "ritual_warden",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3617
+        },
+        "thunder_kite": {
+          "card_id": "thunder_kite",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4074
+        },
+        "mirror_force": {
+          "card_id": "mirror_force",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 4506,
+          "sources": [
+            "traded"
+          ],
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "dark_magician": {
+          "card_id": "dark_magician",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3793
+        },
+        "ember_chimera": {
+          "card_id": "ember_chimera",
+          "last_seen_turn": 7,
+          "last_seen_phase": "BATTLE",
+          "visibility": "private",
+          "confidence": 1.0,
+          "sightings": 3771
+        },
+        "void_titan": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 5,
+          "owners": [
+            "rival_echo",
+            "coral_scout"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            },
+            {
+              "duel": true,
+              "mode": "timed"
+            },
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "trio_mysterio_card_02": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        },
+        "tide_oracle": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "coral_scout"
+          ],
+          "contexts": [
+            {
+              "trade_id": "trade_1001000_1"
+            }
+          ]
+        },
+        "trio_mysterio_card_05": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "rival_echo"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "current"
+            }
+          ]
+        }
       },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 2.0,
-        "priority": 0.8
+      "opponents": {
+        "rival_echo": {
+          "cards": {
+            "storm_lancer": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 740
+            },
+            "dark_hole": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 683
+            },
+            "summoned_skull": {
+              "last_seen_turn": 11,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 426
+            },
+            "archive_signal": {
+              "last_seen_turn": 7,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 1254
+            },
+            "glass_sphinx": {
+              "last_seen_turn": 15,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 152
+            },
+            "solar_burst": {
+              "last_seen_turn": 11,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 618
+            },
+            "briar_runner": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 732
+            },
+            "night_lure": {
+              "last_seen_turn": 15,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 330
+            },
+            "mirror_trap": {
+              "last_seen_turn": 9,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 454
+            },
+            "sunlit_field": {
+              "last_seen_turn": 15,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 460
+            },
+            "basalt_keeper": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 1088
+            },
+            "aqua_sentinel": {
+              "last_seen_turn": 7,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 1886
+            },
+            "aurora_bridge": {
+              "last_seen_turn": 7,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 1276
+            },
+            "echo_bolt": {
+              "last_seen_turn": 11,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 622
+            },
+            "iron_fridge": {
+              "last_seen_turn": 10,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 248
+            },
+            "dark_magician": {
+              "last_seen_turn": 11,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 112
+            },
+            "copper_gryphon": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 271
+            },
+            "garden_sentinel": {
+              "last_seen_turn": 7,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 583
+            },
+            "skyglass_owl": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 411
+            },
+            "thunder_kite": {
+              "last_seen_turn": 10,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 243
+            },
+            "moonlit_drake": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 313
+            },
+            "tide_mender": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 718
+            },
+            "sky_archer": {
+              "last_seen_turn": 8,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 150
+            },
+            "fusion_catalyst": {
+              "last_seen_turn": 15,
+              "last_seen_phase": "MAIN 1",
+              "confidence": 1.0,
+              "sightings": 98
+            },
+            "ember_drone": {
+              "last_seen_turn": 9,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 172
+            },
+            "ember_chimera": {
+              "last_seen_turn": 15,
+              "last_seen_phase": "MAIN 1",
+              "confidence": 1.0,
+              "sightings": 98
+            },
+            "clockwork_mite": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 204
+            },
+            "river_colossus": {
+              "last_seen_turn": 11,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 300
+            },
+            "mystical_space_typhoon": {
+              "last_seen_turn": 15,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 420
+            },
+            "cinder_knight": {
+              "last_seen_turn": 7,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 404
+            },
+            "repair_matrix": {
+              "last_seen_turn": 11,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 312
+            },
+            "mirror_force": {
+              "last_seen_turn": 8,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 516
+            },
+            "sunforge_guard": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 108
+            },
+            "quiet_alchemist": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 516
+            },
+            "grave_bloom": {
+              "last_seen_turn": 19,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 162
+            },
+            "man_eater_bug": {
+              "last_seen_turn": 10,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 50
+            },
+            "relic_awakening": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 76
+            },
+            "trio_relic": {
+              "last_seen_turn": 21,
+              "last_seen_phase": "BATTLE",
+              "confidence": 1.0,
+              "sightings": 76
+            }
+          },
+          "effects": {},
+          "sightings": 17282
+        },
+        "coral_scout": {
+          "cards": {},
+          "effects": {},
+          "sightings": 0
+        }
       },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 7.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "idle_cue_count": 0,
-    "learning_state": {
-      "observations": 293187,
-      "updates": 92,
-      "last_update": 1787710983.3089864
+      "effects": {}
     },
     "history": [
       {
@@ -411,144 +1340,66 @@
         "time": 1787710983.382551
       }
     ],
-    "borrowed_cards": [],
-    "relationship_history": [
-      {
-        "other": "coral_scout",
-        "relation": "ally",
-        "reason": "focused_test",
-        "time": 1001.0
-      }
-    ],
-    "learned_cards": {
-      "storm_lancer": 1340,
-      "summoned_skull": 788,
-      "dark_hole": 1269,
-      "glass_sphinx": 338,
-      "archive_signal": 2072,
-      "solar_burst": 1172,
-      "briar_runner": 1290,
-      "mirror_trap": 834,
-      "night_lure": 611,
-      "sunlit_field": 796,
-      "basalt_keeper": 1681,
-      "aqua_sentinel": 2969,
-      "mirror_force": 880,
-      "man_eater_bug": 177,
-      "garden_sentinel": 1155,
-      "skyglass_owl": 698,
-      "copper_gryphon": 466,
-      "thunder_kite": 448,
-      "tide_mender": 1154,
-      "sky_archer": 438,
-      "fusion_catalyst": 224,
-      "ember_drone": 378,
-      "ember_chimera": 224,
-      "echo_bolt": 1064,
-      "aurora_bridge": 2051,
-      "clockwork_mite": 406,
-      "river_colossus": 615,
-      "mystical_space_typhoon": 732,
-      "iron_fridge": 499,
-      "cinder_knight": 766,
-      "repair_matrix": 689,
-      "dark_magician": 272,
-      "sunforge_guard": 229,
-      "quiet_alchemist": 826,
-      "moonlit_drake": 759,
-      "grave_bloom": 392,
-      "relic_awakening": 183,
-      "trio_relic": 183,
-      "tide_oracle": 191,
-      "void_titan": 38
-    },
-    "allies": [
-      "coral_scout"
-    ],
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
-    },
-    "learned_opponents": {
-      "rival_echo": 85,
-      "ember_sage": 5,
-      "coral_scout": 2
-    },
-    "activity": "idle",
-    "idle_elapsed": 0.0,
-    "out_of_game_until": 0.0,
     "availability": "free",
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 10.0,
-      "memory": 5.0,
-      "inference": 5.0,
-      "planning": 5.0,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 2.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 0.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "spellcaster": 0.0,
-        "insect": 0.0,
-        "plant": 0.0,
-        "beast": 0.0,
-        "dragon": 0.0,
-        "zombie": 0.0,
-        "thunder": 0.0,
-        "winged_beast": 0.0,
-        "rock": 0.0,
-        "pyro": 0.0
+    "activity": "idle",
+    "persona_state": {
+      "reputation": 20.399999999999967,
+      "trust": {
+        "coral_scout": 2.25
       },
-      "card_kind_weights": {
-        "normal": 0.0,
-        "effect": 0.0,
-        "spell": 0.0,
-        "field": 0.0,
-        "trap": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "legendary": 0.0
-      },
-      "subtype_weights": {},
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      },
-      "duel": {
-        "summon_bias": 1.0,
-        "set_bias": 1.0,
-        "activation_bias": 1.0,
-        "removal_bias": 1.0,
-        "defense_bias": 1.0,
-        "attack_bias": 1.0,
-        "trap_threshold": 0.0
-      }
+      "confidence": 10.0
     },
-    "current_place": "",
-    "mood": "neutral",
-    "movement_progress": 0.0,
-    "destination": "",
-    "cooldown_until": 0.0,
+    "library_cards": [
+      "archive_signal",
+      "solar_burst",
+      "glass_sphinx",
+      "ember_chimera",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "summoned_skull",
+      "dark_magician",
+      "storm_lancer",
+      "aurora_bridge",
+      "thunder_kite",
+      "sky_archer",
+      "aqua_sentinel",
+      "aqua_sentinel",
+      "sky_archer",
+      "iron_fridge",
+      "iron_fridge",
+      "echo_bolt",
+      "aqua_sentinel",
+      "cinder_knight",
+      "clockwork_mite",
+      "mirror_force",
+      "iron_fridge",
+      "garden_sentinel",
+      "aqua_sentinel",
+      "void_titan",
+      "sky_archer",
+      "mystical_space_typhoon",
+      "cinder_knight",
+      "cinder_knight",
+      "trio_mysterio_card_02",
+      "cinder_knight",
+      "echo_bolt",
+      "aurora_bridge",
+      "trio_mysterio_card_05",
+      "copper_gryphon",
+      "iron_oath",
+      "sunlit_field",
+      "solar_burst",
+      "man_eater_bug",
+      "cinder_knight",
+      "mirror_trap",
+      "grave_bloom",
+      "aqua_sentinel",
+      "aqua_sentinel",
+      "sunforge_guard",
+      "trio_relic",
+      "trio_relic"
+    ],
     "memories": [
       {
         "event": "trio_card_received",
@@ -2377,1032 +3228,128 @@
         "sim_time": 160.0
       }
     ],
-    "knowledge_state": {
-      "cards": {
-        "aurora_bridge": {
-          "card_id": "aurora_bridge",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 6088,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "coral_scout"
-          ],
-          "contexts": [
-            {
-              "trade_id": "trade_1001000_1"
-            }
-          ]
-        },
-        "glass_sphinx": {
-          "card_id": "glass_sphinx",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3885
-        },
-        "solar_burst": {
-          "card_id": "solar_burst",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4736,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "aqua_sentinel": {
-          "card_id": "aqua_sentinel",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "public",
-          "confidence": 1.0,
-          "sightings": 7024,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "relic_awakening": {
-          "card_id": "relic_awakening",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3761
-        },
-        "repair_matrix": {
-          "card_id": "repair_matrix",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4190,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "tide_mender": {
-          "card_id": "tide_mender",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4899
-        },
-        "moonlit_drake": {
-          "card_id": "moonlit_drake",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4191,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "briar_runner": {
-          "card_id": "briar_runner",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4921
-        },
-        "garden_sentinel": {
-          "card_id": "garden_sentinel",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "public",
-          "confidence": 1.0,
-          "sightings": 4695,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "night_lure": {
-          "card_id": "night_lure",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4191
-        },
-        "grave_bloom": {
-          "card_id": "grave_bloom",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3921,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "echo_bolt": {
-          "card_id": "echo_bolt",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4730,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "coral_scout"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "timed"
-            }
-          ]
-        },
-        "fusion_catalyst": {
-          "card_id": "fusion_catalyst",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3775
-        },
-        "basalt_keeper": {
-          "card_id": "basalt_keeper",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 5511
-        },
-        "clockwork_mite": {
-          "card_id": "clockwork_mite",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3985
-        },
-        "archive_signal": {
-          "card_id": "archive_signal",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "public",
-          "confidence": 1.0,
-          "sightings": 6015
-        },
-        "sunforge_guard": {
-          "card_id": "sunforge_guard",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3807,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "skyglass_owl": {
-          "card_id": "skyglass_owl",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4318
-        },
-        "iron_fridge": {
-          "card_id": "iron_fridge",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4042,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "ritual_convergence": {
-          "card_id": "ritual_convergence",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3617
-        },
-        "ember_drone": {
-          "card_id": "ember_drone",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3886,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "sunlit_field": {
-          "card_id": "sunlit_field",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4447,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "summoned_skull": {
-          "card_id": "summoned_skull",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4395
-        },
-        "cinder_knight": {
-          "card_id": "cinder_knight",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "public",
-          "confidence": 1.0,
-          "sightings": 4381,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "river_colossus": {
-          "card_id": "river_colossus",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4126,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "man_eater_bug": {
-          "card_id": "man_eater_bug",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3697,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "dark_hole": {
-          "card_id": "dark_hole",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4922
-        },
-        "copper_gryphon": {
-          "card_id": "copper_gryphon",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4116,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "storm_lancer": {
-          "card_id": "storm_lancer",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4977
-        },
-        "quiet_alchemist": {
-          "card_id": "quiet_alchemist",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4538,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "trio_relic": {
-          "card_id": "trio_relic",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3768,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "iron_oath": {
-          "card_id": "iron_oath",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3618,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "mirror_trap": {
-          "card_id": "mirror_trap",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4406,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "sky_archer": {
-          "card_id": "sky_archer",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3884,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "mystical_space_typhoon": {
-          "card_id": "mystical_space_typhoon",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4359,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "ritual_warden": {
-          "card_id": "ritual_warden",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3617
-        },
-        "thunder_kite": {
-          "card_id": "thunder_kite",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4074
-        },
-        "mirror_force": {
-          "card_id": "mirror_force",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 4506,
-          "sources": [
-            "traded"
-          ],
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "dark_magician": {
-          "card_id": "dark_magician",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3793
-        },
-        "ember_chimera": {
-          "card_id": "ember_chimera",
-          "last_seen_turn": 7,
-          "last_seen_phase": "BATTLE",
-          "visibility": "private",
-          "confidence": 1.0,
-          "sightings": 3771
-        },
-        "void_titan": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 5,
-          "owners": [
-            "rival_echo",
-            "coral_scout"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            },
-            {
-              "duel": true,
-              "mode": "timed"
-            },
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "trio_mysterio_card_02": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        },
-        "tide_oracle": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "coral_scout"
-          ],
-          "contexts": [
-            {
-              "trade_id": "trade_1001000_1"
-            }
-          ]
-        },
-        "trio_mysterio_card_05": {
-          "sources": [
-            "traded"
-          ],
-          "sightings": 1,
-          "owners": [
-            "rival_echo"
-          ],
-          "contexts": [
-            {
-              "duel": true,
-              "mode": "current"
-            }
-          ]
-        }
-      },
-      "opponents": {
-        "rival_echo": {
-          "cards": {
-            "storm_lancer": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 740
-            },
-            "dark_hole": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 683
-            },
-            "summoned_skull": {
-              "last_seen_turn": 11,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 426
-            },
-            "archive_signal": {
-              "last_seen_turn": 7,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 1254
-            },
-            "glass_sphinx": {
-              "last_seen_turn": 15,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 152
-            },
-            "solar_burst": {
-              "last_seen_turn": 11,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 618
-            },
-            "briar_runner": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 732
-            },
-            "night_lure": {
-              "last_seen_turn": 15,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 330
-            },
-            "mirror_trap": {
-              "last_seen_turn": 9,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 454
-            },
-            "sunlit_field": {
-              "last_seen_turn": 15,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 460
-            },
-            "basalt_keeper": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 1088
-            },
-            "aqua_sentinel": {
-              "last_seen_turn": 7,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 1886
-            },
-            "aurora_bridge": {
-              "last_seen_turn": 7,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 1276
-            },
-            "echo_bolt": {
-              "last_seen_turn": 11,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 622
-            },
-            "iron_fridge": {
-              "last_seen_turn": 10,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 248
-            },
-            "dark_magician": {
-              "last_seen_turn": 11,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 112
-            },
-            "copper_gryphon": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 271
-            },
-            "garden_sentinel": {
-              "last_seen_turn": 7,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 583
-            },
-            "skyglass_owl": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 411
-            },
-            "thunder_kite": {
-              "last_seen_turn": 10,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 243
-            },
-            "moonlit_drake": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 313
-            },
-            "tide_mender": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 718
-            },
-            "sky_archer": {
-              "last_seen_turn": 8,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 150
-            },
-            "fusion_catalyst": {
-              "last_seen_turn": 15,
-              "last_seen_phase": "MAIN 1",
-              "confidence": 1.0,
-              "sightings": 98
-            },
-            "ember_drone": {
-              "last_seen_turn": 9,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 172
-            },
-            "ember_chimera": {
-              "last_seen_turn": 15,
-              "last_seen_phase": "MAIN 1",
-              "confidence": 1.0,
-              "sightings": 98
-            },
-            "clockwork_mite": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 204
-            },
-            "river_colossus": {
-              "last_seen_turn": 11,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 300
-            },
-            "mystical_space_typhoon": {
-              "last_seen_turn": 15,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 420
-            },
-            "cinder_knight": {
-              "last_seen_turn": 7,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 404
-            },
-            "repair_matrix": {
-              "last_seen_turn": 11,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 312
-            },
-            "mirror_force": {
-              "last_seen_turn": 8,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 516
-            },
-            "sunforge_guard": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 108
-            },
-            "quiet_alchemist": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 516
-            },
-            "grave_bloom": {
-              "last_seen_turn": 19,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 162
-            },
-            "man_eater_bug": {
-              "last_seen_turn": 10,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 50
-            },
-            "relic_awakening": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 76
-            },
-            "trio_relic": {
-              "last_seen_turn": 21,
-              "last_seen_phase": "BATTLE",
-              "confidence": 1.0,
-              "sightings": 76
-            }
-          },
-          "effects": {},
-          "sightings": 17282
-        },
-        "coral_scout": {
-          "cards": {},
-          "effects": {},
-          "sightings": 0
-        }
-      },
-      "effects": {}
+    "out_of_game_until": 0.0,
+    "cooldown_until": 0.0,
+    "learned_cards": {
+      "storm_lancer": 1340,
+      "summoned_skull": 788,
+      "dark_hole": 1269,
+      "glass_sphinx": 338,
+      "archive_signal": 2072,
+      "solar_burst": 1172,
+      "briar_runner": 1290,
+      "mirror_trap": 834,
+      "night_lure": 611,
+      "sunlit_field": 796,
+      "basalt_keeper": 1681,
+      "aqua_sentinel": 2969,
+      "mirror_force": 880,
+      "man_eater_bug": 177,
+      "garden_sentinel": 1155,
+      "skyglass_owl": 698,
+      "copper_gryphon": 466,
+      "thunder_kite": 448,
+      "tide_mender": 1154,
+      "sky_archer": 438,
+      "fusion_catalyst": 224,
+      "ember_drone": 378,
+      "ember_chimera": 224,
+      "echo_bolt": 1064,
+      "aurora_bridge": 2051,
+      "clockwork_mite": 406,
+      "river_colossus": 615,
+      "mystical_space_typhoon": 732,
+      "iron_fridge": 499,
+      "cinder_knight": 766,
+      "repair_matrix": 689,
+      "dark_magician": 272,
+      "sunforge_guard": 229,
+      "quiet_alchemist": 826,
+      "moonlit_drake": 759,
+      "grave_bloom": 392,
+      "relic_awakening": 183,
+      "trio_relic": 183,
+      "tide_oracle": 191,
+      "void_titan": 38
     },
-    "world_status": "in_playground",
-    "persona_state": {
-      "reputation": 20.399999999999967,
-      "trust": {
-        "coral_scout": 2.25
-      },
-      "confidence": 10.0
-    },
+    "movement_progress": 0.0,
     "rank": 7,
+    "idle_cue_count": 0,
+    "borrowed_cards": [],
+    "destination": "",
+    "relationship": "ally",
+    "idle_elapsed": 0.0,
+    "allies": [
+      "coral_scout"
+    ],
+    "enemies": [],
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 2.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 0.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 0.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0,
+        "pyro": 0.0
+      },
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {},
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      }
+    },
+    "mood": "neutral",
     "experience": {
       "duels": 92,
       "wins": 52,
@@ -3472,6 +3419,59 @@
       },
       "losss": 40
     },
-    "relationship": "ally"
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
+    "learned_opponents": {
+      "rival_echo": 85,
+      "ember_sage": 5,
+      "coral_scout": 2
+    },
+    "relationship_history": [
+      {
+        "other": "coral_scout",
+        "relation": "ally",
+        "reason": "focused_test",
+        "time": 1001.0
+      }
+    ],
+    "goals": [
+      {
+        "id": "master_aqua",
+        "kind": "master_family",
+        "target": "aqua",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 2.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 7.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "world_status": "in_playground",
+    "learning_state": {
+      "observations": 293187,
+      "updates": 92,
+      "last_update": 1787710983.3089864
+    },
+    "current_place": ""
   }
 }

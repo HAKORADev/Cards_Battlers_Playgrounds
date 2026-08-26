@@ -99,6 +99,8 @@
     "audio/watching-in",
     "audio/watching-out",
     "audio/win",
+    "badges",
+    "badges/levels",
     "cards",
     "cards/aqua_sentinel",
     "cards/aqua_sentinel/about/animations",

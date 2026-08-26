@@ -202,6 +202,17 @@ def draw_asset_button(surface, assets, rect, label, font, hovered=False, selecte
     draw_text(surface, label, rect.center, font, COLORS["ink"], "center")
 
 
+def draw_vertical_label(surface, text, rect, font, color):
+    rect = pygame.Rect(rect)
+    characters = [character for character in str(text) if character != " "]
+    if not characters: return
+    gap = 1
+    line_height = max(1, int(font.get_height()))
+    total_height = len(characters) * line_height + max(0, len(characters) - 1) * gap
+    start_y = rect.centery - total_height // 2 + line_height // 2
+    for index, character in enumerate(characters): draw_text(surface, character, (rect.centerx, start_y + index * (line_height + gap)), font, color, "center")
+
+
 def button_audio_kind(label):
     return "out" if str(label).strip().upper() in {"BACK", "EXIT", "EXIT WATCH", "CANCEL", "NO", "CLOSE", "RETURN", "PREV", "QUIT"} else "in"
 
@@ -494,10 +505,9 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     title_limit = 8 if field_mode else 12 if compact else 24
     draw_text(surface, card.name[:title_limit], (layout_rect.x + int(layout_rect.width * 0.47), layout_rect.y + int(layout_rect.height * 0.105)), assets.display_font(title_size, True), COLORS["ink"], "center")
     badge_center = (rect.x + int(rect.width * 0.84), rect.y + int(rect.height * 0.145))
-    badge = assets.card_badge(template_kind)
-    if badge:
-        badge_size = max(8, int(rect.width * 0.16))
-        surface.blit(scaled_image(badge, (badge_size, badge_size)), (badge_center[0] - badge_size // 2, badge_center[1] - badge_size // 2))
+    badge_size = max(8, int(rect.width * 0.16))
+    badge = assets.card_badge(template_kind, (badge_size, badge_size))
+    if badge: surface.blit(badge, (badge_center[0] - badge_size // 2, badge_center[1] - badge_size // 2))
 
     monster_kind = card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
     row_y = layout_rect.y + int(layout_rect.height * 0.195)
@@ -696,8 +706,36 @@ class AssetBank:
                 if kind in self.card_templates and kind in self.card_badges: break
     def card_template(self, kind):
         return self.card_templates.get("spell" if kind == "field" else kind) or self.card_templates.get("normal")
-    def card_badge(self, kind):
-        return self.card_badges.get("spell" if kind == "field" else kind)
+    def circular_image(self, image, size, rotation=0):
+        if image is None: return None
+        size = (max(1, int(size[0])), max(1, int(size[1])))
+        image = scaled_image(image, size)
+        if rotation: image = pygame.transform.rotate(image, float(rotation))
+        image = scaled_image(image, size)
+        result = pygame.Surface(size, pygame.SRCALPHA)
+        result.blit(image, (0, 0))
+        mask = pygame.Surface(size, pygame.SRCALPHA)
+        mask.fill((255, 255, 255, 0))
+        pygame.draw.ellipse(mask, (255, 255, 255, 255), mask.get_rect())
+        result.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        return result
+
+    def card_badge(self, kind, size=None, rotation=0):
+        image = self.card_badges.get("spell" if kind == "field" else kind)
+        return self.circular_image(image, size, rotation) if image is not None and size else image
+
+    def level_badge(self, category, entity, level, size=(28, 28), rotation=0):
+        level = clamp(int(level), 0, 10)
+        folder = ""
+        if category == "decks" and isinstance(entity, dict): folder = str(entity.get("media_folder", ""))
+        elif entity is not None: folder = str(getattr(entity, "media_folder", ""))
+        if folder:
+            root = DATA / folder / "badges" / "levels"
+            for extension in MediaRegistry.image_extensions:
+                image = self.media_image(root / f"{level}{extension}", None, "badge")
+                if image is not None: return self.circular_image(image, size, rotation)
+        image = self.image(f"badges/levels/{level}")
+        return self.circular_image(image, size, rotation) if image is not None else None
 
     def load_images(self):
         self.splash_names = []
@@ -930,10 +968,17 @@ class AssetBank:
     def deck_portrait(self, deck, size=None):
         folder = deck.get("media_folder", "") if isinstance(deck, dict) else ""
         root = DATA / folder
-        for path in [root / "pfp" / "variants" / "1.png", root / "pfp" / "1.png"]:
-            image = self.media_image(path, size, "portrait")
+        candidates = []
+        for extension in MediaRegistry.image_extensions:
+            candidates.append(root / "pfp" / f"portrait{extension}")
+        for extension in MediaRegistry.image_extensions:
+            candidates.append(root / "pfp" / "variants" / f"1{extension}")
+        for extension in MediaRegistry.image_extensions:
+            candidates.append(root / "pfp" / f"1{extension}")
+        for path in candidates:
+            image = self.media_image(path, size, "deck_portrait")
             if image is not None: return image
-        return self.image("placeholder/deck_pfp", size) or self.image("placeholder/character_pfp", size)
+        return self.image("placeholder/deck_pfp_rectangle", size) or self.image("placeholder/deck_pfp", size) or self.image("placeholder/character_pfp", size)
 
     def release_media_scope(self, scope):
         keys = self.media_scopes.pop(scope, set())
@@ -1994,9 +2039,9 @@ class ContentStore:
         known = getattr(character, "learned_cards", {}) if character else {}
         relation = self.relationship_for(character_id, opponent_id) if opponent else "stranger"
         ranges = getattr(character, "state_rules", {}).get("deck_ranges", {}) if character else {}
-        raw_range = ranges.get(relation) or ranges.get("opponent") or ranges.get("stranger") or [1, 10]
-        try: low, high = sorted((clamp(int(raw_range[0]), 1, 10), clamp(int(raw_range[1]), 1, 10)))
-        except (TypeError, ValueError, IndexError): low, high = 1, 10
+        raw_range = ranges.get(relation) or ranges.get("opponent") or ranges.get("stranger") or [0, 10]
+        try: low, high = sorted((clamp(int(raw_range[0]), 0, 10), clamp(int(raw_range[1]), 0, 10)))
+        except (TypeError, ValueError, IndexError): low, high = 0, 10
         own_level = self.character_level(character_id)
         opponent_level = self.character_level(opponent_id) if opponent else own_level
         difficulty = str(self.save_data.get("difficulty", "normal")).lower()
@@ -2057,7 +2102,7 @@ class ContentStore:
         character.cognition["smartness"] = float(character.smartness)
         character.learning_policy = self.normalize_number_map(getattr(character, "learning_policy", {}), {"observation_rate": 5.0, "retention": 5.0, "adaptation_rate": 5.0, "decay": 1.0, "history_limit": 10.0}, 0.0, 100.0)
         character.state_rules = dict(getattr(character, "state_rules", {}) or {})
-        character.state_rules.setdefault("deck_ranges", {"stranger": [1, 10], "ally": [1, 10], "enemy": [1, 10]})
+        character.state_rules.setdefault("deck_ranges", {"stranger": [0, 10], "ally": [0, 10], "enemy": [0, 10]})
         character.state_rules.setdefault("preferred_state", "stranger")
         character.relationship_history = list(getattr(character, "relationship_history", []) or [])[-100:]
         character.mood_state = dict(getattr(character, "mood_state", {}) or {})
@@ -3666,20 +3711,25 @@ class ContentStore:
         if changed: self.save()
 
     def progression_rules(self):
-        defaults = {"max_level": 10, "deck_thresholds": [0.0, 1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8, 8.8, 9.8], "character_wins_per_level": 3, "character_losses_per_level": 4, "team_wins_per_level": 3, "team_losses_per_level": 4, "strong_opponent_bonus": 1.0}
+        defaults = {"min_level": 0, "max_level": 10, "deck_thresholds": [0.0, 0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9.0], "character_wins_per_level": 3, "character_losses_per_level": 4, "team_wins_per_level": 3, "team_losses_per_level": 4, "strong_opponent_bonus": 1.0}
         configured = dict((self.rules or {}).get("progression", {}) or {})
         result = dict(defaults)
         result.update(configured)
         result["max_level"] = clamp(int(result.get("max_level", 10) or 10), 1, 10)
-        result["deck_thresholds"] = [float(value) for value in list(result.get("deck_thresholds", defaults["deck_thresholds"]) or defaults["deck_thresholds"])][:result["max_level"]]
-        while len(result["deck_thresholds"]) < result["max_level"]: result["deck_thresholds"].append(result["deck_thresholds"][-1] + 1.0)
+        result["min_level"] = clamp(int(result.get("min_level", 0) or 0), 0, result["max_level"])
+        raw_thresholds = [float(value) for value in list(result.get("deck_thresholds", defaults["deck_thresholds"]) or defaults["deck_thresholds"])]
+        result["deck_thresholds"] = raw_thresholds[:result["max_level"] + 1]
+        while len(result["deck_thresholds"]) < result["max_level"] + 1: result["deck_thresholds"].append(result["deck_thresholds"][-1] + 0.9)
+        result["deck_thresholds"][0] = 0.0
+        for index in range(1, len(result["deck_thresholds"])):
+            result["deck_thresholds"][index] = max(result["deck_thresholds"][index], result["deck_thresholds"][index - 1] + 0.01)
         return result
 
     def deck_level_profile(self, deck_id):
         deck = self.decks.get(deck_id, {})
         main_cards = list(deck.get("main_cards", []) if isinstance(deck, dict) else [])
         cards = [self.cards[card_id] for card_id in main_cards if card_id in self.cards]
-        if not cards: return {"level": 1, "score": 0.0, "average_stars": 0.0, "max_stars": 0, "elite_cards": 0, "legendary_cards": 0, "enablers": 0, "extra_cards": 0}
+        if not cards: return {"level": self.progression_rules()["min_level"], "score": 0.0, "average_stars": 0.0, "max_stars": 0, "elite_cards": 0, "legendary_cards": 0, "enablers": 0, "extra_cards": 0}
         average_stars = sum(int(card.stars) for card in cards) / len(cards)
         max_stars = max(int(card.stars) for card in cards)
         elite_cards = sum(1 for card in cards if int(card.stars) >= 8)
@@ -3688,16 +3738,17 @@ class ContentStore:
         extra_cards = len(deck.get("fusion_cards", []) if isinstance(deck, dict) else [])
         score = average_stars * 0.6 + max_stars * 0.2 + min(elite_cards, 6) * 0.35 + min(extra_cards, 15) * 0.12 + min(legendary_cards, 1) * 0.8 + min(enablers, 4) * 0.15
         thresholds = self.progression_rules()["deck_thresholds"]
-        level = 1 + sum(score >= threshold for threshold in thresholds[1:])
-        return {"level": clamp(level, 1, self.progression_rules()["max_level"]), "score": round(score, 3), "average_stars": round(average_stars, 3), "max_stars": max_stars, "elite_cards": elite_cards, "legendary_cards": legendary_cards, "enablers": enablers, "extra_cards": extra_cards}
+        level = self.progression_rules()["min_level"] + sum(score >= threshold for threshold in thresholds[1:])
+        return {"level": clamp(level, self.progression_rules()["min_level"], self.progression_rules()["max_level"]), "score": round(score, 3), "average_stars": round(average_stars, 3), "max_stars": max_stars, "elite_cards": elite_cards, "legendary_cards": legendary_cards, "enablers": enablers, "extra_cards": extra_cards}
 
     def deck_level(self, deck_id):
-        return int(self.deck_level_profile(deck_id).get("level", 1))
+        return int(self.deck_level_profile(deck_id).get("level", self.progression_rules()["min_level"]))
 
     def character_level(self, character_id):
         character = self.characters.get(character_id)
-        if not character: return 1
-        base = clamp(int(character.stars), 1, 10)
+        if not character: return self.progression_rules()["min_level"]
+        rules = self.progression_rules()
+        base = clamp(int(character.stars), rules["min_level"], rules["max_level"])
         wins = sum(1 for item in character.history if item.get("result") == "win")
         losses = sum(1 for item in character.history if item.get("result") == "loss")
         strong_wins = 0
@@ -3706,24 +3757,22 @@ class ContentStore:
             opponent_id = item.get("opponent", "")
             opponent = self.characters.get(opponent_id)
             if opponent and int(opponent.stars) >= int(character.stars) + 2: strong_wins += 1
-        deck_bonus = max(0, self.deck_level(getattr(character, "deck_id", "")) - 5) // 2
-        rules = self.progression_rules()
-        level = base + wins // max(1, int(rules["character_wins_per_level"])) - losses // max(1, int(rules["character_losses_per_level"])) + min(strong_wins, 3)
-        level += deck_bonus
-        return clamp(level, 1, rules["max_level"])
+        deck_bonus = int(round((self.deck_level(getattr(character, "deck_id", "")) - 5) * 0.5))
+        level = base + wins // max(1, int(rules["character_wins_per_level"])) - losses // max(1, int(rules["character_losses_per_level"])) + min(strong_wins, 3) + deck_bonus
+        return clamp(level, rules["min_level"], rules["max_level"])
 
     def team_level(self, team_id):
         team = self.teams.get(team_id)
-        if not team: return 1
+        if not team: return self.progression_rules()["min_level"]
         members = [self.characters[member_id] for member_id in team.members if member_id in self.characters]
-        if not members: return 1
+        if not members: return self.progression_rules()["min_level"]
         wins = sum(1 for item in team.history if item.get("result") == "win")
         losses = sum(1 for item in team.history if item.get("result") == "loss")
         rules = self.progression_rules()
         level = round(sum(self.character_level(member.id) for member in members) / len(members))
         level += wins // max(1, int(rules["team_wins_per_level"])) - losses // max(1, int(rules["team_losses_per_level"]))
         if team.effect_locked: level += 1
-        return clamp(level, 1, rules["max_level"])
+        return clamp(level, rules["min_level"], rules["max_level"])
 
     def level_gap(self, actor_id, opponent_id):
         return self.character_level(actor_id) - self.character_level(opponent_id)
@@ -4154,10 +4203,10 @@ class ContentStore:
         events = ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"]
         trees = {
             "cards": ["logic", "art", "art/variants", "art/metadata"],
-            "characters": ["logic", "weights", "pfp", "pfp/variants", "cards", "cards/best-class"],
-            "teams": ["logic", "effects", "members", "members/1", "members/2", "members/3", "pfp", "pfp/variants"],
+            "characters": ["logic", "weights", "pfp", "pfp/variants", "badges", "badges/levels", "cards", "cards/best-class"],
+            "teams": ["logic", "effects", "members", "members/1", "members/2", "members/3", "pfp", "pfp/variants", "badges", "badges/levels"],
             "places": ["logic", "background/day", "background/night", "field/day", "field/night", "ground/day", "ground/night", "presentation"],
-            "decks": ["logic", "pfp", "pfp/variants", "cards", "experience"]
+            "decks": ["logic", "pfp", "pfp/variants", "badges", "badges/levels", "cards", "experience"]
         }
         if category == "cards":
             trees[category].extend(f"interactions/{event}/{part}" for event in events for part in ["animations", "audio", "vfx"])
@@ -7953,6 +8002,11 @@ class Scene:
         if title:
             draw_text(surface, title, (rect.x + 18, rect.y + 15), self.app.assets.font(18, True), COLORS["cream"])
 
+    def draw_level_badge(self, surface, category, entity, level, position, size=28, rotation=0):
+        image = self.app.assets.level_badge(category, entity, level, (size, size), rotation)
+        if image is not None: ui_blit(surface, image, position)
+        else: ui_draw_circle(surface, COLORS["gold"], (position[0] + size // 2, position[1] + size // 2), max(1, size // 2), 2)
+
     def draw_buttons(self, surface, size=15):
         for button in self.buttons: button.draw(surface, self.app.assets.font(size, True), assets=self.app.assets)
 
@@ -9381,7 +9435,8 @@ class DuelScene(Scene):
             short_label = DUEL_PHASE_ABBREVIATIONS[phase_name]
             rect = self.layout.phase_rect(index)
             active = phase_name == self.engine.phase
-            draw_asset_button(surface, self.app.assets, rect, short_label, self.app.assets.font(10, True), False, active)
+            draw_asset_button(surface, self.app.assets, rect, "", self.app.assets.font(9, True), False, active)
+            draw_vertical_label(surface, short_label, rect, self.app.assets.font(9, True), COLORS["ink"])
 
     def draw_hover_cloud(self, surface):
         if self.question: return
@@ -9985,12 +10040,16 @@ class DeckScene(Scene):
             rect = pygame.Rect(60, y, 680, 42)
             self.deck_rects.append((rect, deck_id))
             rounded(surface, rect, (16, 28, 58), COLORS["gold"], 6, 1)
-            draw_text(surface, deck.get("name", deck_id), (78, y + 13), self.app.assets.font(14, True), COLORS["cream"])
+            portrait = self.app.assets.deck_portrait(deck, (70, 36))
+            if portrait: ui_blit(surface, portrait, (66, y + 3))
+            level = self.app.store.deck_level(deck_id)
+            self.draw_level_badge(surface, "decks", deck, level, (140, y + 8), 26)
+            draw_text(surface, deck.get("name", deck_id), (176, y + 13), self.app.assets.font(14, True), COLORS["cream"])
             main_count = len(deck.get("main_cards", []))
             fusion_count = len(deck.get("fusion_cards", []))
             summary = DeckRules.summary(deck.get("main_cards", []), deck.get("fusion_cards", []), self.app.store.cards)
             owner_marker = "SLOT" if deck.get("owner_id") == owner_id else "SHARED"
-            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | LVL {self.app.store.deck_level(deck_id)}/10 | {summary} | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
+            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | LVL {level}/10 | {summary} | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -10081,7 +10140,11 @@ class DeckEditorScene(Scene):
         main_count = len(state["main_cards"]) if state else 0
         extra_count = len(state["fusion_cards"]) if state else 0
         status = "LEGAL" if state and state["legal"] else "INCOMPLETE / INVALID"
-        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  LVL {self.app.store.deck_level(self.deck_id)}/10  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
+        level = self.app.store.deck_level(self.deck_id)
+        portrait = self.app.assets.deck_portrait(deck, (86, 48))
+        if portrait: ui_blit(surface, portrait, (676, 82))
+        self.draw_level_badge(surface, "decks", deck, level, (642, 90), 28)
+        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  LVL {level}/10  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
         self.draw_panel(surface, (32, 155, 360, 330), "CURRENT CARDS", COLORS["gold"])
         self.draw_panel(surface, (410, 155, 358, 330), "CARD CATALOG", COLORS["cyan"])
         self.card_buttons = []
@@ -10513,8 +10576,10 @@ class CharactersScene(Scene):
             rounded(surface, (36, y, 728, 82), (14, 24, 52), accent, 8, 2)
             image = self.app.assets.character_portrait(char, (64, 64))
             if image: ui_blit(surface, image, (50, y + 9))
+            level = self.app.store.character_level(char.id)
+            self.draw_level_badge(surface, "characters", char, level, (92, y + 52), 24)
             draw_text(surface, char.name, (132, y + 14), self.app.assets.font(16, True), COLORS["cream"])
-            draw_text(surface, f"LVL {self.app.store.character_level(char.id)}/10  |  {char.stars} stars  |  rank {char.rank}  |  smartness {char.smartness}/10  |  mood {char.mood}", (132, y + 41), self.app.assets.font(11), accent)
+            draw_text(surface, f"LVL {level}/10  |  {char.stars} stars  |  rank {char.rank}  |  smartness {char.smartness}/10  |  mood {char.mood}", (132, y + 41), self.app.assets.font(11), accent)
             active_battle = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and char.id in [battle.get("from"), battle.get("to")]), None)
             current_state = "OUT OF GAME" if char.world_status != "in_playground" else "IN DUEL" if active_battle else str(char.availability).upper() + " / " + str(char.activity).upper()
             draw_text(surface, current_state + "  |  place: " + (char.current_place or "none") + "  |  history: " + str(len(char.history)), (132, y + 62), self.app.assets.font(10), COLORS["muted"])
@@ -10560,6 +10625,7 @@ class EntityDetailScene(Scene):
         if self.entity_type == "characters":
             image = self.app.assets.character_portrait(entity, (150, 150))
             if image: ui_blit(surface, image, (68, 165))
+            self.draw_level_badge(surface, "characters", entity, self.app.store.character_level(entity.id), (176, 282), 38)
             weights = ", ".join(f"{key}={float(value):.1f}" for key, value in sorted(entity.behavior_weights.items()) if key != "movement_duration" and isinstance(value, (int, float)))
             active_battle = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and entity.id in [battle.get("from"), battle.get("to")]), None)
             current_state = "OUT OF GAME" if entity.world_status != "in_playground" else "IN DUEL" if active_battle else str(entity.availability).upper() + " / " + str(entity.activity).upper()
@@ -10568,6 +10634,7 @@ class EntityDetailScene(Scene):
             lines = [f"Capacity: {entity.capacity}", f"Active duels: {entity.current_duels}", f"Background: {entity.background}", f"Day/night: {'enabled' if entity.day_night else 'disabled'}", f"Media folder: {entity.media_folder or 'legacy/id folder'}"]
         else:
             effect = entity.team_effect.get("selected") if entity.team_effect else None
+            self.draw_level_badge(surface, "teams", entity, self.app.store.team_level(entity.id), (190, 228), 42)
             lines = [f"Members: {len(entity.members)}", f"Leader: {entity.leader}", f"Level: {self.app.store.team_level(entity.id)}/10", f"Rank: {entity.rank}", f"Relationship: {entity.relationship}", f"Effect: {effect.get('kind') if effect else 'not crafted'}", f"History events: {len(entity.history)}"]
         for index, line in enumerate(lines): draw_text(surface, line, (270 if self.entity_type == "characters" else 70, 170 + index * 28), self.app.assets.font(13), COLORS["cream"])
         self.draw_buttons(surface, 12)
@@ -10803,8 +10870,10 @@ class TeamsScene(Scene):
         for index, team in enumerate(query_entities(self.app.store.teams.values(), self.query.value, self.sort_mode)[:4]):
             y = 118 + index * 95
             rounded(surface, (40, y, 720, 82), (14, 24, 52), COLORS["violet"], 8, 2)
+            level = self.app.store.team_level(team.id)
+            self.draw_level_badge(surface, "teams", team, level, (612, y + 10), 28)
             draw_text(surface, team.name, (64, y + 14), self.app.assets.font(16, True), COLORS["cream"])
-            draw_text(surface, f"Members: {len(team.members)}   |   Leader: {team.leader}   |   LVL {self.app.store.team_level(team.id)}/10   |   Rank: {team.rank}   |   {team.relationship}", (64, y + 42), self.app.assets.font(11), COLORS["cyan"])
+            draw_text(surface, f"Members: {len(team.members)}   |   Leader: {team.leader}   |   LVL {level}/10   |   Rank: {team.rank}   |   {team.relationship}", (64, y + 42), self.app.assets.font(11), COLORS["cyan"])
             effect = team.team_effect.get("selected") if team.team_effect else None
             draw_text(surface, "Effect: " + (effect.get("kind", "candidate") if effect else "not crafted") + "  |  places: " + (", ".join(team.preferred_places) or "none"), (64, y + 63), self.app.assets.font(10), COLORS["muted"])
             button = Button((650, y + 22, 92, 34), "DETAIL", lambda team_id=team.id: self.app.push(EntityDetailScene(self.app, "teams", team_id)), COLORS["gold"])

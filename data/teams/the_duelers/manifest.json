@@ -99,6 +99,8 @@
     "audio/watching-in",
     "audio/watching-out",
     "audio/win",
+    "badges",
+    "badges/levels",
     "effects",
     "logic",
     "members",

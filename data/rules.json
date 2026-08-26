@@ -34,8 +34,9 @@
     "no_other_legendary_deck_rule": false
   },
   "progression": {
+    "min_level": 0,
     "max_level": 10,
-    "deck_thresholds": [0.0, 1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8, 8.8, 9.8],
+    "deck_thresholds": [0.0, 0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9.0],
     "character_wins_per_level": 3,
     "character_losses_per_level": 4,
     "team_wins_per_level": 3,
@@ -44,7 +45,7 @@
     "championship_host_decks": 5,
     "championship_host_main_minimum": 50,
     "championship_host_library_per_level": 100,
-    "principle": "Character levels start from authored stars and change through results, strong-opponent victories, losses, and deck level. Deck levels come from card strength and authored enabler coverage. Team levels aggregate member levels, team results, and a locked team effect. Championship hosts need five legal 50-card Main Decks and one hundred library cards per championship level."
+    "principle": "Character, deck, and team levels use a visible 0-10 scale. Zero is the valid baseline for an untrained or empty profile; authored stars and deck strength provide the starting value, while results, strong-opponent victories, losses, team history, and locked effects change the calculated value. Each adjacent deck threshold is intentionally separated so a level change represents a measurable strength difference. Championship hosts need five legal 50-card Main Decks and one hundred library cards per championship level."
   },
   "narrator": {
     "idle_seconds": {"character": 30.0, "duel": 45.0},

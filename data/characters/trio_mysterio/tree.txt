@@ -1,5 +1,6 @@
 animations/
 audio/
+badges/
 cards/
 duel/
 logic/

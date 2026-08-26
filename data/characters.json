@@ -46,15 +46,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -116,15 +116,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -182,15 +182,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -248,15 +248,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -313,15 +313,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -378,15 +378,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -443,15 +443,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -508,15 +508,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -573,15 +573,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -639,15 +639,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -704,15 +704,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },
@@ -769,15 +769,15 @@
     "state_rules": {
       "deck_ranges": {
         "stranger": [
-          1,
+          0,
           10
         ],
         "ally": [
-          1,
+          0,
           10
         ],
         "enemy": [
-          1,
+          0,
           10
         ]
       },

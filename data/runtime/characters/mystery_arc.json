@@ -3,53 +3,10 @@
   "id": "mystery_arc",
   "category": "characters",
   "state": {
-    "enemies": [],
-    "library_cards": [
-      "void_titan",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "void_titan",
-      "cinder_knight",
-      "sky_archer",
-      "trio_relic",
-      "aqua_sentinel"
-    ],
-    "goals": [
-      {
-        "id": "master_spell",
-        "kind": "master_family",
-        "target": "spell",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 5,
-        "progress": 4.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "idle_cue_count": 5,
-    "learning_state": {
-      "observations": 0,
-      "updates": 3,
-      "last_update": 1787666900.2375994
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
     },
     "history": [
       {
@@ -71,21 +28,78 @@
         "time": 1787704349.4529097
       }
     ],
-    "borrowed_cards": [],
-    "relationship_history": [],
-    "learned_cards": {},
-    "allies": [],
-    "mood_state": {
-      "current": "curious",
-      "intensity": 0.0
-    },
-    "learned_opponents": {
-      "rival_echo": 3
-    },
-    "activity": "idle",
-    "idle_elapsed": 10.0,
-    "out_of_game_until": 0.0,
     "availability": "free",
+    "activity": "idle",
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
+    },
+    "library_cards": [
+      "void_titan",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "void_titan",
+      "cinder_knight",
+      "sky_archer",
+      "trio_relic",
+      "aqua_sentinel"
+    ],
+    "memories": [
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "aqua_scribe",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "aqua_scribe",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "rival_echo",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "rival_echo",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      }
+    ],
+    "out_of_game_until": 0.0,
+    "cooldown_until": 0.0,
+    "learned_cards": {},
+    "movement_progress": 0.0,
+    "rank": 3,
+    "idle_cue_count": 5,
+    "borrowed_cards": [],
+    "destination": "",
+    "relationship": "stranger",
+    "idle_elapsed": 10.0,
+    "allies": [],
+    "enemies": [],
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -152,65 +166,7 @@
       },
       "subtype_weights": {}
     },
-    "current_place": "",
     "mood": "curious",
-    "movement_progress": 0.0,
-    "destination": "",
-    "cooldown_until": 0.0,
-    "memories": [
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "aqua_scribe",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "aqua_scribe",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "rival_echo",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "rival_echo",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      }
-    ],
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
-    },
-    "world_status": "in_playground",
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
-    "rank": 3,
     "experience": {
       "duels": 3,
       "wins": 3,
@@ -225,6 +181,50 @@
         }
       }
     },
-    "relationship": "stranger"
+    "mood_state": {
+      "current": "curious",
+      "intensity": 0.0
+    },
+    "learned_opponents": {
+      "rival_echo": 3
+    },
+    "relationship_history": [],
+    "goals": [
+      {
+        "id": "master_spell",
+        "kind": "master_family",
+        "target": "spell",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 5,
+        "progress": 4.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "world_status": "in_playground",
+    "learning_state": {
+      "observations": 0,
+      "updates": 3,
+      "last_update": 1787666900.2375994
+    },
+    "current_place": ""
   }
 }

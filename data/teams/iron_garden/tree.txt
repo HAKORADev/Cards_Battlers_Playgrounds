@@ -1,5 +1,6 @@
 animations/
 audio/
+badges/
 effects/
 logic/
 manifest.json
