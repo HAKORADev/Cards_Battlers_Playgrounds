@@ -1165,7 +1165,7 @@
     "atk": 2500,
     "defense": 2000,
     "family": "ritual",
-    "description": "A Ritual Monster summoned only by Ritual Convergence by offering monsters from the hand or field whose Levels total exactly seven.",
+    "description": "A Ritual Monster summoned only by Ritual Convergence by offering monsters from the hand or field whose Levels total at least seven.",
     "effects": [
       {
         "id": "ritual_warden_effect_0",
@@ -1222,6 +1222,7 @@
     "summon_procedure": {
       "kind": "ritual",
       "min_stars": 7,
+      "exact_stars": false,
       "material_selector": {
         "side": "self",
         "zone": [

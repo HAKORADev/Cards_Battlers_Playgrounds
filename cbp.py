@@ -1728,6 +1728,7 @@ class ProcedureSpec:
     allowed_counts: list = field(default_factory=list)
     minimum_materials: int = 0
     maximum_materials: int = 0
+    exact_stars: bool = False
     @classmethod
     def normal_tribute(cls, card, rules=None):
 
@@ -1767,11 +1768,11 @@ class ProcedureSpec:
         allowed_counts = [int(item) for item in list(raw.get("allowed_counts", [required_count]) or [required_count]) if int(item) >= 0] if kind == "tribute" else []
         minimum_materials = int(raw.get("min_materials", len(required) if kind == "fusion" and exact else 2 if kind == "fusion" else 0) or 0)
         maximum_materials = int(raw.get("max_materials", len(required) if kind == "fusion" and exact else 4 if kind == "fusion" else 0) or 0)
-        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)), enabler, source_zones, allowed_counts, minimum_materials, maximum_materials)
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)), enabler, source_zones, allowed_counts, minimum_materials, maximum_materials, bool(raw.get("exact_stars", False)))
 
 
 class LogicRuntime:
-    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position"}
+    action_names = set(EffectSpec.action_names)
     behavior_action_names = {"aggression", "defense", "control", "combo", "resource", "bluff", "risk", "adaptation", "challenge", "rematch", "learning", "relationship"}
     node_kinds = {"trigger", "condition", "action"}
 
@@ -4183,7 +4184,7 @@ class ContentStore:
             minimum_materials = int(summon_procedure.get("min_materials", len(materials) if summon_procedure.get("exact") else 2) or 0)
             maximum_materials = int(summon_procedure.get("max_materials", len(materials) if summon_procedure.get("exact") else 4) or 0)
             if minimum_materials < 2 or maximum_materials > 4 or minimum_materials > maximum_materials: errors.append("Fusion material bounds must be within two to four.")
-        if kind == "ritual" and (summon_method != "ritual" or int(ritual_cost) < 1 or not summon_procedure or summon_procedure.get("kind") != "ritual" or not summon_procedure.get("enabler")): errors.append("ritual cards require a canonical Ritual procedure, exact Level cost, and authored enabler")
+        if kind == "ritual" and (summon_method != "ritual" or int(ritual_cost) < 1 or not summon_procedure or summon_procedure.get("kind") != "ritual" or not summon_procedure.get("enabler")): errors.append("ritual cards require a canonical Ritual procedure, level cost, and authored enabler")
         if kind == "legendary" and (int(stars) != 11 or summon_method != "legendary" or not summon_procedure or summon_procedure.get("kind") != "legendary" or not summon_procedure.get("enabler")): errors.append("Legendary cards require 11 stars, a canonical Legendary procedure, and authored enabler")
         if kind == "legendary" and not str(legendary_type or "").strip(): errors.append("Legendary cards require a legendary_type")
         if kind == "legendary" and not 1 <= len(effects or []) <= 5: errors.append("Legendary cards require one to five effects")
@@ -4571,7 +4572,9 @@ class ContentStore:
                 character.learning_state = dict(getattr(character, "learning_state", {}) or {})
                 character.learning_state["updates"] = int(character.learning_state.get("updates", 0)) + 1
                 character.learning_state["last_update"] = time.time()
-        reward_amount = int(round_index)
+        profile = self.championship_profile(int(championship.get("level", 1) or 1))
+        reward_schedule = list(profile.get("host_reward_per_match", []) or [0])
+        reward_amount = int(reward_schedule[min(int(round_index), len(reward_schedule) - 1)] or 0)
         if winner_team and loser_team and reward_amount > 0:
             winner_member = winner_team.leader if winner_team.leader in winner_team.members else winner_team.members[0]
             for member_id in loser_team.members:
@@ -4583,14 +4586,15 @@ class ContentStore:
                         championship.setdefault("rewards", []).append({"from": member_id, "to": winner_member, "card": card_id, "round": round_index})
                         championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id}))
             host_owner = championship.get("host", "")
-            source_character = self.characters.get(host_owner) if host_owner in self.characters else self.characters.get(self.teams[host_owner].leader) if host_owner in self.teams else None
-            if source_character:
-                for card_id in list(source_character.library_cards)[:reward_amount]:
-                    if card_id in source_character.library_cards:
-                        source_character.library_cards.remove(card_id)
-                        self.characters[winner_member].library_cards.append(card_id)
-                        championship.setdefault("rewards", []).append({"from": source_character.id, "to": winner_member, "card": card_id, "round": round_index, "host_reward": True})
-                        championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id, "host_reward": True}))
+            host_candidates = self.championship_free_library_candidates(host_owner)
+            for source_owner_id, card_id in host_candidates[:reward_amount]:
+                source_character = self.characters.get(source_owner_id)
+                winner_character = self.characters.get(winner_member)
+                if not source_character or not winner_character or card_id not in source_character.library_cards: continue
+                source_character.library_cards.remove(card_id)
+                winner_character.library_cards.append(card_id)
+                championship.setdefault("rewards", []).append({"from": source_owner_id, "to": winner_member, "card": card_id, "round": round_index, "host_reward": True})
+                championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id, "host_reward": True}))
         if len(round_data["results"]) == len(round_data.get("pairs", [])):
             winners = [item["winner"] for item in round_data["results"]]
             next_round = round_index + 1
@@ -5328,6 +5332,8 @@ class CardInstance:
         self.summon_source_card_name = ""
         self.summon_source_effect_id = ""
         self.summon_history = []
+        self.original_owner = owner
+        self.properly_summoned = False
         self.attack_bonus = 0
         self.defense_bonus = 0
         self.attacked = False
@@ -5638,6 +5644,7 @@ class DuelEngine:
         self.effect_usage = {}
         self.continuous_effects = []
         self.continuous_sequence = 0
+        self.control_changes = []
         self.summon_permissions = {"player": {"base": 1, "used": 0, "grants": []}, "opponent": {"base": 1, "used": 0, "grants": []}}
         self.field_card = None
         self.field_card_owner = None
@@ -5838,6 +5845,7 @@ class DuelEngine:
     def advance(self):
         if self.finished or self.pending_discard: return
         self.cleanup_continuous_effects("phase_end")
+        self.cleanup_control_changes("phase_end")
         self.phase_index += 1
         if self.phase_index >= len(self.phases):
             self.phase_index = 0
@@ -5845,7 +5853,9 @@ class DuelEngine:
             self.emit_event("turn_end", ending, metadata={"turn": self.turn, "ending_side": self.side_key(ending)})
             self.react("turn_end", ending.character.id, self.other(ending).character.id, "opponent", metadata={"turn": self.turn, "ending_side": self.side_key(ending)})
             self.cleanup_continuous_effects("turn_end")
+            self.cleanup_control_changes("turn_end")
             self.cleanup_continuous_effects("phase_end")
+            self.cleanup_control_changes("phase_end")
             self.active, _ = self.other(self.active), self.active
             self.turn += 1
             self.reset_summon_permissions(self.active)
@@ -6024,6 +6034,76 @@ class DuelEngine:
                 changed = True
         if changed: self.continuous_effects = [item for item in self.continuous_effects if item.get("status") == "active"]
 
+    def control_change_record(self, card):
+        return next((item for item in self.control_changes if item.get("card") is card and item.get("status") == "active"), None)
+
+    def register_control_change(self, card, actor, original_side, duration, source_card=None, source_effect_id=""):
+        existing = self.control_change_record(card)
+        if existing:
+            existing.update({"controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"})
+            return existing
+        record = {"card": card, "card_id": card.card.id, "original_side": self.side_key(original_side), "original_owner": getattr(card, "original_owner", original_side.name), "controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"}
+        self.control_changes.append(record)
+        self.control_changes = self.control_changes[-64:]
+        return record
+
+    def control_change_active(self, record):
+        card = record.get("card")
+        owner = self.owner_of(card) if card else None
+        return record.get("status") == "active" and card in self.card_instances() and owner is not None and card.position in ["field", "monster"]
+
+    def restore_control_change(self, record):
+        card = record.get("card")
+        if not card or not self.control_change_active(record): return False
+        current = self.owner_of(card)
+        original = self.player if record.get("original_side") == "player" else self.opponent
+        if current is original:
+            card.owner = original.name
+            record["status"] = "expired"
+            return True
+        zone = next((index for index, item in enumerate(original.monsters) if item is None), None)
+        if current and card in current.monsters: current.monsters[current.monsters.index(card)] = None
+        if zone is None:
+            if current: current.graveyard.append(card)
+            card.position = "graveyard"
+            card.last_zone = "field"
+            card.face_up = True
+        else:
+            original.monsters[zone] = card
+            card.position = "field"
+            card.last_zone = "field"
+            card.face_up = True
+            card.owner = original.name
+        record["status"] = "expired"
+        self.emit_event("control_end", original, source=card, target=card, metadata={"card_id": card.card.id, "controller": original.character.id})
+        return True
+
+    def cleanup_control_changes(self, reason=""):
+        for record in self.control_changes:
+            if record.get("status") != "active": continue
+            duration = str(record.get("duration", "permanent")).lower().replace("-", "_").replace(" ", "_")
+            expires = duration in ["until_end_of_phase", "this_phase", "phase"] and (reason == "phase_end" or self.phase_index != int(record.get("created_phase_index", self.phase_index)))
+            expires = expires or duration in ["until_end_of_turn", "this_turn", "turn"] and (reason == "turn_end" or self.turn > int(record.get("created_turn", self.turn)))
+            if expires: self.restore_control_change(record)
+            elif not self.control_change_active(record): record["status"] = "expired"
+        self.control_changes = [item for item in self.control_changes if item.get("status") == "active"]
+
+    def checkpoint_control_changes(self):
+        return [{key: value for key, value in record.items() if key != "card"} for record in self.control_changes if record.get("status") == "active"]
+
+    def restore_control_changes(self, payload):
+        restored = []
+        for raw in list(payload or []):
+            controller = self.player if raw.get("controller_side") == "player" else self.opponent
+            cards = [item for item in controller.monsters + controller.spells if item]
+            card = next((item for item in cards if item.card.id == raw.get("card_id")), None)
+            if not card: card = next((item for item in self.card_instances() if item.card.id == raw.get("card_id") and item.position in ["field", "monster"]), None)
+            if not card: continue
+            record = dict(raw)
+            record["card"] = card
+            restored.append(record)
+        self.control_changes = restored[-64:]
+
     def modifier_records(self):
         records = []
         if self.field_card:
@@ -6117,6 +6197,8 @@ class DuelEngine:
         card.summon_source_card_id = getattr(source_definition, "id", "") if source_definition else ""
         card.summon_source_card_name = getattr(source_definition, "name", "") if source_definition else ""
         card.summon_source_effect_id = source_effect_id
+        prior_provenance = bool(getattr(card, "properly_summoned", False))
+        card.properly_summoned = method in ["normal", "fusion", "ritual"] or (card.card.kind in ["fusion", "ritual"] and prior_provenance)
         card.summon_history.append({"method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_card_name": card.summon_source_card_name, "source_effect_id": source_effect_id, "actor": actor.character.id, "turn": self.turn, "phase": self.phase})
         self.emit_event("summon", actor, source=card, target=card, metadata={"method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_card_name": card.summon_source_card_name, "source_effect_id": source_effect_id})
         self.react("summon" if method == "normal" else "special_summon", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id, metadata={"card_id": card.card.id, "method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_effect_id": source_effect_id})
@@ -6129,7 +6211,7 @@ class DuelEngine:
         candidate_selector = dict(selector or {})
         candidate_selector["count"] = "all"
         candidates = list(selected or SelectorRuntime(self, actor, source_card).select(candidate_selector))
-        candidates = [item for item in candidates if isinstance(item, CardInstance) and item.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]]
+        candidates = [item for item in candidates if isinstance(item, CardInstance) and item.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"] and (item.card.kind not in ["fusion", "ritual"] or item.properly_summoned)]
         requested = max(1, int(count or selector.get("count", 1) or 1))
         if not candidates: return False, "No legal monster matches the special-summon selector."
         if zone_count < min(requested, len(candidates)): return False, "There are not enough empty monster zones."
@@ -6189,8 +6271,11 @@ class DuelEngine:
             required_ids = sorted(procedure.required_card_ids)
             if procedure.exact and selected_ids != required_ids: return False, "The exact fusion material set is not available."
             if not procedure.exact and not procedure.minimum_materials <= len(selected) <= procedure.maximum_materials: return False, f"Fusion requires {procedure.minimum_materials} to {procedure.maximum_materials} materials."
-        if procedure.kind == "ritual" and sum(item.card.stars for item in selected) != procedure.min_stars:
-            return False, f"Ritual summoning requires exactly {procedure.min_stars} material stars."
+        if procedure.kind == "ritual":
+            total_stars = sum(item.card.stars for item in selected)
+            if (procedure.exact_stars and total_stars != procedure.min_stars) or (not procedure.exact_stars and total_stars < procedure.min_stars):
+                comparator = "exactly" if procedure.exact_stars else "at least"
+                return False, f"Ritual summoning requires {comparator} {procedure.min_stars} material stars."
         if procedure.kind == "tribute" and len(selected) not in (procedure.allowed_counts or [procedure.required_count]):
             counts = "/".join(str(item) for item in (procedure.allowed_counts or [procedure.required_count]))
             return False, f"This normal summon requires {counts} tribute(s)."
@@ -6515,6 +6600,7 @@ class DuelEngine:
             self.field_card_owner = None
         card.last_zone = card.position
         owner.remove(card)
+        if destination in ["hand", "deck", "extra"] and card.card.kind in ["fusion", "ritual"]: card.properly_summoned = False
         card.position = destination
         if destination == "graveyard":
             card.face_up = True
@@ -6653,6 +6739,7 @@ class DuelEngine:
             elif name == "discard": score += max(1, amount) * 45
             elif name == "destroy": score += 500
             elif name in ["banish", "send_to_graveyard", "return_to_hand"]: score += 360
+            elif name == "control": score += 900
             elif name in ["boost_attack", "boost_defense"]: score += amount
             elif name == "special_summon": score += 700
             elif name == "grant_normal_summon": score += 350
@@ -6772,7 +6859,8 @@ class DuelEngine:
     def public_card_record(self, viewer, card):
         state = self.visibility(viewer, card)
         if state == "hidden": return {"id": "hidden", "kind": "hidden", "position": card.position, "face_up": False}
-        return {"id": card.card.id, "name": card.card.name, "kind": card.card.kind, "position": card.position, "face_up": bool(card.face_up), "battle_position": card.battle_position, "visibility": state}
+        owner = self.owner_of(card)
+        return {"id": card.card.id, "name": card.card.name, "kind": card.card.kind, "position": card.position, "face_up": bool(card.face_up), "battle_position": card.battle_position, "visibility": state, "controller_id": owner.character.id if owner else "", "original_owner": getattr(card, "original_owner", "")}
 
     def knowledge_character(self, viewer):
         side = viewer if isinstance(viewer, Duelist) else self.player if str(viewer) == "player" else self.opponent
@@ -6872,7 +6960,7 @@ class DuelEngine:
         return {"schema": "cbp.live-observation.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "state": self.public_state(viewer), "events": self.live_observation(viewer), "knowledge": self.knowledge_for(viewer)}
 
     def checkpoint_card(self, card):
-        return {"card_id": card.card.id, "owner": card.owner, "variant": card.variant, "position": card.position, "last_zone": card.last_zone, "face_up": bool(card.face_up), "battle_position": card.battle_position, "summon_method": card.summon_method, "summon_source_zone": card.summon_source_zone, "summon_source_card_id": card.summon_source_card_id, "summon_source_card_name": card.summon_source_card_name, "summon_source_effect_id": card.summon_source_effect_id, "summon_history": list(card.summon_history), "attack_bonus": card.attack_bonus, "defense_bonus": card.defense_bonus, "attacked": bool(card.attacked)}
+        return {"card_id": card.card.id, "owner": card.owner, "variant": card.variant, "position": card.position, "last_zone": card.last_zone, "face_up": bool(card.face_up), "battle_position": card.battle_position, "summon_method": card.summon_method, "summon_source_zone": card.summon_source_zone, "summon_source_card_id": card.summon_source_card_id, "summon_source_card_name": card.summon_source_card_name, "summon_source_effect_id": card.summon_source_effect_id, "summon_history": list(card.summon_history), "properly_summoned": bool(card.properly_summoned), "original_owner": getattr(card, "original_owner", ""), "attack_bonus": card.attack_bonus, "defense_bonus": card.defense_bonus, "attacked": bool(card.attacked)}
 
     def checkpoint_side(self, side):
         return {"id": side.character.id, "name": side.name, "hp": side.hp, "deck": [self.checkpoint_card(item) for item in side.deck], "hand": [self.checkpoint_card(item) for item in side.hand], "monsters": [self.checkpoint_card(item) if item else None for item in side.monsters], "spells": [self.checkpoint_card(item) if item else None for item in side.spells], "graveyard": [self.checkpoint_card(item) for item in side.graveyard], "banished": [self.checkpoint_card(item) for item in side.banished], "extra": [self.checkpoint_card(item) for item in side.extra]}
@@ -6913,11 +7001,11 @@ class DuelEngine:
         return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
 
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "control_changes": self.checkpoint_control_changes(), "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
-        for key in ["variant", "position", "last_zone", "face_up", "battle_position", "summon_method", "summon_source_zone", "summon_source_card_id", "summon_source_card_name", "summon_source_effect_id", "attack_bonus", "defense_bonus", "attacked"]:
+        for key in ["variant", "position", "last_zone", "face_up", "battle_position", "summon_method", "summon_source_zone", "summon_source_card_id", "summon_source_card_name", "summon_source_effect_id", "properly_summoned", "original_owner", "attack_bonus", "defense_bonus", "attacked"]:
             if key in payload: setattr(card, key, payload[key])
         card.summon_history = list(payload.get("summon_history", []))
         return card
@@ -6990,6 +7078,7 @@ class DuelEngine:
             self.effect_sequence = int(payload.get("effect_sequence", 0)); self.notification_sequence = int(payload.get("notification_sequence", 0)); self.rule_event_sequence = int(payload.get("rule_event_sequence", 0)); self.trigger_group_sequence = int(payload.get("trigger_group_sequence", 0)); self.chain_sequence = int(payload.get("chain_sequence", 0)); self.continuous_sequence = int(payload.get("continuous_sequence", 0)); self.observation_sequence = int(payload.get("observation_sequence", 0))
             self.summon_permissions = json.loads(json.dumps(payload.get("summon_permissions", self.summon_permissions)))
             self.team_effect = dict(payload.get("team_effect", {})); self.opponent_team_effect = dict(payload.get("opponent_team_effect", {}))
+            self.restore_control_changes(payload.get("control_changes", []))
             self.import_knowledge(payload.get("knowledge", {}))
             self.notifications = [Notification(**item) for item in payload.get("notifications", [])]
             self.notification_history = list(payload.get("notification_history", [])); self.observation_log = list(payload.get("observation_log", [])); self.event_history = list(payload.get("event_history", [])); self.chain_history = list(payload.get("chain_history", [])); self.completed_chains = list(payload.get("completed_chains", [])); self.last_chain_result = dict(payload.get("last_chain_result", {}) or {}) or None; self.resolution_history = list(payload.get("resolution_history", []))
@@ -7158,13 +7247,13 @@ class DuelEngine:
         self.active_chain_link_id = ""
         return True, result
 
-    def queue_effect(self, card, action, amount, actor, target=None, source="Effect", trigger=""):
+    def queue_effect(self, card, action, amount, actor, target=None, source="Effect", trigger="", action_meta=None):
         normalized = LogicRuntime.normalize_action(f"{action} {amount}")
         if not normalized["valid"]: return None
         self.effect_sequence += 1
         target_items = target if isinstance(target, list) else [target] if target is not None else []
         context = RuleContext(f"ctx_{self.effect_sequence + 1}", trigger, self.phase, self.turn, getattr(getattr(actor, "character", actor), "id", ""), getattr(getattr(card, "card", card), "id", ""), getattr(card, "last_zone", getattr(card, "position", "")), [getattr(getattr(item, "card", item), "id", getattr(item, "name", "")) for item in target_items], {"phase": self.phase, "turn": self.turn}, {"source": source})
-        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger, "queued", {}, context.source_zone, context.actor_id, {"source": source}, context.__dict__)
+        event = EffectEvent(self.effect_sequence, normalized["name"], normalized["amount"], actor, card, target, trigger, "queued", {}, context.source_zone, context.actor_id, {"source": source, "action_meta": dict(action_meta or {})}, context.__dict__)
 
         self.effect_queue.append(event)
         return event
@@ -7184,6 +7273,7 @@ class DuelEngine:
 
     def apply_effect_now(self, event):
         card, action, amount, actor, target = event.source, event.action, event.amount, event.actor, event.target
+        action_meta = dict(event.policy.get("action_meta") or {}) if isinstance(event.policy, dict) else {}
         source = getattr(getattr(card, "card", card), "name", "Effect")
         result = {"status": "resolved", "action": action, "amount": amount}
         targets = target if isinstance(target, list) else [target] if target is not None else []
@@ -7278,6 +7368,7 @@ class DuelEngine:
                 empty_zone = next((index for index, item in enumerate(actor.monsters) if item is None), None)
                 if empty_zone is None: continue
                 previous_zone = selected_card.position
+                original_side = self.player if self.control_change_record(selected_card) and self.control_change_record(selected_card).get("original_side") == "player" else self.opponent if self.control_change_record(selected_card) else current_owner
                 if selected_card in current_owner.monsters: current_owner.monsters[current_owner.monsters.index(selected_card)] = None
                 elif selected_card in current_owner.spells: current_owner.spells[current_owner.spells.index(selected_card)] = None
                 actor.monsters[empty_zone] = selected_card
@@ -7285,8 +7376,10 @@ class DuelEngine:
                 selected_card.owner = actor.name
                 selected_card.position = "field"
                 selected_card.face_up = True
+                duration = action_meta.get("duration", action_meta.get("until", "permanent"))
+                control_record = self.register_control_change(selected_card, actor, original_side, duration, card, event.trigger)
                 moved.append(selected_card.card.id)
-                self.emit_event("control", actor, source=card, target=selected_card, metadata={"controller": actor.character.id, "card_id": selected_card.card.id})
+                self.emit_event("control", actor, source=card, target=selected_card, metadata={"controller": actor.character.id, "original_owner": control_record.get("original_side", ""), "duration": control_record.get("duration", "permanent"), "card_id": selected_card.card.id})
             result["value"] = moved
             result["status"] = "resolved" if moved else "blocked"
             if moved: self.log(f"{source} takes control of {len(moved)} card(s).")
@@ -7308,8 +7401,8 @@ class DuelEngine:
         else: result["status"] = "blocked"
         return result
 
-    def apply_effect(self, card, action, amount, actor, target=None, source="Effect", trigger=""):
-        event = self.queue_effect(card, action, amount, actor, target, source, trigger)
+    def apply_effect(self, card, action, amount, actor, target=None, source="Effect", trigger="", action_meta=None):
+        event = self.queue_effect(card, action, amount, actor, target, source, trigger, action_meta)
         if event is None: return {"status": "blocked", "action": action, "amount": amount}
         self.resolve_effect_queue()
         return event.result
@@ -7532,7 +7625,7 @@ class DuelEngine:
                 continue
             amount = action.get("amount", 0)
             if isinstance(amount, dict): amount = amount.get("value", 0)
-            self.apply_effect(card, action_name, int(amount or 0), actor, resolved, card.card.name, spec.trigger)
+            self.apply_effect(card, action_name, int(amount or 0), actor, resolved, card.card.name, spec.trigger, action)
         if spec.media:
             cue = spec.media.get("cue", spec.effect_id)
             mode = spec.media.get("mode", "hang")
@@ -8021,8 +8114,10 @@ class DuelEngine:
             if name == "destroy":
                 score += (enemy_value * 2 - own_value * 3) * float(actor.character.behavior_weights.get("duel", {}).get("removal_bias", 1.0))
                 if enemy_value <= 0: score -= 100000
-            elif name in ["banish", "send_to_graveyard", "return_to_hand", "control"]:
+            elif name in ["banish", "send_to_graveyard", "return_to_hand"]:
                 score += enemy_value - own_value
+            elif name == "control":
+                score += (enemy_value * 2) - own_value + 450
             elif name == "draw":
                 score += max(1, int(action.get("amount", 1) or 1)) * 140
             elif name in ["fusion_summon", "ritual_summon"]:
