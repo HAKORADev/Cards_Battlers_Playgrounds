@@ -93,6 +93,5 @@ switch-position/
 tree.txt
 turn-end/
 turn-start/
-watching-in/
 watching-out/
 win/

@@ -41,7 +41,10 @@
     "team_wins_per_level": 3,
     "team_losses_per_level": 4,
     "strong_opponent_bonus": 1.0,
-    "principle": "Character levels start from authored stars and change through results, strong-opponent victories, losses, and deck level. Deck levels come from card strength and authored enabler coverage. Team levels aggregate member levels, team results, and a locked team effect."
+    "championship_host_decks": 5,
+    "championship_host_main_minimum": 50,
+    "championship_host_library_per_level": 100,
+    "principle": "Character levels start from authored stars and change through results, strong-opponent victories, losses, and deck level. Deck levels come from card strength and authored enabler coverage. Team levels aggregate member levels, team results, and a locked team effect. Championship hosts need five legal 50-card Main Decks and one hundred library cards per championship level."
   },
   "narrator": {
     "idle_seconds": {"character": 30.0, "duel": 45.0},

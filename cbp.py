@@ -1590,6 +1590,8 @@ class ContentStore:
         self.places = {}
         self.teams = {}
         self.logic = {}
+        self.logic_owners = {}
+        self.logic_files = {}
         self.last_card_errors = []
         stored_profile = read_json(SAVE, {})
         profile_defaults = {"active_user_id": "", "active_user_folder": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "setup_complete": False}
@@ -1753,14 +1755,22 @@ class ContentStore:
         if self.card_registry_errors: raise ValueError("Card registry invalid: " + "; ".join(self.card_registry_errors))
         self.logic = {}
         self.logic_owners = {}
+        self.logic_files = {}
         for category, registry in [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places), ("decks", self.decks)]:
             for entity_id, entity in registry.items():
                 media_folder = entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "")
                 logic_root = DATA / media_folder / "logic" if media_folder else None
                 if not logic_root: continue
+                entity_filename = str(entity_id) + ".json"
                 for path in logic_root.glob("*.json"):
-                    self.logic[path.stem] = LogicGraph.from_dict(read_json(path, {}))
-                    self.logic_owners[path.stem] = logic_root
+                    if path.name != entity_filename and not re.fullmatch(r"effect-(?:[1-9]|10)\.json", path.name): continue
+                    graph_key = str(entity_id) if path.name == entity_filename else str(entity_id) + "::" + path.stem
+                    if graph_key in self.logic: continue
+                    graph = LogicGraph.from_dict(read_json(path, {}))
+                    graph.name = graph_key
+                    self.logic[graph_key] = graph
+                    self.logic_owners[graph_key] = logic_root
+                    self.logic_files[graph_key] = path.name
         self.ensure_entity_scaffolds()
         self.media.scan()
         self.world_sessions = {}
@@ -1782,7 +1792,7 @@ class ContentStore:
         if not character: return []
         configured = list(getattr(character, "deck_slots", []) or [])
         if configured:
-            return [deck_id for deck_id in configured if deck_id in self.decks][:DECK_SLOT_COUNT]
+            return [deck_id for deck_id in configured if deck_id in self.decks and isinstance(self.decks[deck_id], dict) and self.decks[deck_id].get("owner_id") == character_id][:DECK_SLOT_COUNT]
         candidates = []
         for deck_id in [getattr(character, "deck_id", "")]:
             if deck_id in self.decks and deck_id not in candidates: candidates.append(deck_id)
@@ -1816,6 +1826,22 @@ class ContentStore:
         pool = legal or options
         opponent = self.characters.get(opponent_id)
         known = getattr(character, "learned_cards", {}) if character else {}
+        relation = self.relationship_for(character_id, opponent_id) if opponent else "stranger"
+        ranges = getattr(character, "state_rules", {}).get("deck_ranges", {}) if character else {}
+        raw_range = ranges.get(relation) or ranges.get("opponent") or ranges.get("stranger") or [1, 10]
+        try: low, high = sorted((clamp(int(raw_range[0]), 1, 10), clamp(int(raw_range[1]), 1, 10)))
+        except (TypeError, ValueError, IndexError): low, high = 1, 10
+        own_level = self.character_level(character_id)
+        opponent_level = self.character_level(opponent_id) if opponent else own_level
+        difficulty = str(self.save_data.get("difficulty", "normal")).lower()
+        if relation == "ally": target_level = own_level
+        elif relation == "enemy": target_level = max(own_level, opponent_level) + (2 if difficulty == "extreme" else 1 if difficulty == "hard" else 0)
+        elif difficulty == "extreme": target_level = max(own_level, opponent_level) + 1
+        elif difficulty == "hard": target_level = max(own_level, opponent_level)
+        else: target_level = opponent_level
+        target_level = clamp(target_level, low, high)
+        ranged = [deck_id for deck_id in pool if low <= self.deck_level(deck_id) <= high]
+        if ranged: pool = ranged
         def score(deck_id):
             deck = self.decks.get(deck_id, {})
             cards = DeckRules.all_cards(deck)
@@ -1825,8 +1851,11 @@ class ContentStore:
             learned = sum(float(known.get(card_id, 0) or 0) for card_id in cards)
             pressure = float(character.behavior_weights.get("adaptation", 1.0)) * learned
             if opponent: pressure += float(character.behavior_weights.get("planning", 5.0)) * sum(1 for card_id in cards if card_id in opponent.learned_cards)
-            return families * 2.0 + kinds + preferred * 3.0 + pressure
-        return max(pool, key=lambda deck_id: (score(deck_id), deck_id))
+            level = self.deck_level(deck_id)
+            level_fit = 44.0 - abs(level - target_level) * 28.0
+            level_pressure = level * (5.0 if difficulty == "extreme" else 2.0 if difficulty == "hard" else 0.5)
+            return families * 2.0 + kinds + preferred * 3.0 + pressure + level_fit + level_pressure
+        return min(pool, key=lambda deck_id: (abs(self.deck_level(deck_id) - target_level), -score(deck_id), deck_id))
     def validate_duel_decks(self, player_id, opponent_id, player_deck_id="", opponent_deck_id=""):
         result = {}
         selections = [("player", player_id, player_deck_id or getattr(self.characters.get(player_id), "deck_id", "")), ("opponent", opponent_id, opponent_deck_id or getattr(self.characters.get(opponent_id), "deck_id", ""))]
@@ -2029,7 +2058,8 @@ class ContentStore:
         if "logic" in requested:
             for key, graph in self.logic.items():
                 owner = self.logic_owners.get(key)
-                if owner: write_json(owner / f"{key}.json", graph.to_dict())
+                filename = self.logic_files.get(key, str(key).split("::")[-1] + ".json")
+                if owner: write_json(owner / filename, graph.to_dict())
         self.dirty_domains.difference_update(requested)
         return True
 
@@ -3739,14 +3769,17 @@ class ContentStore:
 
     def championship_host_eligible(self, host_id, level):
         level = clamp(int(level), 1, 5)
-        rank = self.calculate_rank(host_id) if host_id in self.characters or host_id in self.teams else 0
-        decks = self.championship_decks(host_id)
-        library_minimum = 100 * level
-        return bool(rank >= level and len(decks) >= 5 and self.championship_library_count(host_id) >= library_minimum)
+        progression = self.progression_rules()
+        minimum_decks = int(progression.get("championship_host_decks", 5))
+        minimum_main = max(DeckRules.minimum, int(progression.get("championship_host_main_minimum", 50)))
+        library_minimum = int(progression.get("championship_host_library_per_level", 100)) * level
+        host_level = self.team_level(host_id) if host_id in self.teams else self.character_level(host_id) if host_id in self.characters else 0
+        decks = [deck for deck in self.championship_decks(host_id) if len(deck.get("main_cards", [])) >= minimum_main and not DeckRules.validate(deck.get("main_cards", []), deck.get("fusion_cards", []), self.cards)]
+        return bool(host_level >= level and len(decks) >= minimum_decks and self.championship_library_count(host_id) >= library_minimum)
 
     def championship_team_eligible(self, team_id, level):
         team = self.teams.get(team_id)
-        if not team or team.formation_state != "complete" or len(team.members) != 3 or int(team.rank) < int(level): return False
+        if not team or team.formation_state != "complete" or len(team.members) != 3 or self.team_level(team_id) < int(level): return False
         return all(member in self.characters and self.characters[member].world_status == "in_playground" for member in team.members)
 
     def championship_by_id(self, championship_id):
@@ -10053,10 +10086,11 @@ class LogicManagerScene(Scene):
         self.graph_key = next(iter(self.app.store.logic), "")
         if not self.graph_key:
             owner_category, owner_id, owner_root = next(((category, entity_id, DATA / (entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", "")) / "logic") for category, registry in [("cards", self.app.store.cards), ("characters", self.app.store.characters), ("teams", self.app.store.teams), ("places", self.app.store.places), ("decks", self.app.store.decks)] for entity_id, entity in registry.items() if (entity.get("media_folder", "") if isinstance(entity, dict) else getattr(entity, "media_folder", ""))), ("", "", DATA))
-            self.graph_key = "editor_" + owner_category + "_" + str(owner_id)
+            self.graph_key = str(owner_id)
             owner_root.mkdir(parents=True, exist_ok=True)
             self.app.store.logic_owners[self.graph_key] = owner_root
-        self.graph = self.app.store.logic.get(self.graph_key, LogicGraph("New Logic"))
+            self.app.store.logic_files[self.graph_key] = self.graph_key + ".json"
+        self.graph = self.app.store.logic.get(self.graph_key, LogicGraph(self.graph_key or "New Logic"))
         for node in self.graph.nodes: node.y = max(180, node.y)
         self.selected = None
         self.dragging = False

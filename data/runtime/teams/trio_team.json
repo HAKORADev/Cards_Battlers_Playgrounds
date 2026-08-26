@@ -3,10 +3,6 @@
   "id": "trio_team",
   "category": "teams",
   "state": {
-    "effect_locked": false,
-    "knowledge_state": {},
-    "team_effect": {},
-    "formation_requests": [],
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -14,14 +10,10 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "relationship": "stranger",
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0
-    },
     "formation_state": "complete",
+    "knowledge_state": {},
+    "learning_state": {},
+    "team_effect": {},
     "history": [
       {
         "event": "duel_completed",
@@ -133,7 +125,15 @@
         "time": 1787704341.5132513
       }
     ],
-    "learning_state": {},
-    "rank": 1
+    "effect_locked": false,
+    "rank": 4,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0
+    },
+    "relationship": "stranger",
+    "formation_requests": []
   }
 }

@@ -3,67 +3,18 @@
   "id": "mystery_arc",
   "category": "characters",
   "state": {
-    "mood": "curious",
-    "movement_progress": 0.0,
-    "out_of_game_until": 0.0,
-    "memories": [
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "aqua_scribe",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "aqua_scribe",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "rival_echo",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_05",
-          "recipient": "rival_echo",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      }
+    "enemies": [],
+    "library_cards": [
+      "void_titan",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "void_titan",
+      "cinder_knight",
+      "sky_archer",
+      "trio_relic",
+      "aqua_sentinel"
     ],
-    "world_status": "in_playground",
-    "current_place": "",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
-    },
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
-    "allies": [],
-    "cooldown_until": 0.0,
-    "borrowed_cards": [],
-    "availability": "free",
     "goals": [
       {
         "id": "master_spell",
@@ -94,7 +45,12 @@
         "priority": 0.4
       }
     ],
-    "idle_elapsed": 10.0,
+    "idle_cue_count": 5,
+    "learning_state": {
+      "observations": 0,
+      "updates": 3,
+      "last_update": 1787666900.2375994
+    },
     "history": [
       {
         "event": "trio_card_given",
@@ -115,27 +71,21 @@
         "time": 1787704349.4529097
       }
     ],
-    "destination": "",
-    "activity": "idle",
-    "rank": 3,
-    "library_cards": [
-      "void_titan",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "void_titan",
-      "cinder_knight",
-      "sky_archer",
-      "trio_relic",
-      "aqua_sentinel"
-    ],
-    "learned_opponents": {
-      "rival_echo": 3
-    },
+    "borrowed_cards": [],
+    "relationship_history": [],
+    "learned_cards": {},
+    "allies": [],
     "mood_state": {
       "current": "curious",
       "intensity": 0.0
     },
+    "learned_opponents": {
+      "rival_echo": 3
+    },
+    "activity": "idle",
+    "idle_elapsed": 10.0,
+    "out_of_game_until": 0.0,
+    "availability": "free",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -202,7 +152,65 @@
       },
       "subtype_weights": {}
     },
-    "relationship": "stranger",
+    "current_place": "",
+    "mood": "curious",
+    "movement_progress": 0.0,
+    "destination": "",
+    "cooldown_until": 0.0,
+    "memories": [
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "aqua_scribe",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "aqua_scribe",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "rival_echo",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "recipient": "rival_echo",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      }
+    ],
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    },
+    "world_status": "in_playground",
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
+    },
+    "rank": 3,
     "experience": {
       "duels": 3,
       "wins": 3,
@@ -217,14 +225,6 @@
         }
       }
     },
-    "relationship_history": [],
-    "enemies": [],
-    "idle_cue_count": 5,
-    "learning_state": {
-      "observations": 0,
-      "updates": 3,
-      "last_update": 1787666900.2375994
-    },
-    "learned_cards": {}
+    "relationship": "stranger"
   }
 }

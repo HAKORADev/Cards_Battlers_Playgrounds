@@ -1,3 +1,4 @@
+1.png
 <frame-number>.bmp
 <frame-number>.jpeg
 <frame-number>.jpg

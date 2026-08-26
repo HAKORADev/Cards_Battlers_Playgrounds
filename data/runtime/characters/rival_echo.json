@@ -3,9 +3,499 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
+    "enemies": [],
+    "library_cards": [
+      "ember_drone",
+      "river_colossus",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "cinder_knight",
+      "void_titan",
+      "repair_matrix"
+    ],
+    "goals": [
+      {
+        "id": "master_aqua",
+        "kind": "master_family",
+        "target": "aqua",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 10.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_cue_count": 0,
+    "learning_state": {
+      "observations": 287814,
+      "updates": 90,
+      "last_update": 1787710983.3089805
+    },
+    "history": [
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710979.6109312
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710979.8277912
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "moonlit_drake"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710979.898231
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "loss",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710980.1781979
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710980.2486875
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "loss",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710980.5993016
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunforge_guard"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710980.6694689
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710981.008578
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710981.0801015
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "loss",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710981.30969
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710981.3811166
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 21,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710981.881249
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 21,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "quiet_alchemist"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710981.9544673
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710982.1815376
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710982.2557862
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710982.5244446
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710982.5984433
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "loss",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710983.0240169
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710983.100106
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787710983.3089757
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "repair_matrix"
+        ],
+        "sim_time": 160.0,
+        "time": 1787710983.3825173
+      }
+    ],
+    "borrowed_cards": [],
+    "relationship_history": [],
+    "learned_cards": {
+      "aurora_bridge": 2196,
+      "mirror_force": 748,
+      "aqua_sentinel": 2402,
+      "thunder_kite": 649,
+      "solar_burst": 687,
+      "storm_lancer": 541,
+      "archive_signal": 3744,
+      "copper_gryphon": 1316,
+      "dark_magician": 269,
+      "mirror_trap": 835,
+      "basalt_keeper": 1216,
+      "man_eater_bug": 530,
+      "night_lure": 854,
+      "sunlit_field": 1724,
+      "cinder_knight": 621,
+      "glass_sphinx": 450,
+      "clockwork_mite": 483,
+      "briar_runner": 999,
+      "echo_bolt": 826,
+      "grave_bloom": 407,
+      "iron_fridge": 526,
+      "garden_sentinel": 308,
+      "dark_hole": 890,
+      "tide_mender": 656,
+      "skyglass_owl": 762,
+      "sky_archer": 903,
+      "sunforge_guard": 1237,
+      "river_colossus": 631,
+      "moonlit_drake": 959,
+      "ember_drone": 190,
+      "quiet_alchemist": 583,
+      "repair_matrix": 752,
+      "ritual_convergence": 165,
+      "ritual_warden": 165,
+      "mystical_space_typhoon": 549,
+      "summoned_skull": 839,
+      "tide_oracle": 152,
+      "void_titan": 47
+    },
+    "allies": [],
+    "mood_state": {
+      "current": "focused",
+      "intensity": 0.0
+    },
+    "learned_opponents": {
+      "mystery_arc": 3,
+      "trio_mysterio": 2,
+      "aqua_scribe": 85
+    },
+    "activity": "idle",
+    "idle_elapsed": 0.0,
+    "out_of_game_until": 0.0,
+    "availability": "free",
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 10.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 2.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 2.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 0.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0,
+        "pyro": 0.0
+      },
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      },
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {}
+    },
+    "current_place": "",
     "mood": "focused",
     "movement_progress": 0.0,
-    "out_of_game_until": 0.0,
+    "destination": "",
+    "cooldown_until": 0.0,
     "memories": [
       {
         "event": "duel_completed",
@@ -1713,8 +2203,6 @@
         "sim_time": 160.0
       }
     ],
-    "world_status": "in_playground",
-    "current_place": "",
     "knowledge_state": {
       "cards": {
         "trio_mysterio_card_02": {
@@ -2692,454 +3180,13 @@
       },
       "effects": {}
     },
+    "world_status": "in_playground",
     "persona_state": {
       "reputation": 17.39999999999997,
       "trust": {},
       "confidence": 10.0
     },
-    "allies": [],
-    "cooldown_until": 0.0,
-    "borrowed_cards": [],
-    "availability": "free",
-    "goals": [
-      {
-        "id": "master_aqua",
-        "kind": "master_family",
-        "target": "aqua",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 10.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "idle_elapsed": 0.0,
-    "history": [
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "aqua_scribe",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 10,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "aqua_sentinel"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709919.144275
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "win",
-        "turns": 8,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709919.3566525
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "rival_echo",
-        "loser": "aqua_scribe",
-        "result": "win",
-        "turns": 8,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "moonlit_drake"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709919.4247954
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "loss",
-        "turns": 12,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709919.7017672
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "aqua_scribe",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 12,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "aqua_sentinel"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709919.770867
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "loss",
-        "turns": 15,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709920.1157558
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "aqua_scribe",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 15,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "sunforge_guard"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709920.1852965
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "win",
-        "turns": 15,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709920.518336
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "rival_echo",
-        "loser": "aqua_scribe",
-        "result": "win",
-        "turns": 15,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "trio_relic"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709920.5885818
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "loss",
-        "turns": 9,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709920.8170507
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "aqua_scribe",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 9,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "trio_relic"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709920.8878171
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "win",
-        "turns": 21,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709921.3771944
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "rival_echo",
-        "loser": "aqua_scribe",
-        "result": "win",
-        "turns": 21,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "quiet_alchemist"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709921.4490757
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "win",
-        "turns": 8,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709921.6709425
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "rival_echo",
-        "loser": "aqua_scribe",
-        "result": "win",
-        "turns": 8,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "cinder_knight"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709921.74228
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "win",
-        "turns": 11,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709922.0055141
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "rival_echo",
-        "loser": "aqua_scribe",
-        "result": "win",
-        "turns": 11,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "void_titan"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709922.0772736
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "loss",
-        "turns": 19,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709922.493778
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "aqua_scribe",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 19,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "trio_relic"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709922.5677829
-      },
-      {
-        "opponent": "aqua_scribe",
-        "result": "win",
-        "turns": 7,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787709922.775078
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "rival_echo",
-        "loser": "aqua_scribe",
-        "result": "win",
-        "turns": 7,
-        "reason": "health",
-        "mode": "current",
-        "place": "neon_playground",
-        "finisher": "health",
-        "deck_ids": {},
-        "transferred_cards": [
-          "repair_matrix"
-        ],
-        "sim_time": 160.0,
-        "time": 1787709922.8496494
-      }
-    ],
-    "destination": "",
-    "activity": "idle",
     "rank": 10,
-    "library_cards": [
-      "ember_drone",
-      "river_colossus",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "cinder_knight",
-      "void_titan",
-      "repair_matrix"
-    ],
-    "learned_opponents": {
-      "mystery_arc": 3,
-      "trio_mysterio": 2,
-      "aqua_scribe": 85
-    },
-    "mood_state": {
-      "current": "focused",
-      "intensity": 0.0
-    },
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 10.0,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 2.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 2.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "spellcaster": 0.0,
-        "insect": 0.0,
-        "plant": 0.0,
-        "beast": 0.0,
-        "dragon": 0.0,
-        "zombie": 0.0,
-        "thunder": 0.0,
-        "winged_beast": 0.0,
-        "rock": 0.0,
-        "pyro": 0.0
-      },
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      },
-      "duel": {
-        "summon_bias": 1.0,
-        "set_bias": 1.0,
-        "activation_bias": 1.0,
-        "removal_bias": 1.0,
-        "defense_bias": 1.0,
-        "attack_bias": 1.0,
-        "trap_threshold": 0.0
-      },
-      "memory": 5.0,
-      "inference": 5.0,
-      "planning": 5.0,
-      "card_kind_weights": {
-        "normal": 0.0,
-        "effect": 0.0,
-        "spell": 0.0,
-        "field": 0.0,
-        "trap": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "legendary": 0.0
-      },
-      "subtype_weights": {}
-    },
-    "relationship": "stranger",
     "experience": {
       "duels": 90,
       "wins": 35,
@@ -3183,58 +3230,11 @@
           ],
           "last_result": "win",
           "turns": 7,
-          "updated": 1787709922.7761672
+          "updated": 1787710983.3100688
         }
       },
       "losss": 55
     },
-    "relationship_history": [],
-    "enemies": [],
-    "idle_cue_count": 0,
-    "learning_state": {
-      "observations": 287814,
-      "updates": 90,
-      "last_update": 1787709922.775083
-    },
-    "learned_cards": {
-      "aurora_bridge": 2196,
-      "mirror_force": 748,
-      "aqua_sentinel": 2402,
-      "thunder_kite": 649,
-      "solar_burst": 687,
-      "storm_lancer": 541,
-      "archive_signal": 3744,
-      "copper_gryphon": 1316,
-      "dark_magician": 269,
-      "mirror_trap": 835,
-      "basalt_keeper": 1216,
-      "man_eater_bug": 530,
-      "night_lure": 854,
-      "sunlit_field": 1724,
-      "cinder_knight": 621,
-      "glass_sphinx": 450,
-      "clockwork_mite": 483,
-      "briar_runner": 999,
-      "echo_bolt": 826,
-      "grave_bloom": 407,
-      "iron_fridge": 526,
-      "garden_sentinel": 308,
-      "dark_hole": 890,
-      "tide_mender": 656,
-      "skyglass_owl": 762,
-      "sky_archer": 903,
-      "sunforge_guard": 1237,
-      "river_colossus": 631,
-      "moonlit_drake": 959,
-      "ember_drone": 190,
-      "quiet_alchemist": 583,
-      "repair_matrix": 752,
-      "ritual_convergence": 165,
-      "ritual_warden": 165,
-      "mystical_space_typhoon": 549,
-      "summoned_skull": 839,
-      "tide_oracle": 152,
-      "void_titan": 47
-    }
+    "relationship": "stranger"
   }
 }

@@ -3,10 +3,6 @@
   "id": "aqua_archives",
   "category": "teams",
   "state": {
-    "effect_locked": false,
-    "knowledge_state": {},
-    "team_effect": {},
-    "formation_requests": [],
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -14,14 +10,10 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "relationship": "neutral",
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0
-    },
     "formation_state": "complete",
+    "knowledge_state": {},
+    "learning_state": {},
+    "team_effect": {},
     "history": [
       {
         "event": "duel_completed",
@@ -1765,7 +1757,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709913.8743973
+        "time": 1787710974.2755396
       },
       {
         "event": "duel_completed",
@@ -1788,7 +1780,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709914.282547
+        "time": 1787710974.6837497
       },
       {
         "event": "duel_completed",
@@ -1811,7 +1803,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709914.6944137
+        "time": 1787710975.0993364
       },
       {
         "event": "duel_completed",
@@ -1834,7 +1826,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709915.0286343
+        "time": 1787710975.4381223
       },
       {
         "event": "duel_completed",
@@ -1857,7 +1849,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709915.4521716
+        "time": 1787710975.8715963
       },
       {
         "event": "duel_completed",
@@ -1880,7 +1872,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709915.7602696
+        "time": 1787710976.1797767
       },
       {
         "event": "duel_completed",
@@ -1903,7 +1895,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709916.0971856
+        "time": 1787710976.5207956
       },
       {
         "event": "duel_completed",
@@ -1926,7 +1918,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709916.5973287
+        "time": 1787710977.023521
       },
       {
         "event": "duel_completed",
@@ -1949,7 +1941,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709916.8547301
+        "time": 1787710977.2845054
       },
       {
         "event": "duel_completed",
@@ -1972,7 +1964,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709917.2549987
+        "time": 1787710977.691692
       },
       {
         "event": "duel_completed",
@@ -1995,7 +1987,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709917.772684
+        "time": 1787710978.218357
       },
       {
         "event": "duel_completed",
@@ -2018,7 +2010,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709918.0954683
+        "time": 1787710978.5440834
       },
       {
         "event": "duel_completed",
@@ -2041,7 +2033,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709918.4208126
+        "time": 1787710978.8752525
       },
       {
         "event": "duel_completed",
@@ -2064,7 +2056,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709918.8243577
+        "time": 1787710979.2842777
       },
       {
         "event": "duel_completed",
@@ -2087,7 +2079,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709919.1443174
+        "time": 1787710979.6109762
       },
       {
         "event": "duel_completed",
@@ -2110,7 +2102,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709919.4248579
+        "time": 1787710979.8983161
       },
       {
         "event": "duel_completed",
@@ -2133,7 +2125,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709919.7709043
+        "time": 1787710980.2487292
       },
       {
         "event": "duel_completed",
@@ -2156,7 +2148,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709920.1853344
+        "time": 1787710980.6695101
       },
       {
         "event": "duel_completed",
@@ -2179,7 +2171,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709920.5886533
+        "time": 1787710981.080177
       },
       {
         "event": "duel_completed",
@@ -2202,7 +2194,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709920.8878539
+        "time": 1787710981.3811543
       },
       {
         "event": "duel_completed",
@@ -2225,7 +2217,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709921.4491422
+        "time": 1787710981.954539
       },
       {
         "event": "duel_completed",
@@ -2248,7 +2240,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709921.7423534
+        "time": 1787710982.2558649
       },
       {
         "event": "duel_completed",
@@ -2271,7 +2263,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709922.0773513
+        "time": 1787710982.59852
       },
       {
         "event": "duel_completed",
@@ -2294,7 +2286,7 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709922.567818
+        "time": 1787710983.100147
       },
       {
         "event": "duel_completed",
@@ -2317,10 +2309,18 @@
           "pearl_guard",
           "coral_scout"
         ],
-        "time": 1787709922.8497221
+        "time": 1787710983.3825893
       }
     ],
-    "learning_state": {},
-    "rank": 1
+    "effect_locked": false,
+    "rank": 4,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0
+    },
+    "relationship": "neutral",
+    "formation_requests": []
   }
 }

@@ -3,10 +3,6 @@
   "id": "the_duelers",
   "category": "teams",
   "state": {
-    "effect_locked": false,
-    "knowledge_state": {},
-    "team_effect": {},
-    "formation_requests": [],
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -14,14 +10,10 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "relationship": "stranger",
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0
-    },
     "formation_state": "complete",
+    "knowledge_state": {},
+    "learning_state": {},
+    "team_effect": {},
     "history": [
       {
         "event": "duel_completed",
@@ -1733,7 +1725,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709913.8743832
+        "time": 1787710974.275529
       },
       {
         "event": "duel_completed",
@@ -1756,7 +1748,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709914.282539
+        "time": 1787710974.6837406
       },
       {
         "event": "duel_completed",
@@ -1779,7 +1771,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709914.694406
+        "time": 1787710975.099327
       },
       {
         "event": "duel_completed",
@@ -1802,7 +1794,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709915.0286264
+        "time": 1787710975.4381073
       },
       {
         "event": "duel_completed",
@@ -1825,7 +1817,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709915.4521637
+        "time": 1787710975.8715878
       },
       {
         "event": "duel_completed",
@@ -1848,7 +1840,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709915.7602613
+        "time": 1787710976.1797676
       },
       {
         "event": "duel_completed",
@@ -1871,7 +1863,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709916.0971768
+        "time": 1787710976.5207868
       },
       {
         "event": "duel_completed",
@@ -1894,7 +1886,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709916.597321
+        "time": 1787710977.0235116
       },
       {
         "event": "duel_completed",
@@ -1917,7 +1909,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709916.854722
+        "time": 1787710977.2844963
       },
       {
         "event": "duel_completed",
@@ -1940,7 +1932,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709917.2549899
+        "time": 1787710977.6916802
       },
       {
         "event": "duel_completed",
@@ -1963,7 +1955,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709917.7726748
+        "time": 1787710978.2183452
       },
       {
         "event": "duel_completed",
@@ -1986,7 +1978,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709918.095459
+        "time": 1787710978.5440729
       },
       {
         "event": "duel_completed",
@@ -2009,7 +2001,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709918.4208038
+        "time": 1787710978.8752408
       },
       {
         "event": "duel_completed",
@@ -2032,7 +2024,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709918.8243482
+        "time": 1787710979.2842653
       },
       {
         "event": "duel_completed",
@@ -2055,7 +2047,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709919.1443086
+        "time": 1787710979.6109645
       },
       {
         "event": "duel_completed",
@@ -2078,7 +2070,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709919.4248483
+        "time": 1787710979.8983066
       },
       {
         "event": "duel_completed",
@@ -2101,7 +2093,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709919.770895
+        "time": 1787710980.2487202
       },
       {
         "event": "duel_completed",
@@ -2124,7 +2116,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709920.1853259
+        "time": 1787710980.6694994
       },
       {
         "event": "duel_completed",
@@ -2147,7 +2139,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709920.5886443
+        "time": 1787710981.080167
       },
       {
         "event": "duel_completed",
@@ -2170,7 +2162,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709920.887845
+        "time": 1787710981.381144
       },
       {
         "event": "duel_completed",
@@ -2193,7 +2185,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709921.4491327
+        "time": 1787710981.9545293
       },
       {
         "event": "duel_completed",
@@ -2216,7 +2208,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709921.7423458
+        "time": 1787710982.2558491
       },
       {
         "event": "duel_completed",
@@ -2239,7 +2231,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709922.077343
+        "time": 1787710982.5985103
       },
       {
         "event": "duel_completed",
@@ -2262,7 +2254,7 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709922.5678098
+        "time": 1787710983.1001353
       },
       {
         "event": "duel_completed",
@@ -2285,10 +2277,18 @@
           "ember_sage",
           "tide_courier"
         ],
-        "time": 1787709922.849712
+        "time": 1787710983.3825808
       }
     ],
-    "learning_state": {},
-    "rank": 1
+    "effect_locked": false,
+    "rank": 4,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0
+    },
+    "relationship": "stranger",
+    "formation_requests": []
   }
 }

@@ -3,9 +3,203 @@
   "id": "pearl_guard",
   "category": "characters",
   "state": {
+    "enemies": [],
+    "library_cards": [
+      "iron_oath",
+      "mirror_trap",
+      "glass_sphinx",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "echo_bolt",
+      "sunlit_field",
+      "ember_chimera",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "summoned_skull",
+      "dark_magician",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard",
+      "copper_gryphon",
+      "tide_oracle"
+    ],
+    "goals": [
+      {
+        "id": "master_warrior",
+        "kind": "master_family",
+        "target": "warrior",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 3.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_cue_count": 5,
+    "learning_state": {
+      "observations": 13178,
+      "updates": 4,
+      "last_update": 1787702813.4826403
+    },
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349454_8",
+        "to": "trio_mysterio",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4554713
+      }
+    ],
+    "borrowed_cards": [],
+    "relationship_history": [],
+    "learned_cards": {
+      "repair_matrix": 110,
+      "mirror_force": 89,
+      "aqua_sentinel": 91,
+      "tide_oracle": 145,
+      "garden_sentinel": 128,
+      "solar_burst": 62,
+      "iron_fridge": 69,
+      "grave_bloom": 36,
+      "sunlit_field": 94,
+      "mystical_space_typhoon": 156,
+      "night_lure": 64,
+      "dark_hole": 59,
+      "quiet_alchemist": 52,
+      "storm_lancer": 11,
+      "aurora_bridge": 40,
+      "tide_mender": 28,
+      "thunder_kite": 63,
+      "sky_archer": 51,
+      "glass_sphinx": 39,
+      "void_titan": 27,
+      "ember_drone": 3
+    },
+    "allies": [],
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
+    "learned_opponents": {
+      "iron_mason": 4
+    },
+    "activity": "idle",
+    "idle_elapsed": 10.0,
+    "out_of_game_until": 0.0,
+    "availability": "free",
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 2.6999999999999997,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "family_weights": {
+        "warrior": 2.0,
+        "aqua": 0.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 0.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 0.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0,
+        "pyro": 0.0
+      },
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {},
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      }
+    },
+    "current_place": "",
     "mood": "neutral",
     "movement_progress": 0.0,
-    "out_of_game_until": 0.0,
+    "destination": "",
+    "cooldown_until": 0.0,
     "memories": [
       {
         "event": "duel_completed",
@@ -84,182 +278,18 @@
         "sim_time": 0.0
       }
     ],
-    "world_status": "in_playground",
-    "current_place": "",
     "knowledge_state": {
       "cards": {},
       "opponents": {},
       "effects": {}
     },
+    "world_status": "in_playground",
     "persona_state": {
       "reputation": 0.8,
       "trust": {},
       "confidence": 1.6
     },
-    "allies": [],
-    "cooldown_until": 0.0,
-    "borrowed_cards": [],
-    "availability": "free",
-    "goals": [
-      {
-        "id": "master_warrior",
-        "kind": "master_family",
-        "target": "warrior",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 3.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "idle_elapsed": 10.0,
-    "history": [
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349454_8",
-        "to": "trio_mysterio",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4554713
-      }
-    ],
-    "destination": "",
-    "activity": "idle",
     "rank": 1,
-    "library_cards": [
-      "iron_oath",
-      "mirror_trap",
-      "glass_sphinx",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "echo_bolt",
-      "sunlit_field",
-      "ember_chimera",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "summoned_skull",
-      "dark_magician",
-      "man_eater_bug",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard",
-      "copper_gryphon",
-      "tide_oracle"
-    ],
-    "learned_opponents": {
-      "iron_mason": 4
-    },
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
-    },
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 2.6999999999999997,
-      "memory": 5.0,
-      "inference": 5.0,
-      "planning": 5.0,
-      "family_weights": {
-        "warrior": 2.0,
-        "aqua": 0.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 0.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "spellcaster": 0.0,
-        "insect": 0.0,
-        "plant": 0.0,
-        "beast": 0.0,
-        "dragon": 0.0,
-        "zombie": 0.0,
-        "thunder": 0.0,
-        "winged_beast": 0.0,
-        "rock": 0.0,
-        "pyro": 0.0
-      },
-      "card_kind_weights": {
-        "normal": 0.0,
-        "effect": 0.0,
-        "spell": 0.0,
-        "field": 0.0,
-        "trap": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "legendary": 0.0
-      },
-      "subtype_weights": {},
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      },
-      "duel": {
-        "summon_bias": 1.0,
-        "set_bias": 1.0,
-        "activation_bias": 1.0,
-        "removal_bias": 1.0,
-        "defense_bias": 1.0,
-        "attack_bias": 1.0,
-        "trap_threshold": 0.0
-      }
-    },
-    "relationship": "stranger",
     "experience": {
       "duels": 4,
       "wins": 2,
@@ -296,36 +326,6 @@
       },
       "losss": 2
     },
-    "relationship_history": [],
-    "enemies": [],
-    "idle_cue_count": 5,
-    "learning_state": {
-      "observations": 13178,
-      "updates": 4,
-      "last_update": 1787702813.4826403
-    },
-    "learned_cards": {
-      "repair_matrix": 110,
-      "mirror_force": 89,
-      "aqua_sentinel": 91,
-      "tide_oracle": 145,
-      "garden_sentinel": 128,
-      "solar_burst": 62,
-      "iron_fridge": 69,
-      "grave_bloom": 36,
-      "sunlit_field": 94,
-      "mystical_space_typhoon": 156,
-      "night_lure": 64,
-      "dark_hole": 59,
-      "quiet_alchemist": 52,
-      "storm_lancer": 11,
-      "aurora_bridge": 40,
-      "tide_mender": 28,
-      "thunder_kite": 63,
-      "sky_archer": 51,
-      "glass_sphinx": 39,
-      "void_titan": 27,
-      "ember_drone": 3
-    }
+    "relationship": "stranger"
   }
 }
