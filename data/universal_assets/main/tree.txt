@@ -6,3 +6,4 @@ duel/
 font/
 menu/
 tree.txt
+ui/

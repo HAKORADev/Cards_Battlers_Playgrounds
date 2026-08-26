@@ -48,7 +48,5 @@
 9.mp3
 9.ogg
 9.wav
-duel/
-menu/
+buttons/
 tree.txt
-ui/

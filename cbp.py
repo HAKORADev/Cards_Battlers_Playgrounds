@@ -29,6 +29,7 @@ RENDER_VIEW_Y = (RENDER_H - RENDER_VIEW_H) // 2
 IMAGE_SCALE_CACHE = {}
 TEXT_SCALE_CACHE = {}
 FILE_IMAGE_CACHE = {}
+NINE_SLICE_CACHE = {}
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 UNIVERSAL_ASSETS = DATA / "universal_assets"
@@ -154,6 +155,55 @@ def cached_file_image(path):
         if len(FILE_IMAGE_CACHE) >= 256: FILE_IMAGE_CACHE.clear()
         FILE_IMAGE_CACHE[key] = image
     return image
+
+
+def nine_slice(image, size, border=180, brightness=1.0):
+    if image is None: return None
+    size = (max(1, int(size[0])), max(1, int(size[1])))
+    key = (id(image), size, int(border), round(float(brightness), 3))
+    cached = NINE_SLICE_CACHE.get(key)
+    if cached is not None: return cached
+    source_width, source_height = image.get_size()
+    edge_x = min(int(border), max(1, source_width // 2 - 1), max(1, size[0] // 2 - 1))
+    edge_y = min(int(border), max(1, source_height // 2 - 1), max(1, size[1] // 2 - 1))
+    center_width = max(1, size[0] - edge_x * 2)
+    center_height = max(1, size[1] - edge_y * 2)
+    source_center_width = max(1, source_width - int(border) * 2)
+    source_center_height = max(1, source_height - int(border) * 2)
+    result = pygame.Surface(size, pygame.SRCALPHA)
+    patches = [
+        (pygame.Rect(0, 0, edge_x, edge_y), (0, 0, edge_x, edge_y)),
+        (pygame.Rect(int(border), 0, source_center_width, int(border)), (edge_x, 0, center_width, edge_y)),
+        (pygame.Rect(source_width - int(border), 0, int(border), int(border)), (size[0] - edge_x, 0, edge_x, edge_y)),
+        (pygame.Rect(0, int(border), int(border), source_center_height), (0, edge_y, edge_x, center_height)),
+        (pygame.Rect(int(border), int(border), source_center_width, source_center_height), (edge_x, edge_y, center_width, center_height)),
+        (pygame.Rect(source_width - int(border), int(border), int(border), source_center_height), (size[0] - edge_x, edge_y, edge_x, center_height)),
+        (pygame.Rect(0, source_height - int(border), int(border), int(border)), (0, size[1] - edge_y, edge_x, edge_y)),
+        (pygame.Rect(int(border), source_height - int(border), source_center_width, int(border)), (edge_x, size[1] - edge_y, center_width, edge_y)),
+        (pygame.Rect(source_width - int(border), source_height - int(border), int(border), int(border)), (size[0] - edge_x, size[1] - edge_y, edge_x, edge_y))]
+    for source_rect, destination_rect in patches:
+        patch = image.subsurface(source_rect)
+        patch = scaled_image(patch, destination_rect[2:])
+        result.blit(patch, destination_rect[:2])
+    if float(brightness) != 1.0:
+        delta = int(clamp((float(brightness) - 1.0) * 255.0, -80, 80))
+        if delta: result.fill((delta, delta, delta), special_flags=pygame.BLEND_RGB_ADD)
+    if len(NINE_SLICE_CACHE) >= 512: NINE_SLICE_CACHE.clear()
+    NINE_SLICE_CACHE[key] = result
+    return result
+
+
+def draw_asset_button(surface, assets, rect, label, font, hovered=False, selected=False):
+    rect = pygame.Rect(rect)
+    brightness = 1.14 if selected else 1.08 if hovered else 1.0
+    image = assets.button_image(rect.size, brightness)
+    if image is not None: ui_blit(surface, image, rect.topleft)
+    else: rounded(surface, rect, (151, 108, 73) if hovered or selected else (116, 82, 70), COLORS["gold"] if hovered or selected else COLORS["line"], 8, 2)
+    draw_text(surface, label, rect.center, font, COLORS["ink"], "center")
+
+
+def button_audio_kind(label):
+    return "out" if str(label).strip().upper() in {"BACK", "EXIT", "EXIT WATCH", "CANCEL", "NO", "CLOSE", "RETURN", "PREV", "QUIT"} else "in"
 
 
 def scaled_text(font, text, color, size):
@@ -445,6 +495,26 @@ class AssetBank:
         hotspot = (int(cursor.get_width() * 0.32), int(cursor.get_height() * 0.045))
         self.cursor_cache[key] = (cursor, hotspot)
         return cursor, hotspot
+
+    def button_image(self, size, brightness=1.0):
+        image = self.images.get("ui/buttons/button")
+        if image is None: return None
+        return nine_slice(image, size, 180, brightness)
+
+    def play_button_sound(self, kind="in", enabled=True, volume=0.35):
+        if not enabled or not pygame.mixer.get_init(): return False
+        key = "button_" + ("out" if kind == "out" else "in")
+        path = UNIVERSAL_MAIN / "audio" / "ui" / "buttons" / (key + ".wav")
+        if not path.exists(): return False
+        try:
+            sound = self.sounds.get(key)
+            if sound is None:
+                sound = pygame.mixer.Sound(str(path))
+                self.sounds[key] = sound
+            sound.set_volume(volume)
+            sound.play()
+            return True
+        except pygame.error: return False
 
     def image(self, name, size=None):
         image = self.images.get(name)
@@ -4060,7 +4130,8 @@ class ContentStore:
                     legal.update(f"<frame-number>{extension}" for extension in image_extensions)
                     legal.update(f"video{extension}" for extension in video_extensions)
             if "audio" in parts:
-                legal.update(f"{index}{extension}" for index in range(1, 11) for extension in audio_extensions)
+                if parts[-1] == "buttons" and "ui" in parts: legal.update(["button-in.wav", "button-out.wav"])
+                else: legal.update(f"{index}{extension}" for index in range(1, 11) for extension in audio_extensions)
             if parts and parts[-1] == "vfx":
                 legal.update(["vfx.png", "effect.png", "universal.png", "1.png"])
             (current / "tree.txt").write_text("\n".join(sorted(legal | {"tree.txt"})) + "\n", encoding="utf-8")
@@ -7600,11 +7671,12 @@ class Button:
     def update(self, position):
         self.hover = self.rect.collidepoint(position)
 
-    def draw(self, surface, font, compact=False):
-        fill = (151, 108, 73) if self.hover or self.selected else (116, 82, 70)
-        outline = COLORS["gold"] if self.hover or self.selected else COLORS["line"]
-        rounded(surface, self.rect, fill, outline, 8, 2)
-        draw_text(surface, self.label, self.rect.center, font, COLORS["cream"], "center")
+    def draw(self, surface, font, compact=False, assets=None):
+        if assets is None:
+            rounded(surface, self.rect, (151, 108, 73) if self.hover or self.selected else (116, 82, 70), COLORS["gold"] if self.hover or self.selected else COLORS["line"], 8, 2)
+            draw_text(surface, self.label, self.rect.center, font, COLORS["cream"], "center")
+            return
+        draw_asset_button(surface, assets, self.rect, self.label, font, self.hover, self.selected)
 
 
 class TextInput:
@@ -7750,6 +7822,7 @@ class Scene:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for button in reversed(self.buttons):
                 if button.rect.collidepoint(event.pos):
+                    self.app.assets.play_button_sound(button_audio_kind(button.label), self.app.store.save_data.get("sfx", True))
                     button.callback()
                     return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -7786,7 +7859,7 @@ class Scene:
             draw_text(surface, title, (rect.x + 18, rect.y + 15), self.app.assets.font(18, True), COLORS["cream"])
 
     def draw_buttons(self, surface, size=15):
-        for button in self.buttons: button.draw(surface, self.app.assets.font(size, True))
+        for button in self.buttons: button.draw(surface, self.app.assets.font(size, True), assets=self.app.assets)
 
 
 class FirstRunScene(Scene):
@@ -8013,7 +8086,7 @@ class BattleScene(Scene):
         surface.fill(COLORS["deep"])
         draw_text(surface, "BATTLE", (34, 28), self.app.assets.font(30, True), COLORS["gold"])
         draw_text(surface, "Choose an active character, request, order, or simulated duel to watch.", (36, 65), self.app.assets.font(14), COLORS["muted"])
-        for button in self.buttons[:4]: button.draw(surface, self.app.assets.font(12, True))
+        for button in self.buttons[:4]: button.draw(surface, self.app.assets.font(12, True), assets=self.app.assets)
         self.draw_panel(surface, (34, 142, 732, 382), self.tab.upper() + " BOARD", COLORS["cyan"])
         for index, item in enumerate(self.items):
             name, target, relation, stars, smartness, entry_id = item
@@ -8026,12 +8099,12 @@ class BattleScene(Scene):
             draw_text(surface, status_text, (82, y + 42), self.app.assets.font(12), COLORS["muted"])
             if self.tab == "requests":
                 main_index, ignore_index = self.request_button_indices[index]
-                if main_index is not None: self.buttons[main_index].draw(surface, self.app.assets.font(9, True))
-                if ignore_index is not None: self.buttons[ignore_index].draw(surface, self.app.assets.font(8, True))
-            else: self.buttons[6 + index].draw(surface, self.app.assets.font(11, True))
-        self.buttons[4].draw(surface, self.app.assets.font(11, True))
-        self.buttons[5].draw(surface, self.app.assets.font(11, True))
-        self.buttons[-1].draw(surface, self.app.assets.font(12, True))
+                if main_index is not None: self.buttons[main_index].draw(surface, self.app.assets.font(9, True), assets=self.app.assets)
+                if ignore_index is not None: self.buttons[ignore_index].draw(surface, self.app.assets.font(8, True), assets=self.app.assets)
+            else: self.buttons[6 + index].draw(surface, self.app.assets.font(11, True), assets=self.app.assets)
+        self.buttons[4].draw(surface, self.app.assets.font(11, True), assets=self.app.assets)
+        self.buttons[5].draw(surface, self.app.assets.font(11, True), assets=self.app.assets)
+        self.buttons[-1].draw(surface, self.app.assets.font(12, True), assets=self.app.assets)
 
     def add_world_entry(self):
         roles = self.app.store.role_config()
@@ -8507,6 +8580,8 @@ class DuelScene(Scene):
         self.question_choice_rects = []
         self.card_list_popup = None
         self.card_list_rects = []
+        self.card_list_scroll_rects = []
+        self.card_list_offset = 0
         self.card_info_overlay = None
         self.player_deck_rect = self.layout.side_well_rect("player", "deck")
         self.hp_display = {"player": 8000, "opponent": 8000}
@@ -8573,6 +8648,12 @@ class DuelScene(Scene):
             card, known = self.card_info_at(event.pos)
             if card: self.card_info_overlay = CardInfoOverlay(self.app, card, known)
             return
+        if self.card_list_popup and event.type == pygame.MOUSEWHEEL:
+            self.shift_card_list(-(event.x if event.x else event.y))
+            return
+        if self.card_list_popup and event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_RIGHT]:
+            self.shift_card_list(-1 if event.key == pygame.K_LEFT else 1)
+            return
         if self.spectator:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: self.app.pop(); return
             super().handle(event)
@@ -8603,20 +8684,36 @@ class DuelScene(Scene):
         if self.interactions_open and event.button == 1:
             for rect, action in self.interaction_rects:
                 if rect.collidepoint(event.pos):
+                    self.app.assets.play_button_sound("in", self.app.store.save_data.get("sfx", True))
                     self.engine.interact(action)
                     self.message = self.engine.events[-1]
                     self.interactions_open = False
                     return
         if self.question:
             if event.button == 3 and self.question.get("stage") == "confirm":
+                self.app.assets.play_button_sound("out", self.app.store.save_data.get("sfx", True))
                 if self.question.get("kind") == "notifier": self.engine.answer_pending_effect("no")
                 self.question = None
                 return
             if not (self.question.get("kind") in ["discard", "procedure"] and self.question.get("stage") == "choose_card" and event.button == 1 and (self.question.get("kind") == "discard" or self.hover_procedure)):
+                if event.button == 1: self.app.assets.play_button_sound("out" if self.question.get("kind") == "surrender" and self.layout.question_action_rect("no").collidepoint(event.pos) else "in", self.app.store.save_data.get("sfx", True))
                 self.handle_question(event.pos)
                 return
         if self.card_list_popup:
-            if event.button == 1 and not self.layout.card_list_popup_rect().collidepoint(event.pos): self.card_list_popup = None
+            if event.button == 3:
+                self.card_list_popup = None
+                self.app.assets.play_button_sound("out", self.app.store.save_data.get("sfx", True))
+                return
+            if event.button == 1:
+                if not self.layout.card_list_popup_rect().collidepoint(event.pos):
+                    self.card_list_popup = None
+                    self.app.assets.play_button_sound("out", self.app.store.save_data.get("sfx", True))
+                    return
+                for rect, amount in self.card_list_scroll_rects:
+                    if rect.collidepoint(event.pos):
+                        self.shift_card_list(amount)
+                        self.app.assets.play_button_sound("in", self.app.store.save_data.get("sfx", True))
+                        return
             return
         if event.button == 1:
             for side in ["opponent", "player"]:
@@ -8631,6 +8728,7 @@ class DuelScene(Scene):
         if event.button == 1:
             for index, phase_name in enumerate(DUEL_PHASES):
                 if self.layout.phase_rect(index).collidepoint(event.pos):
+                    self.app.assets.play_button_sound("in", self.app.store.save_data.get("sfx", True))
                     self.jump_to_phase(index)
                     return
         if event.button == 1 and self.player_deck_rect.collidepoint(event.pos):
@@ -9188,13 +9286,7 @@ class DuelScene(Scene):
             short_label = DUEL_PHASE_ABBREVIATIONS[phase_name]
             rect = self.layout.phase_rect(index)
             active = phase_name == self.engine.phase
-            if phase_asset:
-                ui_draw_rect(surface, (255, 245, 198) if active else (76, 62, 52), rect, 1, border_radius=5)
-                color = (255, 248, 224) if active else (35, 31, 31)
-            else:
-                rounded(surface, rect, (202, 164, 75) if active else (236, 225, 188), (125, 106, 70), 5, 1)
-                color = COLORS["ink"]
-            draw_text(surface, short_label, rect.center, self.app.assets.font(10, True), color, "center")
+            draw_asset_button(surface, self.app.assets, rect, short_label, self.app.assets.font(10, True), False, active)
 
     def draw_hover_cloud(self, surface):
         if self.question: return
@@ -9242,14 +9334,11 @@ class DuelScene(Scene):
                 rect = self.question_choice_rects[index]
                 effect_id = member.get("effect_id", "")
                 selected = effect_id in self.trigger_selection
-                fill = (220, 187, 91) if selected else (244, 232, 194)
-                rounded(surface, rect, fill, (118, 94, 58), 5, 1)
                 role = "REQUIRED" if effect_id in required_ids else "OPTIONAL"
-                draw_text(surface, f"{index + 1}. {effect_id}  [{role}]", (rect.x + 9, rect.centery), self.app.assets.font(8, True), COLORS["ink"], "midleft")
-                draw_text(surface, "INCLUDED" if selected else "SKIPPED", (rect.right - 9, rect.centery), self.app.assets.font(7, True), COLORS["ink"], "midright")
+                status = "INCLUDED" if selected else "SKIPPED"
+                draw_asset_button(surface, self.app.assets, rect, f"{index + 1}. {effect_id}  [{role}]  {status}", self.app.assets.font(8, True), False, selected)
             rect = self.question_button_rect("ok")
-            rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
-            draw_text(surface, "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+            draw_asset_button(surface, self.app.assets, rect, "OK", self.app.assets.font(9, True))
         elif kind == "chain" and stage == "choose_response":
             candidates = self.engine.response_candidates(self.engine.chain_priority, self.engine.chain_window.get("trigger", "") if self.engine.chain_window else "")
             self.question_choice_rects = self.response_choice_rects(candidates)
@@ -9259,38 +9348,43 @@ class DuelScene(Scene):
                 draw_text(surface, candidate["card"].card.name[:12], (rect.centerx, rect.bottom + 5), self.app.assets.font(6, True), COLORS["ink"], "midtop")
             if "pass" in self.question.get("options", []):
                 rect = self.question_button_rect("pass")
-                rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
-                draw_text(surface, "PASS", rect.center, self.app.assets.font(8, True), COLORS["ink"], "center")
+                draw_asset_button(surface, self.app.assets, rect, "PASS", self.app.assets.font(8, True))
         elif kind in ["surrender", "notifier"] and stage == "confirm":
-            for role, rect, label in [("prompt_yes", self.layout.question_action_rect("yes"), "YES"), ("prompt_no", self.layout.question_action_rect("no"), "NO")]:
-                image = self.app.assets.role_image(role, rect.size)
-                if image: ui_blit(surface, image, rect.topleft)
-                else:
-                    rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
-                    draw_text(surface, label, rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+            for rect, label in [(self.layout.question_action_rect("yes"), "YES"), (self.layout.question_action_rect("no"), "NO")]:
+                draw_asset_button(surface, self.app.assets, rect, label, self.app.assets.font(9, True))
         elif kind in ["discard", "notifier", "chain"] and stage == "await_ok":
             rect = self.layout.question_action_rect("ok")
-            image = self.app.assets.role_image("prompt_ok", rect.size)
-            if image: ui_blit(surface, image, rect.topleft)
-            else:
-                rounded(surface, rect, (220, 187, 91), (118, 94, 58), 7, 1)
-                draw_text(surface, "PASS" if kind == "chain" else "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+            draw_asset_button(surface, self.app.assets, rect, "PASS" if kind == "chain" else "OK", self.app.assets.font(9, True))
+
+    def shift_card_list(self, amount):
+        if not self.card_list_popup: return
+        cards = list(self.card_list_popup.get("cards", []))
+        self.card_list_offset = int(clamp(self.card_list_offset + int(amount), 0, max(0, len(cards) - 7)))
 
     def draw_card_list_popup(self, surface):
         self.card_list_rects = []
+        self.card_list_scroll_rects = []
         if not self.card_list_popup: return
         panel = self.layout.card_list_popup_rect()
         rounded(surface, panel, (45, 42, 49), (255, 255, 255), 12, 2)
         draw_text(surface, self.card_list_popup["label"], (panel.centerx, panel.y + 13), self.app.assets.font(10, True), COLORS["white"], "center")
-        cards = self.card_list_popup["cards"]
-        visible = cards[:7]
+        cards = list(self.card_list_popup["cards"])
+        visible = cards[self.card_list_offset:self.card_list_offset + 7]
         card_width, card_height, gap = 62, 94, 76
         start_x = panel.centerx - ((len(visible) - 1) * gap + card_width) // 2
         for index, item in enumerate(visible):
             rect = pygame.Rect(start_x + index * gap, panel.y + 32, card_width, card_height)
             self.card_list_rects.append((rect, item, True))
             render_engine_card(surface, rect, item.card, self.app.assets, self.app.store.media, True, False, item.variant, True)
-        if len(cards) > len(visible): draw_text(surface, f"+{len(cards) - len(visible)}", (panel.right - 20, panel.bottom - 14), self.app.assets.font(8, True), COLORS["gold"], "center")
+        if self.card_list_offset > 0:
+            rect = pygame.Rect(panel.x + 7, panel.y + 68, 24, 28)
+            self.card_list_scroll_rects.append((rect, -1))
+            draw_asset_button(surface, self.app.assets, rect, "<", self.app.assets.font(10, True))
+        if self.card_list_offset + len(visible) < len(cards):
+            rect = pygame.Rect(panel.right - 31, panel.y + 68, 24, 28)
+            self.card_list_scroll_rects.append((rect, 1))
+            draw_asset_button(surface, self.app.assets, rect, ">", self.app.assets.font(10, True))
+        if cards: draw_text(surface, f"{self.card_list_offset + 1}-{self.card_list_offset + len(visible)} / {len(cards)}   ←/→ or wheel", (panel.centerx, panel.bottom - 14), self.app.assets.font(7, True), COLORS["gold"], "center")
 
     def draw_interactions(self, surface):
         self.interaction_rects = []
@@ -9301,8 +9395,7 @@ class DuelScene(Scene):
         for index, action in enumerate(["thank", "taunt", "beg", "flirt", "insult", "apologize"]):
             rect = pygame.Rect(panel.x + 8 + (index % 2) * 94, panel.y + 34 + (index // 2) * 28, 86, 22)
             self.interaction_rects.append((rect, action))
-            rounded(surface, rect, (236, 225, 188), (119, 105, 72), 5, 1)
-            draw_text(surface, action.upper(), rect.center, self.app.assets.font(8, True), COLORS["ink"], "center")
+            draw_asset_button(surface, self.app.assets, rect, action.upper(), self.app.assets.font(8, True))
 
     def draw_slot_guides(self, surface):
         l = self.layout
@@ -9322,6 +9415,7 @@ class DuelScene(Scene):
 
     def open_card_list(self, label, cards):
         self.card_list_popup = {"label": label, "cards": list(cards or [])}
+        self.card_list_offset = 0
 
     def draw_board(self, surface):
         l = self.layout
@@ -9580,6 +9674,9 @@ class CardInfoOverlay:
             else: return True
             self.scroll = clamp(self.scroll, 0, self.max_scroll)
             return True
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            self.app.assets.play_button_sound("out", self.app.store.save_data.get("sfx", True))
+            return False
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if not self.panel.collidepoint(event.pos): return False
             if self.content.collidepoint(event.pos) and self.max_scroll:
@@ -9902,8 +9999,7 @@ class DeckEditorScene(Scene):
             y = 194 + index * 25
             draw_text(surface, f"{card.name[:18]} x{counts[card_id]}", (50, y), self.app.assets.font(10), COLORS["cream"])
             rect = pygame.Rect(324, y - 5, 45, 22)
-            rounded(surface, rect, (22, 38, 77), COLORS["red"], 5, 1)
-            draw_text(surface, "-1", rect.center, self.app.assets.font(10, True), COLORS["cream"], "center")
+            draw_asset_button(surface, self.app.assets, rect, "-1", self.app.assets.font(10, True))
             self.card_buttons.append((rect, self.remove_card, card.id))
         query = self.query.value.strip().lower()
         cards = [card for card in self.app.store.cards.values() if not query or query in card.name.lower() or query in card.id.lower()]
@@ -9913,8 +10009,7 @@ class DeckEditorScene(Scene):
             x = 425 + (index % 2) * 166
             y = 190 + (index // 2) * 47
             rect = pygame.Rect(x, y, 154, 34)
-            rounded(surface, rect, tuple(card.art_color), COLORS["line"], 5, 1)
-            draw_text(surface, "+ " + card.name[:16], rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
+            draw_asset_button(surface, self.app.assets, rect, "+ " + card.name[:16], self.app.assets.font(9, True))
             self.card_buttons.append((rect, self.add_card, card.id))
         if state and state["errors"]:
             draw_text(surface, state["errors"][0][:62], (400, 468), self.app.assets.font(9), COLORS["red"], "center")
@@ -10331,7 +10426,7 @@ class CharactersScene(Scene):
             draw_text(surface, current_state + "  |  place: " + (char.current_place or "none") + "  |  history: " + str(len(char.history)), (132, y + 62), self.app.assets.font(10), COLORS["muted"])
             button = Button((650, y + 23, 92, 34), "DETAIL", lambda char_id=char.id: self.app.push(EntityDetailScene(self.app, "characters", char_id)), COLORS["cyan"])
             self.row_buttons.append(button)
-            button.draw(surface, self.app.assets.font(10, True))
+            button.draw(surface, self.app.assets.font(10, True), assets=self.app.assets)
         self.draw_buttons(surface, 11)
 
 
@@ -10442,7 +10537,7 @@ class EntityAboutScene(Scene):
         draw_text(surface, description[:92] if description else "Description pending", (400, 408), self.app.assets.font(12), COLORS["cream"], "center")
         media_state = "image/frame media" if self.selection and not getattr(self.selection, "placeholder", False) else "fallback"
         draw_text(surface, "Media: " + media_state + "  |  vocals: " + ("available" if self.selection and self.selection.audio else "optional / absent"), (400, 445), self.app.assets.font(10), COLORS["muted"], "center")
-        Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"]).draw(surface, self.app.assets.font(12, True))
+        Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"]).draw(surface, self.app.assets.font(12, True), assets=self.app.assets)
 
 
 class BehaviorWeightsScene(Scene):
@@ -10620,7 +10715,7 @@ class TeamsScene(Scene):
             draw_text(surface, "Effect: " + (effect.get("kind", "candidate") if effect else "not crafted") + "  |  places: " + (", ".join(team.preferred_places) or "none"), (64, y + 63), self.app.assets.font(10), COLORS["muted"])
             button = Button((650, y + 22, 92, 34), "DETAIL", lambda team_id=team.id: self.app.push(EntityDetailScene(self.app, "teams", team_id)), COLORS["gold"])
             self.row_buttons.append(button)
-            button.draw(surface, self.app.assets.font(10, True))
+            button.draw(surface, self.app.assets.font(10, True), assets=self.app.assets)
         self.draw_buttons(surface, 11)
 
 
@@ -10964,8 +11059,8 @@ class PlacesScene(Scene):
             view_button = Button((548, y + 34, 92, 34), "VIEW", lambda place_id=place.id: self.app.push(PlaceDuelViewScene(self.app, place_id)), COLORS["cyan"])
             detail_button = Button((650, y + 34, 92, 34), "DETAIL", lambda place_id=place.id: self.app.push(EntityDetailScene(self.app, "places", place_id)), COLORS["green"])
             self.row_buttons.extend([view_button, detail_button])
-            view_button.draw(surface, self.app.assets.font(10, True))
-            detail_button.draw(surface, self.app.assets.font(10, True))
+            view_button.draw(surface, self.app.assets.font(10, True), assets=self.app.assets)
+            detail_button.draw(surface, self.app.assets.font(10, True), assets=self.app.assets)
         self.draw_buttons(surface, 11)
 
 
