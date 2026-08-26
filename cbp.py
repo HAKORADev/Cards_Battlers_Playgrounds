@@ -4591,9 +4591,10 @@ class ContentStore:
                 source_character = self.characters.get(source_owner_id)
                 winner_character = self.characters.get(winner_member)
                 if not source_character or not winner_character or card_id not in source_character.library_cards: continue
+                source_before = len(source_character.library_cards)
                 source_character.library_cards.remove(card_id)
                 winner_character.library_cards.append(card_id)
-                championship.setdefault("rewards", []).append({"from": source_owner_id, "to": winner_member, "card": card_id, "round": round_index, "host_reward": True})
+                championship.setdefault("rewards", []).append({"from": source_owner_id, "to": winner_member, "card": card_id, "round": round_index, "host_reward": True, "source_library_before": source_before, "source_library_after": len(source_character.library_cards)})
                 championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id, "host_reward": True}))
         if len(round_data["results"]) == len(round_data.get("pairs", [])):
             winners = [item["winner"] for item in round_data["results"]]
@@ -6012,6 +6013,26 @@ class DuelEngine:
         self.log(f"{record['source_card_id']} establishes {record['duration']} continuous effect.")
         return record
 
+    def checkpoint_continuous_effects(self):
+        fields = ["id", "source_card_id", "source_effect_id", "actor_id", "modifier", "duration", "created_turn", "created_phase", "created_phase_index", "layer", "status"]
+        return [{key: record.get(key) for key in fields} for record in self.continuous_effects if record.get("status") == "active"]
+
+    def restore_continuous_effects(self, payload):
+        restored = []
+        for raw in list(payload or []):
+            actor = self.player if raw.get("actor_id") == "player" else self.opponent
+            candidates = [item for item in actor.monsters + actor.spells if item]
+            if self.field_card and self.field_card_owner is actor: candidates.append(self.field_card)
+            source = next((item for item in candidates if item.card.id == raw.get("source_card_id")), None)
+            if not source: source = next((item for item in self.card_instances() if item.card.id == raw.get("source_card_id") and item.position in ["field", "monster", "spell_trap"]), None)
+            if not source: continue
+            record = dict(raw)
+            record["source"] = source
+            record["actor"] = actor
+            record["modifier"] = dict(raw.get("modifier") or {})
+            restored.append(record)
+        self.continuous_effects = restored[-128:]
+
     def continuous_effect_active(self, record):
         if record.get("status") != "active": return False
         duration = record.get("duration", "permanent")
@@ -7001,7 +7022,7 @@ class DuelEngine:
         return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
 
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "control_changes": self.checkpoint_control_changes(), "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "control_changes": self.checkpoint_control_changes(), "continuous_effects": self.checkpoint_continuous_effects(), "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
@@ -7083,6 +7104,7 @@ class DuelEngine:
             self.notifications = [Notification(**item) for item in payload.get("notifications", [])]
             self.notification_history = list(payload.get("notification_history", [])); self.observation_log = list(payload.get("observation_log", [])); self.event_history = list(payload.get("event_history", [])); self.chain_history = list(payload.get("chain_history", [])); self.completed_chains = list(payload.get("completed_chains", [])); self.last_chain_result = dict(payload.get("last_chain_result", {}) or {}) or None; self.resolution_history = list(payload.get("resolution_history", []))
             self.effect_queue, self.continuous_effects, self.chain_links, self.chain_window = [], [], [], None
+            self.restore_continuous_effects(payload.get("continuous_effects", []))
             chain_payload = payload.get("chain")
             if chain_payload:
                 restored_links = []
