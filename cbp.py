@@ -3343,13 +3343,23 @@ class ContentStore:
         opponent_team = self.teams.get(battle.get("opponent_team", ""))
         if not player_team or not opponent_team or battle.get("place", "") not in self.places: return None
         session = TeamDuelEngine(self, player_team_id=player_team.id, opponent_team_id=opponent_team.id, place_id=battle.get("place", ""), player_team=player_team, opponent_team=opponent_team, format_name="TEAMvTEAM", starter=battle.get("starter", "opponent"), reserved=True)
+        stored_lp = battle.get("team_lp", {}) if isinstance(battle.get("team_lp", {}), dict) else {}
+        if stored_lp:
+            session.team_lp["player"] = max(0, int(stored_lp.get("player", 8000)))
+            session.team_lp["opponent"] = max(0, int(stored_lp.get("opponent", 8000)))
+            if session.current:
+                session.current.player.hp = session.team_lp["player"]
+                session.current.opponent.hp = session.team_lp["opponent"]
+        session.turn_index = max(0, int(battle.get("turn_index", 0) or 0))
+        session.team_turn_events = list(battle.get("team_turns", []) or [])[-128:]
         self.world_team_sessions[battle["id"]] = session
         return session
 
     def _complete_world_team_battle(self, battle, session):
         winner_id = session.winner.id if session.winner else ""
         loser_id = session.opponent_team.id if session.winner is session.player_team else session.player_team.id if session.winner else ""
-        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "turn": session.round, "rounds": list(session.results), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
+        active_player, active_opponent = session.active_members()
+        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "turn": session.round, "rounds": list(session.results), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
         championship_id = battle.get("championship_id", "")
         championship = self.championship_by_id(championship_id) if championship_id else None
         if championship:
@@ -3381,8 +3391,14 @@ class ContentStore:
             steps = 0
             while battle["elapsed"] >= float(battle.get("next_action", 3.0)) and battle.get("status") == "active" and steps < 3:
                 session.step()
+                active_player, active_opponent = session.active_members()
                 battle["round"] = session.round
                 battle["rounds"] = list(session.results)
+                battle["team_lp"] = dict(session.team_lp)
+                battle["turn_index"] = session.turn_index
+                battle["active_members"] = {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}
+                battle["team_turns"] = list(session.team_turn_events)
+                battle["duel_turn"] = session.current.turn if session.current else 0
                 battle["next_action"] = float(battle.get("next_action", 3.0)) + 2.0
                 steps += 1
                 if session.finished:
@@ -3627,8 +3643,11 @@ class ContentStore:
 
     def create_trade(self, creator_id, recipient_id, offered_cards, requested_cards=None, requested_family="", requested_kind=""):
         if creator_id not in self.characters or recipient_id not in self.characters or creator_id == recipient_id: return None
-        offered_cards = [str(item) for item in list(offered_cards or [])[:3]]
-        requested_cards = [str(item) for item in list(requested_cards or [])[:3]]
+        transaction_rules = dict((self.rules or {}).get("transactions", {}) or {})
+        offer_limit = clamp(int(transaction_rules.get("max_offered_cards", 3) or 3), 1, 3)
+        request_limit = clamp(int(transaction_rules.get("max_requested_cards", 3) or 3), 1, 3)
+        offered_cards = [str(item) for item in list(offered_cards or [])[:offer_limit]]
+        requested_cards = [str(item) for item in list(requested_cards or [])[:request_limit]]
         if not offered_cards or any(item not in self.cards for item in offered_cards) or any(item not in self.cards for item in requested_cards): return None
         counts = self.available_card_counts(creator_id)
         if any(counts.get(card_id, 0) < offered_cards.count(card_id) for card_id in set(offered_cards)): return None
@@ -3648,6 +3667,23 @@ class ContentStore:
 
     def get_trade(self, trade_id):
         return next((trade for trade in self.world.setdefault("trades", []) if trade.get("id") == trade_id), None)
+
+    def trade_social_action(self, trade_id, actor_id, action):
+        trade = self.get_trade(trade_id)
+        action = str(action or "").lower()
+        if not trade or action not in ["talk", "argue"] or actor_id not in [trade.get("creator"), trade.get("recipient")] or trade.get("state") not in ["open", "countered", "deferred"]: return False
+        other_id = trade.get("recipient") if actor_id == trade.get("creator") else trade.get("creator")
+        delta = 0.2 if action == "talk" else -0.35
+        self.adjust_relationship(actor_id, other_id, delta, "trade_" + action)
+        now = float(self.world.get("simulation_time", 0.0))
+        event = {"actor": actor_id, "action": action, "status": trade.get("state", "open"), "other": other_id, "delta": delta, "sim_time": now, "time": time.time()}
+        trade.setdefault("history", []).append(event)
+        trade.setdefault("events", []).append(dict(event))
+        trade["last_social_action"] = action
+        self.transition_interaction("trade", trade, trade.get("state", "open"), actor_id, action, {"other": other_id, "delta": delta})
+        self.record_history("character", actor_id, "trade_" + action, {"trade_id": trade_id, "other": other_id, "delta": delta})
+        self.save()
+        return True
 
     def requested_cards_for(self, trade, character_id):
         if character_id not in self.characters: return []
@@ -3686,7 +3722,9 @@ class ContentStore:
 
     def counter_trade(self, trade_id, actor_id, offered_cards, requested_cards=None, requested_family="", requested_kind=""):
         parent = self.get_trade(trade_id)
-        if not parent or parent.get("state") not in ["open", "countered"] or parent.get("recipient") != actor_id: return None
+        transaction_rules = dict((self.rules or {}).get("transactions", {}) or {})
+        max_depth = clamp(int(transaction_rules.get("max_counter_depth", 3) or 3), 0, 10)
+        if not parent or parent.get("state") not in ["open", "countered"] or parent.get("recipient") != actor_id or int(parent.get("chain_depth", 0) or 0) >= max_depth: return None
         counter = self.create_trade(actor_id, parent["creator"], offered_cards, requested_cards, requested_family, requested_kind)
         if not counter: return None
         counter["parent_id"] = parent["id"]
@@ -3781,6 +3819,7 @@ class ContentStore:
 
     def _ai_trade_tick(self):
         now = float(self.world.get("simulation_time", 0.0))
+        max_depth = clamp(int(dict((self.rules or {}).get("transactions", {}) or {}).get("max_counter_depth", 3) or 3), 0, 10)
         if now < float(self.world.get("last_ai_trade_time", 0.0)) + 15.0: return
         self.world["last_ai_trade_time"] = now
         for trade in list(self.world.setdefault("trades", [])):
@@ -3791,7 +3830,7 @@ class ContentStore:
             trade["next_decision_sim_time"] = now + 30.0
             if decision.get("decision") == "accept":
                 self.accept_trade(trade["id"], recipient.id)
-            elif decision.get("decision") == "counter" and int(trade.get("chain_depth", 0)) < 3:
+            elif decision.get("decision") == "counter" and int(trade.get("chain_depth", 0)) < max_depth:
                 candidates = [card_id for card_id in recipient.library_cards if card_id in self.cards and card_id not in trade.get("requested_cards", []) and self.available_card_counts(recipient.id).get(card_id, 0) > 0]
                 if candidates:
                     target = min(candidates, key=lambda item: abs(self._card_trade_value(recipient.id, item) - decision.get("incoming", 0.0)))
@@ -8143,6 +8182,10 @@ class TeamDuelEngine:
         self.finished = False
         self.winner = None
         self.events = []
+        self.team_lp = {"player": 8000, "opponent": 8000}
+        self.team_turn_events = []
+        self.turn_index = 0
+        self.last_team_turn_key = None
         self.start_round()
 
     def log(self, message):
@@ -8158,8 +8201,10 @@ class TeamDuelEngine:
         if not player_roster or not opponent_roster:
             self.finish(self.opponent_team, "missing roster")
             return
-        player = player_roster[(self.round - 1) % len(player_roster)]
-        opponent = opponent_roster[(self.round - 1) % len(opponent_roster)]
+        self.team_lp = {"player": 8000, "opponent": 8000}
+        self.turn_index = 0
+        player = player_roster[0]
+        opponent = opponent_roster[0]
         player_effect = self.player_team.team_effect.get("selected") if self.player_team.effect_locked and self.player_team.team_effect else None
         opponent_effect = self.opponent_team.team_effect.get("selected") if self.opponent_team.effect_locked and self.opponent_team.team_effect else None
         try:
@@ -8176,13 +8221,37 @@ class TeamDuelEngine:
         if player_effect: self.log(f"{self.player_team.name} effect: {player_effect.get('kind')}.")
         if opponent_effect: self.log(f"{self.opponent_team.name} effect: {opponent_effect.get('kind')}.")
 
+    def sync_team_lp(self):
+        if not self.current: return
+        self.team_lp["player"] = max(0, int(self.current.player.hp))
+        self.team_lp["opponent"] = max(0, int(self.current.opponent.hp))
+
+    def active_members(self):
+        player_roster = self.roster(self.player_team)
+        opponent_roster = self.roster(self.opponent_team)
+        if not player_roster or not opponent_roster: return None, None
+        return player_roster[self.turn_index % len(player_roster)], opponent_roster[self.turn_index % len(opponent_roster)]
+
+    def record_team_turn(self, player, opponent):
+        event = {"round": self.round, "turn": int(self.current.turn), "index": self.turn_index, "player": player.id, "opponent": opponent.id, "player_lp": self.team_lp["player"], "opponent_lp": self.team_lp["opponent"]}
+        key = (self.round, event["turn"], self.turn_index)
+        if key == self.last_team_turn_key: return
+        self.last_team_turn_key = key
+        self.team_turn_events.append(event)
+        self.team_turn_events = self.team_turn_events[-128:]
+        self.log(f"Team turn {event['turn']}: {player.name} / {opponent.name} with LP {event['player_lp']}-{event['opponent_lp']}.")
+
     def step(self):
         if self.finished or not self.current: return
         if self.current.finished:
             winner_id = self.current.winner.character.id if self.current.winner else "draw"
             loser_id = self.current.other(self.current.winner).character.id if self.current.winner else ""
-            self.results.append({"round": self.round, "winner": winner_id, "loser": loser_id, "reason": self.current.reason})
-            self.log(f"Round {self.round} result: {winner_id} by {self.current.reason}.")
+            transferred = []
+            if winner_id != "draw" and loser_id:
+                transferred_cards = self.store.transfer_duel_reward(winner_id, loser_id, {"mode": "random", "source": "library", "count": 1}, int(self.store.world.get("duel_sequence", 0)) + self.round)
+                transferred.extend(list(transferred_cards or [])[:1])
+            self.results.append({"round": self.round, "winner": winner_id, "loser": loser_id, "reason": self.current.reason, "player_lp": self.team_lp["player"], "opponent_lp": self.team_lp["opponent"], "active_winner": winner_id, "active_loser": loser_id, "transferred_cards": transferred})
+            self.log(f"Round {self.round} result: {winner_id} by {self.current.reason}; stake {self.store.card_names(transferred) if transferred else 'none'}.")
             if self.round >= 3:
                 player_wins = sum(1 for result in self.results if result["winner"] in self.player_team.members)
                 opponent_wins = sum(1 for result in self.results if result["winner"] in self.opponent_team.members)
@@ -8191,16 +8260,26 @@ class TeamDuelEngine:
                 self.round += 1
                 self.start_round()
             return
+        self.turn_index = max(0, int(self.current.turn) - 1)
+        player, opponent = self.active_members()
+        self.current.player.character = player
+        self.current.opponent.character = opponent
+        self.current.player.hp = self.team_lp["player"]
+        self.current.opponent.hp = self.team_lp["opponent"]
+        self.record_team_turn(player, opponent)
         actors = [self.current.active, self.current.other(self.current.active)]
         for actor in actors:
             result = self.current.autonomous_step(actor)
+            self.sync_team_lp()
             if result != "waiting": return
-        if not self.current.pending_discard and not self.current.pending_target and not self.current.pending_effect and not self.current.pending_response and not self.current.pending_trap and not self.current.chain_window: self.current.advance()
+        if not self.current.pending_discard and not self.current.pending_target and not self.current.pending_effect and not self.current.pending_response and not self.current.pending_trap and not self.current.chain_window:
+            self.current.advance()
+            self.sync_team_lp()
 
     def finish(self, winner, reason):
         self.finished = True
         self.winner = winner
-        result = {"winner": winner.id if winner else "", "loser": "", "winning_member": "", "losing_member": "", "format": self.format_name, "place": self.place_id, "reason": reason, "rounds": list(self.results), "transferred_cards": [], "sim_time": float(self.store.world.get("simulation_time", 0.0))}
+        result = {"winner": winner.id if winner else "", "loser": "", "winning_member": "", "losing_member": "", "format": self.format_name, "place": self.place_id, "reason": reason, "rounds": list(self.results), "transferred_cards": [card_id for round_result in self.results for card_id in round_result.get("transferred_cards", [])], "team_lp": dict(self.team_lp), "team_turns": list(self.team_turn_events), "sim_time": float(self.store.world.get("simulation_time", 0.0))}
         if winner is not None:
             losing_team = self.opponent_team if winner is self.player_team else self.player_team
             result["loser"] = losing_team.id
@@ -8211,8 +8290,8 @@ class TeamDuelEngine:
                     result["winning_member"] = round_result.get("winner", "")
                     if round_result.get("loser", "") in losing_team.members: result["losing_member"] = round_result.get("loser", "")
                 if result["winning_member"] and result["losing_member"]: break
-            if result["winning_member"] and result["losing_member"]:
-                result["transferred_cards"] = self.store.transfer_duel_reward(result["winning_member"], result["losing_member"], {"mode": "random", "source": "library", "count": 1}, int(self.store.world.get("duel_sequence", 0)) + 1)
+            if not result["transferred_cards"]:
+                result["transferred_cards"] = []
         self.store.record_history("team", self.player_team.id, "team_duel_completed", result)
         self.store.record_history("team", self.opponent_team.id, "team_duel_completed", result)
         if result["winning_member"]: self.store.record_history("character", result["winning_member"], "team_duel_completed", result)
@@ -10874,6 +10953,9 @@ class CardEffectsScene(Scene):
         self.once = ""
         self.speed = 1
         self.optional = False
+        self.response_kind = ""
+        self.action_entries = []
+        self.action_cursor = None
         self.refresh_buttons()
 
     def integer(self, value, fallback=0):
@@ -10889,16 +10971,19 @@ class CardEffectsScene(Scene):
         spec = EffectSpec.from_dict(self.effects[index], "effect_" + str(index + 1))
         self.effect_id.value = spec.effect_id
         self.trigger.value = spec.trigger
-        self.condition.value = str(spec.conditions[0]) if spec.conditions else ""
+        self.condition.value = "; ".join(str(item) for item in spec.conditions) if spec.conditions else ""
         action = spec.actions[0] if spec.actions else {"name": "damage", "amount": 500, "target": "source"}
         self.action.value = action.get("name", "damage")
         self.amount.value = str(action.get("amount", 500))
         self.target.value = str(action.get("target", "source"))
+        self.action_entries = [dict(item) for item in spec.actions[1:] if isinstance(item, dict)]
+        self.action_cursor = 0 if self.action_entries else None
         self.count.value = str(spec.selector.get("count", 0) if spec.selector else 0)
         self.phase = str(spec.window.get("phase", "any")) if not isinstance(spec.window.get("phase", "any"), list) else str(spec.window.get("phase", ["any"])[0])
         self.once = spec.once
         self.speed = spec.speed
         self.optional = spec.optional
+        self.response_kind = str((spec.response or {}).get("kind", "") or ((spec.notify or {}).get("kind", "") if (spec.notify or {}).get("kind", "") != "yes_no" else ""))
         costs = spec.costs[0] if spec.costs else {}
         self.cost_kind = str(costs.get("kind", "none"))
         self.cost_count.value = str(costs.get("count", costs.get("amount", 1)))
@@ -10915,6 +11000,9 @@ class CardEffectsScene(Scene):
         self.count.value = "0"
         self.cost_count.value = "1"
         self.phase, self.cost_kind, self.once, self.speed, self.optional = "any", "none", "", 1, False
+        self.response_kind = ""
+        self.action_entries = []
+        self.action_cursor = None
         self.refresh_buttons()
 
     def cycle(self, attribute, values):
@@ -10927,21 +11015,52 @@ class CardEffectsScene(Scene):
     def cycle_once(self): self.cycle("once", ["", "once", "once_per_turn", "once_per_duel"])
     def cycle_speed(self): self.speed = self.speed % 3 + 1; self.refresh_buttons()
     def toggle_optional(self): self.optional = not self.optional; self.refresh_buttons()
+    def cycle_response(self): self.cycle("response_kind", ["", "chain_response", "choose_target", "choose_cards"])
+
+    def current_action(self):
+        return {"name": self.action.value.strip() or "damage", "amount": self.integer(self.amount.value, 0), "target": self.target.value.strip() or "source"}
+
+    def add_action(self):
+        self.action_entries.append(self.current_action())
+        self.action_cursor = len(self.action_entries) - 1
+        self.refresh_buttons()
+
+    def select_action(self, index):
+        if 0 <= index < len(self.action_entries): self.action_cursor = index
+        self.refresh_buttons()
+
+    def remove_action(self):
+        if self.action_entries:
+            index = self.action_cursor if self.action_cursor is not None and self.action_cursor < len(self.action_entries) else len(self.action_entries) - 1
+            self.action_entries.pop(index)
+            self.action_cursor = min(index, len(self.action_entries) - 1) if self.action_entries else None
+        self.refresh_buttons()
+
+    def move_action(self, direction):
+        if self.action_cursor is None or not self.action_entries: return
+        target = self.action_cursor + direction
+        if 0 <= target < len(self.action_entries):
+            self.action_entries[self.action_cursor], self.action_entries[target] = self.action_entries[target], self.action_entries[self.action_cursor]
+            self.action_cursor = target
+        self.refresh_buttons()
 
     def effect_payload(self):
         effect_id = self.effect_id.value.strip() or "effect_" + str(len(self.effects) + 1)
         trigger = self.trigger.value.strip() or "manual"
-        action = self.action.value.strip() or "damage"
         amount = self.integer(self.amount.value, 0)
         target = self.target.value.strip() or "source"
         count = max(0, self.integer(self.count.value, 0))
         targets = [] if target in ["", "source", "none"] else [target]
         selector = {"target_groups": targets, "count": count} if targets and count else {}
+        actions = [dict(item) for item in self.action_entries] + [self.current_action()]
         costs = []
         cost_count = max(1, self.integer(self.cost_count.value, 1))
         if self.cost_kind in ["discard", "tribute"]: costs = [{"kind": self.cost_kind, "count": cost_count, "select": {"side": "self", "zone": "hand" if self.cost_kind == "discard" else "monster", "count": cost_count}}]
         elif self.cost_kind == "pay_hp": costs = [{"kind": "pay_hp", "amount": max(0, amount)}]
-        return {"id": effect_id, "trigger": trigger, "window": {"phase": self.phase, "event": trigger}, "conditions": [self.condition.value.strip()] if self.condition.value.strip() else [], "cost": costs, "selector": selector, "targets": targets, "actions": [{"name": action, "amount": amount, "target": target}], "optional": self.optional, "once": self.once, "speed": self.speed, "notify": {"kind": "yes_no", "text": "Activate this effect?", "options": ["yes", "no"]} if self.optional else {}}
+        conditions = [item.strip() for item in self.condition.value.split(";") if item.strip()]
+        notify = {"kind": self.response_kind or ("yes_no" if self.optional else ""), "text": "Activate this effect?", "options": ["yes", "no"]} if self.optional or self.response_kind else {}
+        response = {"kind": self.response_kind} if self.response_kind else {}
+        return {"id": effect_id, "trigger": trigger, "window": {"phase": self.phase, "event": trigger}, "conditions": conditions, "cost": costs, "selector": selector, "targets": targets, "actions": actions, "optional": self.optional, "once": self.once, "speed": self.speed, "notify": notify, "response": response}
 
     def save_effect(self):
         raw = self.effect_payload()
@@ -10967,7 +11086,7 @@ class CardEffectsScene(Scene):
         self.app.pop()
 
     def refresh_buttons(self):
-        self.buttons = [Button((420, 72, 104, 34), "NEW", lambda: self.new_effect(), COLORS["gold"]), Button((532, 72, 118, 34), "SAVE EFFECT", lambda: self.save_effect(), COLORS["green"]), Button((662, 72, 98, 34), "DELETE", lambda: self.delete_effect(), COLORS["red"]), Button((420, 500, 190, 38), "APPLY TO CARD", lambda: self.apply_and_back(), COLORS["violet"]), Button((620, 500, 140, 38), "CANCEL", lambda: self.app.pop(), COLORS["muted"]), Button((420, 132, 150, 32), "PHASE: " + self.phase.upper(), lambda: self.cycle_phase(), COLORS["cyan"]), Button((580, 132, 180, 32), "COST: " + self.cost_kind.upper(), lambda: self.cycle_cost(), COLORS["orange"]), Button((420, 190, 150, 32), "ONCE: " + (self.once.upper() or "NO"), lambda: self.cycle_once(), COLORS["gold"]), Button((580, 190, 180, 32), "SPEED: " + str(self.speed), lambda: self.cycle_speed(), COLORS["cyan"]), Button((420, 248, 150, 32), "OPTIONAL: " + ("YES" if self.optional else "NO"), lambda: self.toggle_optional(), COLORS["green"])]
+        self.buttons = [Button((420, 72, 104, 34), "NEW", lambda: self.new_effect(), COLORS["gold"]), Button((532, 72, 118, 34), "SAVE EFFECT", lambda: self.save_effect(), COLORS["green"]), Button((662, 72, 98, 34), "DELETE", lambda: self.delete_effect(), COLORS["red"]), Button((420, 500, 190, 38), "APPLY TO CARD", lambda: self.apply_and_back(), COLORS["violet"]), Button((620, 500, 140, 38), "CANCEL", lambda: self.app.pop(), COLORS["muted"]), Button((420, 132, 150, 32), "PHASE: " + self.phase.upper(), lambda: self.cycle_phase(), COLORS["cyan"]), Button((580, 132, 180, 32), "COST: " + self.cost_kind.upper(), lambda: self.cycle_cost(), COLORS["orange"]), Button((420, 190, 150, 32), "ONCE: " + (self.once.upper() or "NO"), lambda: self.cycle_once(), COLORS["gold"]), Button((580, 190, 180, 32), "SPEED: " + str(self.speed), lambda: self.cycle_speed(), COLORS["cyan"]), Button((420, 248, 150, 32), "OPTIONAL: " + ("YES" if self.optional else "NO"), lambda: self.toggle_optional(), COLORS["green"]), Button((580, 248, 180, 32), "RESPONSE: " + (self.response_kind.upper() or "NONE"), lambda: self.cycle_response(), COLORS["violet"]), Button((420, 286, 150, 32), "ADD ACTION", lambda: self.add_action(), COLORS["gold"]), Button((580, 286, 180, 32), "REMOVE ACTION", lambda: self.remove_action(), COLORS["red"]), Button((420, 324, 150, 32), "MOVE ACTION UP", lambda: self.move_action(-1), COLORS["cyan"]), Button((580, 324, 180, 32), "MOVE ACTION DOWN", lambda: self.move_action(1), COLORS["cyan"])]
 
     def handle(self, event):
         for field_input in [self.effect_id, self.trigger, self.condition, self.action, self.amount, self.target, self.count, self.cost_count]: field_input.handle(event)
@@ -10975,6 +11094,9 @@ class CardEffectsScene(Scene):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and 42 <= event.pos[0] <= 360 and 118 <= event.pos[1] <= 470:
             index = (event.pos[1] - 118) // 42
             if index < len(self.effects): self.load_effect(index)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and 420 <= event.pos[0] <= 760 and 356 <= event.pos[1] <= 432:
+            index = (event.pos[1] - 356) // 18
+            if index < len(self.action_entries): self.select_action(index)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
@@ -10990,9 +11112,11 @@ class CardEffectsScene(Scene):
             pygame.draw.rect(surface, color, pygame.Rect(42, y, 318, 34), 1)
             spec = EffectSpec.from_dict(raw, "effect_" + str(index + 1))
             draw_text(surface, f"{index + 1}. {spec.effect_id} | {spec.trigger}", (50, y + 9), self.app.assets.font(10, True), COLORS["cream"])
-        draw_text(surface, "Action vocabulary", (420, 300), self.app.assets.font(11, True), COLORS["gold"])
-        draw_text(surface, ", ".join(sorted(EffectSpec.action_names)), (420, 322), self.app.assets.font(9), COLORS["muted"])
-        draw_text(surface, "Costs: discard, tribute, or pay HP. Selectors and conditions are saved as schema data.", (420, 382), self.app.assets.font(10), COLORS["cream"])
+        draw_text(surface, "Action chain: " + str(1 + len(self.action_entries)) + " action(s)", (420, 338), self.app.assets.font(11, True), COLORS["gold"])
+        for index, item in enumerate(self.action_entries[-4:]): draw_text(surface, str(index + 2) + ". " + str(item.get("name", "")) + " " + str(item.get("amount", 0)) + " -> " + str(item.get("target", "source")), (420, 360 + index * 18), self.app.assets.font(9), COLORS["gold"] if index == self.action_cursor else COLORS["cream"])
+        draw_text(surface, "Action vocabulary", (420, 438), self.app.assets.font(10, True), COLORS["gold"])
+        draw_text(surface, ", ".join(sorted(EffectSpec.action_names)), (420, 456), self.app.assets.font(8), COLORS["muted"])
+        draw_text(surface, "Conditions accept semicolon-separated expressions; selectors, costs, notifications, response, speed, and order are saved as schema data.", (420, 480), self.app.assets.font(8), COLORS["cream"])
         self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 
@@ -11007,6 +11131,9 @@ class LogicManagerScene(Scene):
             self.app.store.logic_owners[self.graph_key] = owner_root
             self.app.store.logic_files[self.graph_key] = self.graph_key + ".json"
         self.graph = self.app.store.logic.get(self.graph_key, LogicGraph(self.graph_key or "New Logic"))
+        owner = self.app.store.logic_owners.get(self.graph_key)
+        owner_parts = owner.relative_to(DATA).parts if owner and owner.is_relative_to(DATA) else ()
+        self.behavior_mode = bool(owner_parts and owner_parts[0] in ["characters", "teams", "places"])
         for node in self.graph.nodes: node.y = max(180, node.y)
         self.selected = None
         self.dragging = False
@@ -11015,7 +11142,7 @@ class LogicManagerScene(Scene):
 
     def add_node(self, kind):
         node_id = "n" + str(len(self.graph.nodes) + 1)
-        labels = {"trigger": ("WHEN", "on_summon"), "condition": ("IF", "card.family == warrior"), "action": ("DO", "damage 500")}
+        labels = {"trigger": ("WHEN", "behavior" if self.behavior_mode else "on_summon"), "condition": ("IF", "relationship == ally" if self.behavior_mode else "card.family == warrior"), "action": ("DO", "challenge +1" if self.behavior_mode else "damage 500")}
         label, value = labels[kind]
         x = 62 + (len(self.graph.nodes) % 3) * 230
         y = 190 + (len(self.graph.nodes) // 3) * 145
@@ -11023,7 +11150,7 @@ class LogicManagerScene(Scene):
         self.graph.nodes.append(LogicNode(node_id, kind, label, value, len(self.graph.nodes) + 1, x, y, inputs))
 
     def save_graph(self):
-        errors = LogicRuntime.validate_graph(self.graph)
+        errors = LogicRuntime.validate_graph(self.graph, self.behavior_mode)
         if errors:
             self.app.notify("Logic graph rejected: " + "; ".join(errors[:2]))
             return
@@ -11039,9 +11166,9 @@ class LogicManagerScene(Scene):
     def cycle_selected_value(self):
         if not self.selected: return
         values = {
-            "trigger": ["on_summon", "on_activate", "on_battle", "on_turn_end"],
-            "condition": ["always", "card.family == warrior", "card.kind == spell", "card.family == fiend"],
-            "action": ["boost_attack +200", "boost_defense +200", "damage 500", "heal 400", "draw 1", "banish 1", "send_to_graveyard 1", "return_to_hand 1"]
+            "trigger": ["behavior", "on_summon", "on_activate", "on_battle", "on_turn_end", "on_duel_win", "on_duel_loss", "on_trade", "on_borrow", "on_watch", "on_championship"] if self.behavior_mode else ["on_summon", "on_activate", "on_battle", "on_turn_end", "on_effect", "on_destroy", "on_damage"],
+            "condition": ["always", "relationship == ally", "relationship == enemy", "character.stars >= 5", "opponent.smartness >= 5", "card.family == warrior", "card.kind == spell", "card.family == fiend", "card.stars >= 7"] if self.behavior_mode else ["always", "card.family == warrior", "card.kind == spell", "card.family == fiend", "card.stars >= 7", "card.atk >= 1500", "card.defense >= 1500"],
+            "action": [action + " +1" for action in sorted(LogicRuntime.behavior_action_names)] if self.behavior_mode else [action + " 500" for action in sorted(LogicRuntime.action_names)]
         }
         options = values[self.selected.kind]
         self.selected.value = options[(options.index(self.selected.value) + 1) % len(options)] if self.selected.value in options else options[0]
@@ -11058,6 +11185,11 @@ class LogicManagerScene(Scene):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for node in self.graph.nodes:
                 if pygame.Rect(node.x, node.y, 180, 94).collidepoint(event.pos):
+                    if pygame.key.get_mods() & pygame.KMOD_SHIFT and self.selected and node is not self.selected:
+                        if self.selected.node_id not in node.inputs: node.inputs.append(self.selected.node_id)
+                        if LogicRuntime.validate_graph(self.graph, self.behavior_mode): node.inputs.remove(self.selected.node_id)
+                        else: self.selected = node
+                        return
                     self.selected = node
                     self.dragging = True
                     self.drag_offset = (event.pos[0] - node.x, event.pos[1] - node.y)
@@ -11078,7 +11210,7 @@ class LogicManagerScene(Scene):
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "LOGIC MANAGER", (34, 28), self.app.assets.font(28, True), COLORS["green"])
-        draw_text(surface, "Executable levels: click and drag nodes, TAB cycles values, DELETE removes, SAVE validates and persists the graph.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "Executable " + ("behavior" if self.behavior_mode else "card") + " graph: SHIFT-click another node to connect, TAB cycles vocabulary, DELETE removes, SAVE validates.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (26, 102, 748, 402), self.graph.name, COLORS["green"])
         for node in self.graph.nodes:
             for target in self.graph.nodes:
@@ -11668,6 +11800,9 @@ class PlaceDuelViewScene(Scene):
         self.app.notify("Place simulation advanced by " + str(seconds) + " seconds.")
 
     def open_watch(self, battle):
+        if battle.get("engine_type") == "team":
+            self.app.push(TeamWatchScene(self.app, battle))
+            return
         session = self.app.store._world_session(battle)
         if not session:
             self.app.notify("This active place duel has no valid checkpoint.")
@@ -11679,7 +11814,7 @@ class PlaceDuelViewScene(Scene):
 
     def participant(self, battle, key):
         identifier = battle.get(key, "")
-        return self.app.store.characters.get(identifier)
+        return self.app.store.teams.get(identifier) if battle.get("engine_type") == "team" else self.app.store.characters.get(identifier)
 
     def draw_landscape(self, surface, place, night, now):
         image = self.app.assets.place_visual(self.place_id, "landscape", night, now, (W, H), self.media_scope) or self.app.assets.place_visual(self.place_id, "background", night, now, (W, H), self.media_scope) or (self.app.assets.image(place.background, (W, H)) if place and place.background else None)
@@ -11709,16 +11844,21 @@ class PlaceDuelViewScene(Scene):
         if not self.battles: draw_text(surface, "No active duels are currently running at this place.", (400, 278), self.app.assets.font(15), COLORS["muted"], "center")
         for index, battle in enumerate(self.battles):
             y = 132 + index * 112
-            session = self.app.store._world_session(battle)
-            house = self.participant(battle, "house")
-            guest = self.participant(battle, "guest")
+            session = self.app.store._world_team_session(battle) if battle.get("engine_type") == "team" else self.app.store._world_session(battle)
+            house = self.participant(battle, "player_team" if battle.get("engine_type") == "team" else "house")
+            guest = self.participant(battle, "opponent_team" if battle.get("engine_type") == "team" else "guest")
             house_name = house.name if house else battle.get("house", "unknown")
             guest_name = guest.name if guest else battle.get("guest", "unknown")
             rounded(surface, (54, y, 570, 92), (132, 94, 73), COLORS["line"], 8, 1)
             draw_text(surface, "TABLE " + str(index + 1) + "   HOUSE  " + house_name + "  VS  " + guest_name, (72, y + 14), self.app.assets.font(14, True), COLORS["cream"])
-            hp = session and (str(session.player.hp) + " LP  /  " + str(session.opponent.hp) + " LP") or "checkpoint loading"
-            draw_text(surface, "Phase: " + str(battle.get("phase", "duel")) + "  |  Turn: " + str(battle.get("turn", 1)) + "  |  " + hp, (72, y + 42), self.app.assets.font(11), COLORS["cyan"])
-            draw_text(surface, "Watchers: " + str(len(battle.get("watchers", []))) + "/6  |  Steps: " + str(len(battle.get("actions", []))) + "  |  House POV retained", (72, y + 66), self.app.assets.font(10), COLORS["muted"])
+            hp = (str(battle.get("team_lp", {}).get("player", 8000)) + " LP  /  " + str(battle.get("team_lp", {}).get("opponent", 8000)) + " LP") if battle.get("engine_type") == "team" else (session and (str(session.player.hp) + " LP  /  " + str(session.opponent.hp) + " LP") or "checkpoint loading")
+            current = session.current if session and battle.get("engine_type") == "team" and getattr(session, "current", None) else session
+            player_state = getattr(current, "player", None)
+            opponent_state = getattr(current, "opponent", None)
+            state_line = "Cards: " + str(len(getattr(player_state, "hand", []) or [])) + " hand / " + str(sum(1 for item in (getattr(player_state, "monsters", []) or []) if item)) + " field  |  " + str(len(getattr(opponent_state, "hand", []) or [])) + " hand / " + str(sum(1 for item in (getattr(opponent_state, "monsters", []) or []) if item)) + " field" if player_state and opponent_state else "Live card snapshot pending"
+            draw_text(surface, "Phase: " + str(getattr(current, "phase", battle.get("phase", "duel"))) + "  |  Turn: " + str(getattr(current, "turn", battle.get("turn", 1))) + "  |  " + hp, (72, y + 42), self.app.assets.font(11), COLORS["cyan"])
+            draw_text(surface, state_line, (72, y + 62), self.app.assets.font(9), COLORS["cream"])
+            draw_text(surface, "Watchers: " + str(len(battle.get("watchers", []))) + "/6  |  Steps: " + str(len(battle.get("actions", []))) + "  |  House POV retained; player media muted", (72, y + 80), self.app.assets.font(9), COLORS["muted"])
 
     def draw(self, surface):
         place = self.app.store.places.get(self.place_id)
@@ -11892,119 +12032,236 @@ class SettingsScene(Scene):
 class TradingScene(Scene):
     def enter(self):
         self.selected_id = ""
+        self.composer_mode = ""
+        self.list_filter = "all"
         self.refresh()
+
+    def player_id(self):
+        return self.app.store.role_config()["player_character"]
 
     def refresh(self):
-        self.deals = self.app.store.trade_list()
-        self.loans = self.app.store.borrow_list()
-        self.rows = [("trade", item) for item in self.deals] + [("borrow", item) for item in self.loans]
-        self.buttons = [Button((34, 530, 130, 38), "NEW OFFER", lambda: self.new_offer(), COLORS["orange"]), Button((172, 530, 130, 38), "NEW LOAN", lambda: self.new_borrow(), COLORS["cyan"]), Button((310, 530, 94, 38), "ACCEPT", lambda: self.accept(), COLORS["green"]), Button((412, 530, 94, 38), "COUNTER", lambda: self.counter(), COLORS["gold"]), Button((514, 530, 94, 38), "CANCEL", lambda: self.cancel(), COLORS["red"]), Button((616, 530, 138, 38), "ESCALATE", lambda: self.escalate(), COLORS["violet"]), Button((650, 575, 110, 24), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        player_id = self.player_id()
+        rows = [("trade", item) for item in self.app.store.trade_list()] + [("borrow", item) for item in self.app.store.borrow_list()]
+        if self.list_filter == "trade": rows = [item for item in rows if item[0] == "trade"]
+        elif self.list_filter == "borrow": rows = [item for item in rows if item[0] == "borrow"]
+        elif self.list_filter == "mine": rows = [item for item in rows if player_id in ([item[1].get("creator"), item[1].get("recipient")] if item[0] == "trade" else [item[1].get("lender"), item[1].get("borrower")])]
+        self.rows = rows
+        self.refresh_buttons()
 
     def selected(self):
-        for kind, item in self.rows:
-            if item.get("id") == self.selected_id: return item
-        return None
+        return next((item for kind, item in self.rows if item.get("id") == self.selected_id), None)
 
     def selected_kind(self):
-        for kind, item in self.rows:
-            if item.get("id") == self.selected_id: return kind
-        return ""
+        return next((kind for kind, item in self.rows if item.get("id") == self.selected_id), "")
 
-    def new_offer(self):
-        roles = self.app.store.role_config()
-        library = self.app.store.characters[roles["player_character"]].library_cards
-        if not library:
-            self.app.notify("The player library has no cards to offer.")
+    def recipient_candidates(self, mode):
+        result = []
+        for character in self.app.store.characters.values():
+            if character.id == self.player_id() or character.world_status == "out_of_game": continue
+            if mode == "borrow" and self.app.store.relationship_for(self.player_id(), character.id) != "ally" and not self.app.store.shared_team(self.player_id(), character.id): continue
+            result.append(character)
+        return sorted(result, key=lambda item: item.name.lower())
+
+    def begin_composer(self, mode, parent=None):
+        self.composer_mode, self.composer_parent = mode, parent
+        self.composer_recipients = self.recipient_candidates("borrow" if mode == "borrow" else "trade")
+        if mode == "counter" and parent:
+            self.composer_recipients = [self.app.store.characters[parent.get("creator")]] if parent.get("creator") in self.app.store.characters else []
+        self.composer_recipient_index = 0
+        self.composer_offer_index = 0
+        self.composer_request_index = 0
+        self.composer_offer_ids = []
+        self.composer_request_ids = []
+        self.composer_request_mode = "exact"
+        self.composer_duels = 1
+        self.refresh_buttons()
+
+    def recipient(self):
+        return self.composer_recipients[self.composer_recipient_index] if self.composer_recipients else None
+
+    def card_candidates(self, owner_id, exclude_trade_id=""):
+        counts = self.app.store.available_card_counts(owner_id, exclude_trade_id)
+        return [card for card in sorted(self.app.store.cards.values(), key=lambda item: item.name.lower()) if counts.get(card.id, 0) > 0 and card.kind != "fusion"]
+
+    def offer_candidates(self):
+        return self.card_candidates(self.player_id(), self.composer_parent.get("id", "") if self.composer_parent else "")
+
+    def request_candidates(self):
+        recipient = self.recipient()
+        return self.card_candidates(recipient.id) if recipient else []
+
+    def cycle_recipient(self):
+        if self.composer_recipients: self.composer_recipient_index = (self.composer_recipient_index + 1) % len(self.composer_recipients)
+        self.composer_request_index = 0
+        self.refresh_buttons()
+
+    def cycle_offer(self):
+        cards = self.offer_candidates()
+        if cards: self.composer_offer_index = (self.composer_offer_index + 1) % len(cards)
+        self.refresh_buttons()
+
+    def toggle_offer(self):
+        cards = self.offer_candidates()
+        if not cards: self.app.notify("No available player card can be offered."); return
+        card_id = cards[self.composer_offer_index].id
+        if card_id in self.composer_offer_ids: self.composer_offer_ids.remove(card_id)
+        elif len(self.composer_offer_ids) < 3: self.composer_offer_ids.append(card_id)
+        else: self.app.notify("An offer can contain at most three cards.")
+        self.refresh_buttons()
+
+    def cycle_request(self):
+        cards = self.request_candidates()
+        if cards: self.composer_request_index = (self.composer_request_index + 1) % len(cards)
+        self.refresh_buttons()
+
+    def toggle_request(self):
+        cards = self.request_candidates()
+        if not cards: self.app.notify("The recipient has no available exact card."); return
+        card_id = cards[self.composer_request_index].id
+        if card_id in self.composer_request_ids: self.composer_request_ids.remove(card_id)
+        elif len(self.composer_request_ids) < 3: self.composer_request_ids.append(card_id)
+        else: self.app.notify("An exact request can contain at most three cards.")
+        self.refresh_buttons()
+
+    def cycle_mode(self):
+        modes = ["exact", "family", "kind", "any"]
+        self.composer_request_mode = modes[(modes.index(self.composer_request_mode) + 1) % len(modes)]
+        self.refresh_buttons()
+
+    def cycle_duels(self):
+        self.composer_duels = self.composer_duels + 1 if self.composer_duels < 5 else 1
+        self.refresh_buttons()
+
+    def send_composer(self):
+        recipient = self.recipient()
+        if not recipient:
+            self.app.notify("Choose a recipient before sending.")
             return
-        trade = self.app.store.create_trade(roles["player_character"], roles["default_opponent_character"], [library[0]], requested_family="aqua")
-        self.selected_id = trade["id"] if trade else ""
-        recipient_name = self.app.store.characters[roles["default_opponent_character"]].name
-        self.app.notify(f"A three-hour type-based offer was created for {recipient_name}." if trade else "The recipient or offered card is currently unavailable.")
+        if self.composer_mode == "borrow":
+            cards = self.request_candidates()
+            card_id = cards[self.composer_request_index].id if cards else ""
+            record = self.app.store.create_borrow_request(recipient.id, self.player_id(), card_id, self.composer_duels, self.app.store.characters[self.player_id()].deck_id) if card_id else None
+        else:
+            if not self.composer_offer_ids:
+                self.app.notify("Choose at least one offered card before sending.")
+                return
+            requested = self.composer_request_ids if self.composer_request_mode == "exact" else []
+            cards = self.request_candidates()
+            families = sorted({card.family.lower() for card in cards})
+            kinds = sorted({card.kind.lower() for card in cards})
+            family = families[0] if self.composer_request_mode == "family" and families else ""
+            kind = kinds[0] if self.composer_request_mode == "kind" and kinds else ""
+            if self.composer_mode == "counter" and self.composer_parent:
+                record = self.app.store.counter_trade(self.composer_parent["id"], self.player_id(), self.composer_offer_ids, requested, family, kind)
+            else:
+                record = self.app.store.create_trade(self.player_id(), recipient.id, self.composer_offer_ids, requested, family, kind)
+        self.app.notify("Transaction request persisted with selected terms." if record else "Transaction rejected by ownership, relationship, deck, or availability rules.")
+        self.composer_mode = ""
+        self.selected_id = record.get("id", "") if record else ""
         self.refresh()
 
-    def new_borrow(self):
-        roles = self.app.store.role_config()
-        borrower = roles["player_character"]
-        candidates = [item for item in self.app.store.characters.values() if item.id != borrower and self.app.store.social_available(item.id) and (self.app.store.relationship_for(borrower, item.id) == "ally" or self.app.store.shared_team(borrower, item.id))]
-        candidates.sort(key=lambda item: (self.app.store._relationship_score(self.app.store.characters[borrower], item), item.id), reverse=True)
-        for lender in candidates:
-            card_id = next((card for card in lender.library_cards if self.app.store.available_card_counts(lender.id).get(card, 0) > 0), "")
-            if not card_id: continue
-            record = self.app.store.create_borrow_request(lender.id, borrower, card_id, 3, self.app.store.characters[borrower].deck_id)
-            if record:
-                self.selected_id = record["id"]
-                self.app.notify(f"A consent-based three-duel loan request was sent to {lender.name}.")
-                self.refresh()
-                return
-        self.app.notify("No allied lender has an available card that fits the player deck.")
+    def refresh_buttons(self):
+        if self.composer_mode:
+            self.buttons = [Button((34, 530, 100, 38), "RECIPIENT", self.cycle_recipient, COLORS["cyan"]), Button((140, 530, 100, 38), "OFFER", self.cycle_offer, COLORS["orange"]), Button((246, 530, 100, 38), "TOGGLE", self.toggle_offer, COLORS["orange"]), Button((352, 530, 100, 38), "REQUEST", self.cycle_request, COLORS["gold"]), Button((458, 530, 100, 38), "SELECT", self.toggle_request, COLORS["gold"]), Button((564, 530, 90, 38), "MODE", self.cycle_mode, COLORS["violet"]), Button((660, 530, 94, 38), "SEND", self.send_composer, COLORS["green"]), Button((650, 575, 110, 24), "CLOSE", lambda: self.close_composer(), COLORS["muted"])]
+        else:
+            self.buttons = [Button((26, 530, 96, 38), "NEW OFFER", lambda: self.begin_composer("trade"), COLORS["orange"]), Button((128, 530, 96, 38), "NEW LOAN", lambda: self.begin_composer("borrow"), COLORS["cyan"]), Button((230, 530, 80, 38), "ACCEPT", self.accept, COLORS["green"]), Button((316, 530, 80, 38), "COUNTER", self.counter, COLORS["gold"]), Button((402, 530, 80, 38), "TALK", self.talk, COLORS["cyan"]), Button((488, 530, 80, 38), "ARGUE", self.argue, COLORS["red"]), Button((574, 530, 80, 38), "CANCEL", self.cancel, COLORS["red"]), Button((660, 530, 94, 38), "FILTER", self.cycle_filter, COLORS["muted"]), Button((650, 575, 110, 24), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def close_composer(self):
+        self.composer_mode = ""
+        self.refresh()
+
+    def cycle_filter(self):
+        values = ["all", "trade", "borrow", "mine"]
+        self.list_filter = values[(values.index(self.list_filter) + 1) % len(values)]
+        self.refresh()
+
+    def new_offer(self): self.begin_composer("trade")
+    def new_borrow(self): self.begin_composer("borrow")
+
+    def talk(self):
+        item = self.selected()
+        actor = self.player_id()
+        self.app.notify("Talk recorded in the negotiation history." if item and self.app.store.trade_social_action(item.get("id", ""), actor, "talk") else "Select an open trade before talking.")
+        self.refresh()
+
+    def argue(self):
+        item = self.selected()
+        actor = self.player_id()
+        self.app.notify("Argument recorded and trust adjusted gradually." if item and self.app.store.trade_social_action(item.get("id", ""), actor, "argue") else "Select an open trade before arguing.")
+        self.refresh()
 
     def accept(self):
         item = self.selected()
-        if not item:
-            self.app.notify("Select an interaction first.")
-        elif self.selected_kind() == "borrow":
-            success = self.app.store.respond_borrow_request(item["id"], self.app.store.role_config()["player_character"], "accept")
-            self.app.notify("Loan accepted and added to the borrower’s temporary deck source." if success else "This loan requires lender consent and current availability.")
-        else:
-            success = self.app.store.accept_trade(item["id"], self.app.store.role_config()["player_character"])
-            self.app.notify("Trade accepted and card ownership transferred." if success else "This trade cannot be accepted: cards may be unavailable or the request is unsatisfied.")
+        actor = self.player_id()
+        if not item: self.app.notify("Select an interaction first.")
+        elif self.selected_kind() == "borrow": self.app.notify("Loan accepted." if self.app.store.respond_borrow_request(item["id"], actor, "accept") else "This loan still requires lender consent or current availability.")
+        else: self.app.notify("Trade accepted." if self.app.store.accept_trade(item["id"], actor) else "This trade cannot be accepted under current ownership and request terms.")
         self.refresh()
 
     def counter(self):
-        trade = self.selected()
-        if not trade or self.selected_kind() != "trade": self.app.notify("Select an open trade first."); return
-        library = self.app.store.characters[trade["recipient"]].library_cards
-        if not library:
-            self.app.notify("The recipient has no card available for a counteroffer.")
-            return
-        counter = self.app.store.counter_trade(trade["id"], trade["recipient"], [library[0]], requested_family="warrior")
-        self.selected_id = counter["id"] if counter else self.selected_id
-        self.app.notify("A persistent counteroffer was created." if counter else "Counteroffer rejected by the trade rules.")
-        self.refresh()
+        item = self.selected()
+        if not item or self.selected_kind() != "trade" or item.get("recipient") != self.player_id(): self.app.notify("Select a trade addressed to the player before countering."); return
+        self.begin_composer("counter", item)
 
     def cancel(self):
         item = self.selected()
-        actor = self.app.store.role_config()["player_character"]
-        if self.selected_kind() == "borrow": success = bool(item and self.app.store.respond_borrow_request(item["id"], actor, "cancel"))
-        else: success = bool(item and self.app.store.cancel_trade(item["id"], actor))
+        actor = self.player_id()
+        success = self.app.store.respond_borrow_request(item["id"], actor, "cancel") if item and self.selected_kind() == "borrow" else self.app.store.cancel_trade(item["id"], actor) if item else False
         self.app.notify("Interaction canceled." if success else "Only an active interaction can be canceled.")
         self.refresh()
 
     def escalate(self):
-        trade = self.selected()
-        request_id = self.app.store.escalate_trade(trade["id"], self.app.store.role_config()["player_character"]) if trade and self.selected_kind() == "trade" else None
-        if request_id and trade:
-            self.app.notify(f"Trade escalated into duel request {request_id}.")
-            self.app.push(PreDuelScene(self.app, trade["recipient"]))
-        else:
-            self.app.notify("This trade cannot be escalated.")
+        item = self.selected()
+        request_id = self.app.store.escalate_trade(item["id"], self.player_id()) if item and self.selected_kind() == "trade" else None
+        if request_id: self.app.notify("Trade escalated into duel request " + request_id + ".")
+        else: self.app.notify("This trade cannot be escalated.")
         self.refresh()
 
     def handle(self, event):
         super().handle(event)
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        if not self.composer_mode and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for index, (kind, item) in enumerate(self.rows[-4:]):
                 if pygame.Rect(46, 125 + index * 90, 708, 68).collidepoint(event.pos): self.selected_id = item["id"]
+
+    def draw_composer(self, surface):
+        self.draw_panel(surface, (34, 110, 732, 390), "TRANSACTION COMPOSER", COLORS["cyan"] if self.composer_mode == "borrow" else COLORS["orange"])
+        recipient = self.recipient()
+        offers = self.offer_candidates()
+        requests = self.request_candidates()
+        offer = offers[self.composer_offer_index % len(offers)].name if offers else "none"
+        request = requests[self.composer_request_index % len(requests)].name if requests else "none"
+        draw_text(surface, "RECIPIENT / LENDER: " + (recipient.name if recipient else "none available"), (62, 158), self.app.assets.font(16, True), COLORS["cream"])
+        draw_text(surface, "OFFER CURSOR: " + offer, (62, 198), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "SELECTED OFFERS: " + self.app.store.card_names(self.composer_offer_ids), (62, 226), self.app.assets.font(13), COLORS["gold"])
+        draw_text(surface, "REQUEST CURSOR: " + request, (62, 270), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "SELECTED EXACT REQUEST: " + self.app.store.card_names(self.composer_request_ids), (62, 300), self.app.assets.font(13), COLORS["gold"])
+        draw_text(surface, "REQUEST MODE: " + self.composer_request_mode.upper() + ("  |  DUELS: " + str(self.composer_duels) if self.composer_mode == "borrow" else ""), (62, 334), self.app.assets.font(13, True), COLORS["cyan"])
+        draw_text(surface, "Cycle recipients and cards, select up to three offers, choose exact/family/kind/any, then SEND.", (400, 438), self.app.assets.font(11), COLORS["muted"], "center")
+        draw_text(surface, "All final ownership, relationship, availability, deck, and consent rules remain in ContentStore.", (400, 468), self.app.assets.font(10), COLORS["green"], "center")
+        self.draw_buttons(surface, 10)
+        self.app.draw_notice(surface)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "TRADING", (34, 28), self.app.assets.font(28, True), COLORS["orange"])
-        draw_text(surface, "Real-time offers and consent-based loans use relationship, availability, and transactional card state.", (36, 65), self.app.assets.font(13), COLORS["muted"])
-        visible = self.rows[-4:]
-        for index, (kind, item) in enumerate(visible):
+        if self.composer_mode:
+            draw_text(surface, "Compose a real transaction without default recipients or hidden card substitution.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+            self.draw_composer(surface)
+            return
+        draw_text(surface, "Offers and consent-based loans use relationship, availability, ownership, and explicit card terms.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        draw_text(surface, "FILTER: " + self.list_filter.upper(), (730, 78), self.app.assets.font(11, True), COLORS["cyan"], "topright")
+        for index, (kind, item) in enumerate(self.rows[-4:]):
             y = 125 + index * 90
             accent = COLORS["gold"] if item["id"] == self.selected_id else COLORS["cyan"] if kind == "borrow" else COLORS["orange"]
             rounded(surface, (46, y, 708, 68), (15, 28, 58), accent, 8, 2 if item["id"] == self.selected_id else 1)
             if kind == "borrow":
-                lender = self.app.store.characters.get(item.get("lender"))
-                borrower = self.app.store.characters.get(item.get("borrower"))
+                lender = self.app.store.characters.get(item.get("lender")); borrower = self.app.store.characters.get(item.get("borrower"))
                 title = f"LOAN  {lender.name if lender else item.get('lender')} -> {borrower.name if borrower else item.get('borrower')}  |  {item.get('state', '').upper()}"
                 detail = f"Card: {self.app.store.card_names([item.get('card_id', '')])}    Duels remaining: {item.get('remaining_duels', 0)}"
             else:
-                creator = self.app.store.characters.get(item.get("creator"))
-                recipient = self.app.store.characters.get(item.get("recipient"))
+                creator = self.app.store.characters.get(item.get("creator")); recipient = self.app.store.characters.get(item.get("recipient"))
                 title = f"TRADE  {creator.name if creator else item.get('creator')} -> {recipient.name if recipient else item.get('recipient')}  |  {item.get('state', '').upper()}"
-                requested = self.app.store.card_names(item.get("requested_cards", [])) if item.get("requested_cards") else "family: " + (item.get("requested_family") or "any")
+                requested = self.app.store.card_names(item.get("requested_cards", [])) if item.get("requested_cards") else "family: " + (item.get("requested_family") or "kind: " + (item.get("requested_kind") or "any"))
                 detail = f"Gives: {self.app.store.card_names(item.get('offered_cards', []))}    Wants: {requested}"
             draw_text(surface, title, (64, y + 13), self.app.assets.font(13, True), COLORS["cream"])
             draw_text(surface, detail, (64, y + 39), self.app.assets.font(11), COLORS["muted"])
@@ -12012,9 +12269,8 @@ class TradingScene(Scene):
         if selected:
             history = selected.get("history", selected.get("events", []))[-2:]
             draw_text(surface, "NEGOTIATION: " + "  |  ".join(item.get("action", "event") for item in history), (400, 505), self.app.assets.font(11), COLORS["cyan"], "center")
-        else:
-            draw_text(surface, "Select a trade or loan row to negotiate.", (400, 505), self.app.assets.font(11), COLORS["muted"], "center")
-        self.draw_buttons(surface, 11)
+        else: draw_text(surface, "Select a trade or loan row to negotiate.", (400, 505), self.app.assets.font(11), COLORS["muted"], "center")
+        self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 
 
@@ -12023,10 +12279,35 @@ class ImportExportScene(Scene):
 
     def enter(self):
         self.files = sorted((DATA / "exports").glob("*.cbp"))
-        self.selected_path = self.files[-1] if self.files else None
+        if not hasattr(self, "selected_path"): self.selected_path = self.files[-1] if self.files else None
+        if self.selected_path not in self.files: self.selected_path = self.files[-1] if self.files else None
         self.preview = self.app.store.package_preview(self.selected_path) if self.selected_path else None
-        self.policy = "replace"
-        self.buttons = [Button((54, 145, 250, 40), "EXPORT WORLD .CBP", lambda: self.export_world(), COLORS["cyan"]), Button((54, 195, 250, 40), "SCAN / PREVIEW LATEST", lambda: self.scan(), COLORS["violet"]), Button((54, 245, 250, 40), "IMPORT SELECTED ALL", lambda: self.import_latest(), COLORS["green"]), Button((54, 295, 250, 40), "IMPORT CONTENT ONLY", lambda: self.import_latest(["cards", "characters", "decks", "places", "teams", "logic"]), COLORS["gold"]), Button((54, 345, 250, 40), "CONFLICT: REPLACE", lambda: self.cycle_policy(), COLORS["orange"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        if not hasattr(self, "policy"): self.policy = "replace"
+        if not hasattr(self, "category_preset"): self.category_preset = 0
+        self.file_buttons = []
+        self.buttons = [Button((54, 145, 250, 40), "EXPORT WORLD .CBP", lambda: self.export_world(), COLORS["cyan"]), Button((54, 195, 250, 40), "SCAN / PREVIEW LATEST", lambda: self.scan(), COLORS["violet"]), Button((54, 245, 250, 40), "IMPORT SELECTED " + self.category_label(), lambda: self.import_latest(self.selected_categories()), COLORS["green"]), Button((54, 295, 250, 40), "CATEGORIES: " + self.category_label(), lambda: self.cycle_categories(), COLORS["gold"]), Button((54, 345, 250, 40), "CONFLICT: " + self.policy.upper(), lambda: self.cycle_policy(), COLORS["orange"]), Button((54, 395, 250, 40), "IMPORT EXPERIENCE", lambda: self.import_latest(self.selected_categories(), True), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def category_presets(self):
+        return [[], ["cards", "characters", "decks", "places", "teams", "logic"], ["cards"], ["characters"], ["decks"], ["places"], ["teams"], ["logic"]]
+
+    def selected_categories(self):
+        presets = self.category_presets()
+        selected = presets[self.category_preset % len(presets)]
+        return list(selected) if selected else None
+
+    def category_label(self):
+        selected = self.selected_categories()
+        return "ALL" if selected is None else "+".join(selected).upper()
+
+    def cycle_categories(self):
+        self.category_preset = (self.category_preset + 1) % len(self.category_presets())
+        self.buttons[2].label = "IMPORT SELECTED " + self.category_label()
+        self.buttons[3].label = "CATEGORIES: " + self.category_label()
+
+    def select_file(self, path):
+        self.selected_path = path
+        self.preview = self.app.store.package_preview(path) if path else None
+        self.enter()
 
     def scan(self):
         self.files = sorted((DATA / "exports").glob("*.cbp"))
@@ -12039,11 +12320,11 @@ class ImportExportScene(Scene):
         self.policy = self.policies[(self.policies.index(self.policy) + 1) % len(self.policies)]
         self.buttons[4].label = "CONFLICT: " + self.policy.upper()
 
-    def import_latest(self, include=None):
+    def import_latest(self, include=None, include_experience=False):
         if not self.selected_path or not self.preview:
             self.scan()
             return
-        result = self.app.store.import_cbp(self.selected_path, include, False, self.policy)
+        result = self.app.store.import_cbp(self.selected_path, include, include_experience, self.policy)
         if result.get("rejected"):
             self.app.notify("Import rejected because existing ids conflict with the selected package.")
             return
@@ -12055,14 +12336,22 @@ class ImportExportScene(Scene):
         self.enter()
         self.app.notify(f"Exported {path.name} with manifest, registries, dependencies, and optional world state.")
 
+    def handle(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for button in reversed(getattr(self, "file_buttons", [])):
+                if button.rect.collidepoint(event.pos): button.callback(); return
+        super().handle(event)
+
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "IMPORT / EXPORT", (34, 28), self.app.assets.font(28, True), COLORS["violet"])
         draw_text(surface, "Preview a dependency-scoped .cbp package before selecting categories and conflict behavior.", (36, 65), self.app.assets.font(12), COLORS["muted"])
         self.draw_panel(surface, (36, 112, 280, 322), "PACKAGE FILES", COLORS["violet"])
+        self.file_buttons = []
         for index, path in enumerate(self.files[-5:]):
-            color = COLORS["gold"] if path == self.selected_path else COLORS["muted"]
-            draw_text(surface, path.name[:34], (54, 155 + index * 32), self.app.assets.font(10, True if path == self.selected_path else False), color)
+            file_button = Button((50, 150 + index * 42, 250, 34), path.name[:30], lambda path=path: self.select_file(path), COLORS["gold"] if path == self.selected_path else COLORS["muted"])
+            self.file_buttons.append(file_button)
+            file_button.draw(surface, self.app.assets.font(10, path == self.selected_path), assets=self.app.assets)
         self.draw_panel(surface, (344, 112, 420, 322), "MANIFEST PREVIEW", COLORS["cyan"])
         if self.preview:
             manifest = self.preview["manifest"]
@@ -12081,11 +12370,64 @@ class ImportExportScene(Scene):
         self.app.draw_notice(surface)
 
 
+class TeamWatchScene(Scene):
+    def __init__(self, app, battle):
+        super().__init__(app)
+        self.battle_id = battle.get("id", "")
+        self.battle = battle
+        self.buttons = []
+
+    def enter(self):
+        self.refresh()
+
+    def refresh(self):
+        self.battle = next((item for item in self.app.store.world.setdefault("active_battles", []) if item.get("id") == self.battle_id), self.battle)
+        self.buttons = [Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+
+    def advance(self, seconds):
+        self.app.store.advance_world(seconds)
+        self.refresh()
+
+    def team_name(self, team_id):
+        team = self.app.store.teams.get(team_id)
+        return team.name if team else team_id or "unknown"
+
+    def member_name(self, member_id):
+        character = self.app.store.characters.get(member_id)
+        return character.name if character else member_id or "unknown"
+
+    def draw(self, surface):
+        place = self.app.store.places.get(self.battle.get("place", ""))
+        self.draw_background(surface, place.background if place else "")
+        overlay = ui_surface((W, H), pygame.SRCALPHA); overlay.fill((247, 227, 177, 42)); ui_blit(surface, overlay, (0, 0))
+        draw_text(surface, "LIVE TEAM DUEL", (34, 30), self.app.assets.font(27, True), COLORS["gold"])
+        draw_text(surface, "Championship match checkpoint — viewer presentation", (36, 66), self.app.assets.font(13), COLORS["muted"])
+        self.draw_panel(surface, (38, 104, 724, 386), "HOUSE POV / TEAM TABLE", COLORS["violet"])
+        player_team = self.team_name(self.battle.get("player_team", ""))
+        opponent_team = self.team_name(self.battle.get("opponent_team", ""))
+        lp = self.battle.get("team_lp", {})
+        active = self.battle.get("active_members", {})
+        draw_text(surface, "HOUSE  " + player_team + "   VS   " + opponent_team, (400, 142), self.app.assets.font(18, True), COLORS["cream"], "center")
+        draw_text(surface, "LP " + str(lp.get("player", 8000)) + "  /  " + str(lp.get("opponent", 8000)), (400, 174), self.app.assets.font(16, True), COLORS["cyan"], "center")
+        draw_text(surface, "Active: " + self.member_name(active.get("player", "")) + "  /  " + self.member_name(active.get("opponent", "")), (400, 204), self.app.assets.font(13), COLORS["gold"], "center")
+        draw_text(surface, "Round " + str(self.battle.get("round", 1)) + "  |  Turn " + str(self.battle.get("duel_turn", self.battle.get("turn", 1))) + "  |  " + str(self.battle.get("phase", "duel")).upper(), (400, 232), self.app.assets.font(12), COLORS["muted"], "center")
+        rounds = list(self.battle.get("rounds", []) or [])
+        if not rounds: draw_text(surface, "No completed rounds yet; the background engine is running in real time.", (400, 284), self.app.assets.font(13), COLORS["muted"], "center")
+        for index, result in enumerate(rounds[-3:]):
+            label = "Round " + str(result.get("round", index + 1)) + ": " + self.member_name(result.get("winner", "draw")) + " | stake " + str(result.get("transferred_cards", []))
+            draw_text(surface, label, (76, 286 + index * 28), self.app.assets.font(11), COLORS["cream"])
+        turns = list(self.battle.get("team_turns", []) or [])
+        draw_text(surface, "Recorded team turns: " + str(len(turns)) + "  |  Watchers: " + str(len(self.battle.get("watchers", []))) + "/6", (400, 424), self.app.assets.font(11), COLORS["muted"], "center")
+        self.draw_buttons(surface, 10)
+        self.app.draw_notice(surface)
+
+
 class WatchScene(Scene):
     def __init__(self, app):
         super().__init__(app)
         self.buttons = []
         self.battle_rows = []
+        self.hover_row = -1
 
     def enter(self): self.refresh()
 
@@ -12098,16 +12440,25 @@ class WatchScene(Scene):
             self.buttons.append(Button((600, 142 + index * 76, 130, 38), "WATCH LIVE", lambda battle=battle: self.open_watch(battle), COLORS["gold"]))
         self.buttons.extend([Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])])
 
+    def handle(self, event):
+        if event.type == pygame.MOUSEMOTION:
+            self.hover_row = next((index for index in range(min(4, len(self.battle_rows))) if pygame.Rect(58, 142 + index * 76, 520, 54).collidepoint(event.pos)), -1)
+        super().handle(event)
+
     def advance(self, seconds):
         self.app.store.advance_world(seconds)
         self.refresh()
         self.app.notify(f"World advanced by {seconds} real-time simulation seconds.")
 
     def battle_participant(self, battle, key):
-        identifier = battle.get(key) or battle.get("to" if key == "house" else "from", "unknown")
-        return self.app.store.characters.get(identifier)
+        fallback = "to" if key in ["house", "player_team"] else "from"
+        identifier = battle.get(key) or battle.get(fallback, "unknown")
+        return self.app.store.teams.get(identifier) if battle.get("engine_type") == "team" else self.app.store.characters.get(identifier)
 
     def open_watch(self, battle):
+        if battle.get("engine_type") == "team":
+            self.app.push(TeamWatchScene(self.app, battle))
+            return
         session = self.app.store._world_session(battle)
         if not session:
             self.app.notify("This live battle has no valid engine checkpoint.")
@@ -12128,13 +12479,27 @@ class WatchScene(Scene):
             draw_text(surface, "No active duels are currently available to watch.", (400, 280), self.app.assets.font(15), COLORS["muted"], "center")
         for index, battle in enumerate(self.battle_rows[:4]):
             y = 142 + index * 76
-            house = self.battle_participant(battle, "house")
-            guest = self.battle_participant(battle, "guest")
+            house = self.battle_participant(battle, "player_team" if battle.get("engine_type") == "team" else "house")
+            guest = self.battle_participant(battle, "opponent_team" if battle.get("engine_type") == "team" else "guest")
             house_name = house.name if house else battle.get("house", "unknown")
             guest_name = guest.name if guest else battle.get("guest", "unknown")
             rounded(surface, (58, y, 520, 54), (132, 94, 73), COLORS["line"], 7, 1)
             draw_text(surface, f"HOUSE  {house_name}  VS  {guest_name}", (74, y + 10), self.app.assets.font(13, True), COLORS["cream"])
             draw_text(surface, f"Turn {battle.get('turn', 1)}  |  {str(battle.get('phase', 'duel')).upper()}  |  {len(battle.get('actions', []))} live engine steps", (74, y + 33), self.app.assets.font(10), COLORS["muted"])
+            if index == self.hover_row:
+                entity = house if house else guest
+                if battle.get("engine_type") == "team":
+                    portrait = self.app.assets.team_portrait(entity, (42, 42)) if entity else None
+                    relation = getattr(entity, "relationship", "opponent") if entity else "opponent"
+                    label = "TEAM"
+                else:
+                    portrait = self.app.assets.character_portrait(entity, (42, 42)) if entity else None
+                    relation = self.app.store.relationship_for(self.app.store.role_config()["player_character"], entity.id) if entity else "stranger"
+                    label = "CHARACTER"
+                rounded(surface, (590, y, 158, 54), (16, 29, 62), COLORS["gold"], 7, 2)
+                if portrait: ui_blit(surface, portrait, (596, y + 6))
+                draw_text(surface, (label + " " + (entity.name if entity else "unknown"))[:22], (644, y + 15), self.app.assets.font(9, True), COLORS["cream"])
+                draw_text(surface, "HOUSE / " + relation.upper(), (644, y + 34), self.app.assets.font(8), COLORS["cyan"])
         self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 

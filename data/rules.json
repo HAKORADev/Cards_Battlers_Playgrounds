@@ -92,6 +92,12 @@
       "special_requirement": "A ten-star-or-higher monster cannot use the ordinary normal-tribute path and requires an authored special summon procedure."
     }
   },
+  "transactions": {
+    "max_offered_cards": 3,
+    "max_requested_cards": 3,
+    "max_counter_depth": 3,
+    "interaction_actions": ["talk", "argue"]
+  },
   "trio_distribution": {
     "enabled": true,
     "opportunity": 0.6,
