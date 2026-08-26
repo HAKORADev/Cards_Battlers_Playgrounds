@@ -5319,9 +5319,17 @@ class DeckRules:
 
 
 class CardInstance:
-    def __init__(self, card, owner):
+    _sequence = 0
+    def __init__(self, card, owner, instance_id=""):
         self.card = card
         self.owner = owner
+        if instance_id:
+            self.instance_id = str(instance_id)
+            try: CardInstance._sequence = max(CardInstance._sequence, int(self.instance_id.rsplit("_", 1)[-1]))
+            except (TypeError, ValueError): pass
+        else:
+            CardInstance._sequence += 1
+            self.instance_id = "card_instance_" + str(CardInstance._sequence)
         self.variant = int(getattr(card, "art_variant", 1) or 1)
         self.position = "hand"
         self.last_zone = "hand"
@@ -6007,14 +6015,14 @@ class DuelEngine:
         if not modifier or not (modifier.get("continuous") or modifier.get("duration") or modifier.get("replacement")): return None
         if modifier.get("continuous") and any(item.get("status") == "active" and item.get("source") is card and item.get("source_effect_id") == spec.effect_id for item in self.continuous_effects): return next(item for item in self.continuous_effects if item.get("status") == "active" and item.get("source") is card and item.get("source_effect_id") == spec.effect_id)
         self.continuous_sequence += 1
-        record = {"id": "continuous_" + str(self.continuous_sequence), "source": card, "source_card_id": getattr(getattr(card, "card", card), "id", ""), "source_effect_id": spec.effect_id, "actor": actor, "actor_id": self.side_key(actor), "modifier": modifier, "duration": self.normalize_continuous_duration(modifier), "created_turn": self.turn, "created_phase": self.phase, "created_phase_index": self.phase_index, "layer": int(modifier.get("layer", 4) or 4), "status": "active"}
+        record = {"id": "continuous_" + str(self.continuous_sequence), "source": card, "source_card_id": getattr(getattr(card, "card", card), "id", ""), "source_instance_id": getattr(card, "instance_id", ""), "source_effect_id": spec.effect_id, "actor": actor, "actor_id": self.side_key(actor), "modifier": modifier, "duration": self.normalize_continuous_duration(modifier), "created_turn": self.turn, "created_phase": self.phase, "created_phase_index": self.phase_index, "layer": int(modifier.get("layer", 4) or 4), "status": "active"}
         self.continuous_effects.append(record)
         self.continuous_effects = self.continuous_effects[-128:]
         self.log(f"{record['source_card_id']} establishes {record['duration']} continuous effect.")
         return record
 
     def checkpoint_continuous_effects(self):
-        fields = ["id", "source_card_id", "source_effect_id", "actor_id", "modifier", "duration", "created_turn", "created_phase", "created_phase_index", "layer", "status"]
+        fields = ["id", "source_card_id", "source_instance_id", "source_effect_id", "actor_id", "modifier", "duration", "created_turn", "created_phase", "created_phase_index", "layer", "status"]
         return [{key: record.get(key) for key in fields} for record in self.continuous_effects if record.get("status") == "active"]
 
     def restore_continuous_effects(self, payload):
@@ -6023,8 +6031,14 @@ class DuelEngine:
             actor = self.player if raw.get("actor_id") == "player" else self.opponent
             candidates = [item for item in actor.monsters + actor.spells if item]
             if self.field_card and self.field_card_owner is actor: candidates.append(self.field_card)
-            source = next((item for item in candidates if item.card.id == raw.get("source_card_id")), None)
-            if not source: source = next((item for item in self.card_instances() if item.card.id == raw.get("source_card_id") and item.position in ["field", "monster", "spell_trap"]), None)
+            source_instance_id = str(raw.get("source_instance_id", "") or "")
+            source = next((item for item in candidates if getattr(item, "instance_id", "") == source_instance_id), None) if source_instance_id else None
+            if not source:
+                matches = [item for item in candidates if item.card.id == raw.get("source_card_id")]
+                source = matches[0] if len(matches) == 1 else None
+            if not source:
+                matches = [item for item in self.card_instances() if item.card.id == raw.get("source_card_id") and item.position in ["field", "monster", "spell_trap"]]
+                source = matches[0] if len(matches) == 1 else None
             if not source: continue
             record = dict(raw)
             record["source"] = source
@@ -6063,7 +6077,7 @@ class DuelEngine:
         if existing:
             existing.update({"controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"})
             return existing
-        record = {"card": card, "card_id": card.card.id, "original_side": self.side_key(original_side), "original_owner": getattr(card, "original_owner", original_side.name), "controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"}
+        record = {"card": card, "card_id": card.card.id, "card_instance_id": getattr(card, "instance_id", ""), "original_side": self.side_key(original_side), "original_owner": getattr(card, "original_owner", original_side.name), "controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"}
         self.control_changes.append(record)
         self.control_changes = self.control_changes[-64:]
         return record
@@ -6117,8 +6131,14 @@ class DuelEngine:
         for raw in list(payload or []):
             controller = self.player if raw.get("controller_side") == "player" else self.opponent
             cards = [item for item in controller.monsters + controller.spells if item]
-            card = next((item for item in cards if item.card.id == raw.get("card_id")), None)
-            if not card: card = next((item for item in self.card_instances() if item.card.id == raw.get("card_id") and item.position in ["field", "monster"]), None)
+            card_instance_id = str(raw.get("card_instance_id", "") or "")
+            card = next((item for item in cards if getattr(item, "instance_id", "") == card_instance_id), None) if card_instance_id else None
+            if not card:
+                matches = [item for item in cards if item.card.id == raw.get("card_id")]
+                card = matches[0] if len(matches) == 1 else None
+            if not card:
+                matches = [item for item in self.card_instances() if item.card.id == raw.get("card_id") and item.position in ["field", "monster"]]
+                card = matches[0] if len(matches) == 1 else None
             if not card: continue
             record = dict(raw)
             record["card"] = card
@@ -6981,32 +7001,32 @@ class DuelEngine:
         return {"schema": "cbp.live-observation.v1", "viewer": self.side_key(viewer) if isinstance(viewer, Duelist) else str(viewer), "state": self.public_state(viewer), "events": self.live_observation(viewer), "knowledge": self.knowledge_for(viewer)}
 
     def checkpoint_card(self, card):
-        return {"card_id": card.card.id, "owner": card.owner, "variant": card.variant, "position": card.position, "last_zone": card.last_zone, "face_up": bool(card.face_up), "battle_position": card.battle_position, "summon_method": card.summon_method, "summon_source_zone": card.summon_source_zone, "summon_source_card_id": card.summon_source_card_id, "summon_source_card_name": card.summon_source_card_name, "summon_source_effect_id": card.summon_source_effect_id, "summon_history": list(card.summon_history), "properly_summoned": bool(card.properly_summoned), "original_owner": getattr(card, "original_owner", ""), "attack_bonus": card.attack_bonus, "defense_bonus": card.defense_bonus, "attacked": bool(card.attacked)}
+        return {"card_id": card.card.id, "instance_id": getattr(card, "instance_id", ""), "owner": card.owner, "variant": card.variant, "position": card.position, "last_zone": card.last_zone, "face_up": bool(card.face_up), "battle_position": card.battle_position, "summon_method": card.summon_method, "summon_source_zone": card.summon_source_zone, "summon_source_card_id": card.summon_source_card_id, "summon_source_card_name": card.summon_source_card_name, "summon_source_effect_id": card.summon_source_effect_id, "summon_history": list(card.summon_history), "properly_summoned": bool(card.properly_summoned), "original_owner": getattr(card, "original_owner", ""), "attack_bonus": card.attack_bonus, "defense_bonus": card.defense_bonus, "attacked": bool(card.attacked)}
 
     def checkpoint_side(self, side):
         return {"id": side.character.id, "name": side.name, "hp": side.hp, "deck": [self.checkpoint_card(item) for item in side.deck], "hand": [self.checkpoint_card(item) for item in side.hand], "monsters": [self.checkpoint_card(item) if item else None for item in side.monsters], "spells": [self.checkpoint_card(item) if item else None for item in side.spells], "graveyard": [self.checkpoint_card(item) for item in side.graveyard], "banished": [self.checkpoint_card(item) for item in side.banished], "extra": [self.checkpoint_card(item) for item in side.extra]}
 
     def pending_ref(self, item):
         if isinstance(item, Duelist): return {"kind": "side", "value": self.side_key(item)}
-        if isinstance(item, CardInstance): return {"kind": "card", "value": item.card.id}
+        if isinstance(item, CardInstance): return {"kind": "card", "value": item.card.id, "instance_id": getattr(item, "instance_id", "")}
         return item
 
     def pending_payload(self):
         if self.pending_discard: return {"kind": "discard", "owner": self.side_key(self.pending_discard)}
         if self.pending_target:
             pending = self.pending_target
-            return {"kind": "target", "card": pending["card"].card.id, "actor": self.side_key(pending["actor"]), "trigger": pending.get("trigger", ""), "effect_id": pending.get("effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "target_policy": pending.get("target_policy", {}), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])], "snapshot": list(pending.get("snapshot", []))}
+            return {"kind": "target", "card": self.pending_ref(pending["card"]), "actor": self.side_key(pending["actor"]), "trigger": pending.get("trigger", ""), "effect_id": pending.get("effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "target_policy": pending.get("target_policy", {}), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])], "snapshot": list(pending.get("snapshot", []))}
         if self.pending_summon:
             pending = self.pending_summon
-            return {"kind": "summon", "actor": self.side_key(pending["actor"]), "method": pending.get("method", "special"), "source_card": pending.get("source_card").card.id if pending.get("source_card") else "", "source_effect_id": pending.get("source_effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])]}
-        if self.pending_trap: return {"kind": "trap", "trap": self.pending_trap["trap"].card.id}
+            return {"kind": "summon", "actor": self.side_key(pending["actor"]), "method": pending.get("method", "special"), "source_card": self.pending_ref(pending.get("source_card")) if pending.get("source_card") else None, "source_effect_id": pending.get("source_effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])]}
+        if self.pending_trap: return {"kind": "trap", "trap": self.pending_ref(self.pending_trap["trap"]), "attacker": self.pending_ref(self.pending_trap.get("attacker")), "defender": self.side_key(self.pending_trap.get("defender")) if self.pending_trap.get("defender") else ""}
         if self.pending_effect:
             pending = self.pending_effect
-            return {"kind": "effect", "card": pending["card"].card.id, "actor": self.side_key(pending["actor"]), "effect_id": pending["spec"].effect_id, "target": self.pending_ref(pending.get("target"))}
+            return {"kind": "effect", "card": self.pending_ref(pending["card"]), "actor": self.side_key(pending["actor"]), "effect_id": pending["spec"].effect_id, "target": self.pending_ref(pending.get("target"))}
         if self.pending_procedure:
             pending = self.pending_procedure
             procedure = pending.get("procedure")
-            return {"kind": "procedure", "procedure": procedure.kind if procedure else "", "actor": self.side_key(pending.get("actor")), "card": pending.get("card").card.id if pending.get("card") else "", "enabler": pending.get("enabler").card.id if pending.get("enabler") else "", "enabler_effect_id": pending.get("enabler_effect_id", ""), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])]}
+            return {"kind": "procedure", "procedure": procedure.kind if procedure else "", "actor": self.side_key(pending.get("actor")), "card": self.pending_ref(pending.get("card")) if pending.get("card") else None, "enabler": self.pending_ref(pending.get("enabler")) if pending.get("enabler") else None, "enabler_effect_id": pending.get("enabler_effect_id", ""), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])]}
         if self.pending_cost or self.pending_response or self.pending_trigger_order: return {"kind": "unsupported_interactive", "supported": False}
         return None
 
@@ -7025,7 +7045,7 @@ class DuelEngine:
         return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "control_changes": self.checkpoint_control_changes(), "continuous_effects": self.checkpoint_continuous_effects(), "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
-        card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
+        card = CardInstance(self.store.cards[payload["card_id"]], owner.name, payload.get("instance_id", ""))
         for key in ["variant", "position", "last_zone", "face_up", "battle_position", "summon_method", "summon_source_zone", "summon_source_card_id", "summon_source_card_name", "summon_source_effect_id", "properly_summoned", "original_owner", "attack_bonus", "defense_bonus", "attacked"]:
             if key in payload: setattr(card, key, payload[key])
         card.summon_history = list(payload.get("summon_history", []))
@@ -7043,7 +7063,11 @@ class DuelEngine:
     def restore_ref(self, ref):
         if not isinstance(ref, dict): return ref
         if ref.get("kind") == "side": return self.player if ref.get("value") == "player" else self.opponent
-        if ref.get("kind") == "card": return next((item for item in self.card_instances() if item.card.id == ref.get("value")), None)
+        if ref.get("kind") == "card":
+            matches = [item for item in self.card_instances() if item.card.id == ref.get("value")]
+            instance_id = str(ref.get("instance_id", "") or "")
+            if instance_id: return next((item for item in matches if getattr(item, "instance_id", "") == instance_id), None)
+            return matches[0] if len(matches) == 1 else None
         return None
 
     def restore_pending_payload(self, pending):
@@ -7051,26 +7075,40 @@ class DuelEngine:
         kind = pending.get("kind")
         if kind == "discard": self.pending_discard = self.player if pending.get("owner") == "player" else self.opponent; return True
         if kind == "trap":
-            trap = next((item for item in self.card_instances() if item.card.id == pending.get("trap")), None)
-            if not trap: return False
-            self.pending_trap = {"trap": trap}; return True
+            trap = self.restore_ref(pending.get("trap"))
+            attacker = self.restore_ref(pending.get("attacker"))
+            defender = self.player if pending.get("defender") == "player" else self.opponent
+            if not isinstance(trap, CardInstance): return False
+            self.pending_trap = {"trap": trap, "attacker": attacker, "defender": defender}; return True
         if kind == "target":
-            card = next((item for item in self.card_instances() if item.card.id == pending.get("card")), None)
+            card = self.restore_ref(pending.get("card"))
             actor = self.player if pending.get("actor") == "player" else self.opponent
-            if not card: return False
-            self.pending_target = {"card": card, "actor": actor, "trigger": pending.get("trigger", "activate"), "effect_id": pending.get("effect_id", ""), "selector": dict(pending.get("selector", {})), "required": int(pending.get("required", 1)), "target_policy": dict(pending.get("target_policy", {})), "selected": [self.restore_ref(item) for item in pending.get("selected", []) if self.restore_ref(item) is not None], "candidates": [self.restore_ref(item) for item in pending.get("candidates", []) if self.restore_ref(item) is not None], "snapshot": list(pending.get("snapshot", []))}; return True
+            if not isinstance(card, CardInstance): return False
+            selected = [self.restore_ref(item) for item in pending.get("selected", [])]
+            candidates = [self.restore_ref(item) for item in pending.get("candidates", [])]
+            self.pending_target = {"card": card, "actor": actor, "trigger": pending.get("trigger", "activate"), "effect_id": pending.get("effect_id", ""), "selector": dict(pending.get("selector", {})), "required": int(pending.get("required", 1)), "target_policy": dict(pending.get("target_policy", {})), "selected": [item for item in selected if item is not None], "candidates": [item for item in candidates if item is not None], "snapshot": list(pending.get("snapshot", []))}; return True
         if kind == "summon":
             actor = self.player if pending.get("actor") == "player" else self.opponent
-            card = next((item for item in self.card_instances() if item.card.id == pending.get("source_card")), None)
-            if pending.get("source_card") and not card: return False
-            self.pending_summon = {"actor": actor, "method": pending.get("method", "special"), "source_card": card, "source_effect_id": pending.get("source_effect_id", ""), "selector": dict(pending.get("selector", {})), "required": int(pending.get("required", 1)), "selected": [self.restore_ref(item) for item in pending.get("selected", []) if self.restore_ref(item) is not None], "candidates": [self.restore_ref(item) for item in pending.get("candidates", []) if self.restore_ref(item) is not None]}; return True
+            card = self.restore_ref(pending.get("source_card"))
+            if pending.get("source_card") and not isinstance(card, CardInstance): return False
+            selected = [self.restore_ref(item) for item in pending.get("selected", [])]
+            candidates = [self.restore_ref(item) for item in pending.get("candidates", [])]
+            self.pending_summon = {"actor": actor, "method": pending.get("method", "special"), "source_card": card, "source_effect_id": pending.get("source_effect_id", ""), "selector": dict(pending.get("selector", {})), "required": int(pending.get("required", 1)), "selected": [item for item in selected if item is not None], "candidates": [item for item in candidates if item is not None]}; return True
         if kind == "effect":
-            card = next((item for item in self.card_instances() if item.card.id == pending.get("card")), None)
+            card = self.restore_ref(pending.get("card"))
             actor = self.player if pending.get("actor") == "player" else self.opponent
-            if not card: return False
+            if not isinstance(card, CardInstance): return False
             spec = next((EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects) if EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).effect_id == pending.get("effect_id")), None)
             if not spec: return False
             self.pending_effect = {"card": card, "actor": actor, "spec": spec, "target": self.restore_ref(pending.get("target"))}; return True
+        if kind == "procedure":
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            card = self.restore_ref(pending.get("card"))
+            enabler = self.restore_ref(pending.get("enabler"))
+            if not isinstance(card, CardInstance): return False
+            selected = [self.restore_ref(item) for item in pending.get("selected", [])]
+            candidates = [self.restore_ref(item) for item in pending.get("candidates", [])]
+            self.pending_procedure = {"actor": actor, "procedure": ProcedureSpec.from_card(card), "card": card, "enabler": enabler, "enabler_effect_id": pending.get("enabler_effect_id", ""), "selected": [item for item in selected if item is not None], "candidates": [item for item in candidates if item is not None]}; return True
         return kind == "unsupported_interactive"
 
     def restore_full_state(self, payload):
