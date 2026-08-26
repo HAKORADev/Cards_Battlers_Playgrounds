@@ -26,5 +26,95 @@
     "logic_graph": "",
     "description": "",
     "linked_teams": []
+  },
+  {
+    "id": "championship_tier_1",
+    "name": "Championship Tier 1",
+    "capacity": 1,
+    "background": "",
+    "day_night": true,
+    "media_folder": "places/championship_tier_1",
+    "effects": [],
+    "event_window_policies": {
+      "championship_only": true,
+      "simultaneous_matches": 1
+    },
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "Dedicated place for championship tier 1.",
+    "linked_teams": [],
+    "championship_only": true
+  },
+  {
+    "id": "championship_tier_2",
+    "name": "Championship Tier 2",
+    "capacity": 1,
+    "background": "",
+    "day_night": true,
+    "media_folder": "places/championship_tier_2",
+    "effects": [],
+    "event_window_policies": {
+      "championship_only": true,
+      "simultaneous_matches": 1
+    },
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "Dedicated place for championship tier 2.",
+    "linked_teams": [],
+    "championship_only": true
+  },
+  {
+    "id": "championship_tier_3",
+    "name": "Championship Tier 3",
+    "capacity": 2,
+    "background": "",
+    "day_night": true,
+    "media_folder": "places/championship_tier_3",
+    "effects": [],
+    "event_window_policies": {
+      "championship_only": true,
+      "simultaneous_matches": 2
+    },
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "Dedicated place for championship tier 3.",
+    "linked_teams": [],
+    "championship_only": true
+  },
+  {
+    "id": "championship_tier_4",
+    "name": "Championship Tier 4",
+    "capacity": 4,
+    "background": "",
+    "day_night": true,
+    "media_folder": "places/championship_tier_4",
+    "effects": [],
+    "event_window_policies": {
+      "championship_only": true,
+      "simultaneous_matches": 4
+    },
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "Dedicated place for championship tier 4.",
+    "linked_teams": [],
+    "championship_only": true
+  },
+  {
+    "id": "championship_tier_5",
+    "name": "Championship Tier 5",
+    "capacity": 8,
+    "background": "",
+    "day_night": true,
+    "media_folder": "places/championship_tier_5",
+    "effects": [],
+    "event_window_policies": {
+      "championship_only": true,
+      "simultaneous_matches": 8
+    },
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "Dedicated place for championship tier 5.",
+    "linked_teams": [],
+    "championship_only": true
   }
 ]

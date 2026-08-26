@@ -1167,6 +1167,7 @@ class PlaceDef:
     description: str = ""
     history: list = field(default_factory=list)
     linked_teams: list = field(default_factory=list)
+    championship_only: bool = False
 
 
 @dataclass
@@ -3342,7 +3343,8 @@ class ContentStore:
         player_team = self.teams.get(battle.get("player_team", ""))
         opponent_team = self.teams.get(battle.get("opponent_team", ""))
         if not player_team or not opponent_team or battle.get("place", "") not in self.places: return None
-        session = TeamDuelEngine(self, player_team_id=player_team.id, opponent_team_id=opponent_team.id, place_id=battle.get("place", ""), player_team=player_team, opponent_team=opponent_team, format_name="TEAMvTEAM", starter=battle.get("starter", "opponent"), reserved=True)
+        session = TeamDuelEngine(self, player_team_id=player_team.id, opponent_team_id=opponent_team.id, place_id=battle.get("place", ""), player_team=player_team, opponent_team=opponent_team, format_name="TEAMvTEAM", starter=battle.get("starter", "opponent"), reserved=True, player_deck_choices=battle.get("player_deck_choices", {}), opponent_deck_choices=battle.get("opponent_deck_choices", {}))
+        session.selected_deck_choices = list(battle.get("selected_deck_choices", []) or [])
         stored_lp = battle.get("team_lp", {}) if isinstance(battle.get("team_lp", {}), dict) else {}
         if stored_lp:
             session.team_lp["player"] = max(0, int(stored_lp.get("player", 8000)))
@@ -3359,7 +3361,7 @@ class ContentStore:
         winner_id = session.winner.id if session.winner else ""
         loser_id = session.opponent_team.id if session.winner is session.player_team else session.player_team.id if session.winner else ""
         active_player, active_opponent = session.active_members()
-        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "turn": session.round, "rounds": list(session.results), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
+        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "turn": session.round, "rounds": list(session.results), "selected_deck_choices": list(session.selected_deck_choices), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
         championship_id = battle.get("championship_id", "")
         championship = self.championship_by_id(championship_id) if championship_id else None
         if championship:
@@ -3395,6 +3397,7 @@ class ContentStore:
                 battle["round"] = session.round
                 battle["rounds"] = list(session.results)
                 battle["team_lp"] = dict(session.team_lp)
+                battle["selected_deck_choices"] = list(session.selected_deck_choices)
                 battle["turn_index"] = session.turn_index
                 battle["active_members"] = {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}
                 battle["team_turns"] = list(session.team_turn_events)
@@ -4242,34 +4245,144 @@ class ContentStore:
         self.save()
         return True
 
+    def championship_rules(self):
+        rules = dict((self.rules or {}).get("championships", {}) or {})
+        profiles = dict(rules.get("profiles", {}) or {})
+        if not profiles: profiles = {str(level): {"team_count": 128 if level == 5 else 2 ** (level + 1), "minimum_host_level": level, "minimum_team_level": level, "minimum_legal_decks": 1, "minimum_main_cards": DeckRules.minimum, "minimum_free_library": 100 * level, "minimum_cards_by_star": {}, "minimum_cards_by_kind": {}, "host_reward_per_match": [0, 1, 2, 3, 4, 5]} for level in range(1, 6)}
+        return {"level_range": list(rules.get("level_range", [1, 5]) or [1, 5]), "tier_places": dict(rules.get("tier_places", {}) or {}), "watcher_limit": clamp(int(rules.get("watcher_limit", 6) or 6), 1, 6), "profiles": profiles, "prize_source": str(rules.get("prize_source", "unassigned_library_only"))}
+    def championship_profile(self, level):
+        level = clamp(int(level), 1, 5)
+        rules = self.championship_rules()
+        profile = dict(rules.get("profiles", {}).get(str(level), {}) or {})
+        profile.setdefault("team_count", 128 if level == 5 else 2 ** (level + 1))
+        profile.setdefault("minimum_host_level", level)
+        profile.setdefault("minimum_team_level", level)
+        profile.setdefault("minimum_legal_decks", 1)
+        profile.setdefault("minimum_main_cards", DeckRules.minimum)
+        profile.setdefault("minimum_free_library", 100 * level)
+        profile.setdefault("minimum_cards_by_star", {})
+        profile.setdefault("minimum_cards_by_kind", {})
+        profile.setdefault("host_reward_per_match", [0, 1, 2, 3, 4, 5])
+        return profile
     def championship_team_count(self, level):
-        level = clamp(int(level), 1, 5)
-        return 128 if level == 5 else 2 ** (level + 1)
-
-    def championship_library_count(self, entity_id):
-        if entity_id in self.characters: return len(self.characters[entity_id].library_cards)
+        return int(self.championship_profile(level).get("team_count", 4))
+    def championship_entity_ids(self, entity_id):
+        if entity_id in self.characters: return [entity_id]
         team = self.teams.get(entity_id)
-        return sum(len(self.characters[member].library_cards) for member in team.members if member in self.characters) if team else 0
-
+        return list(team.members) if team else []
+    def championship_library_count(self, entity_id):
+        return sum(len(self.characters[member].library_cards) for member in self.championship_entity_ids(entity_id) if member in self.characters)
     def championship_decks(self, entity_id):
-        owner_ids = [entity_id]
-        if entity_id in self.teams: owner_ids = list(self.teams[entity_id].members)
-        return [deck for deck in self.decks.values() if deck.get("owner_id") in owner_ids and len(deck.get("main_cards", [])) >= DeckRules.minimum]
-
-    def championship_host_eligible(self, host_id, level):
+        owner_ids = set(self.championship_entity_ids(entity_id))
+        referenced = set()
+        for owner_id in owner_ids:
+            character = self.characters.get(owner_id)
+            if character:
+                referenced.add(getattr(character, "deck_id", ""))
+                referenced.update(getattr(character, "deck_slots", []) or [])
+        return [deck for deck_id, deck in self.decks.items() if (deck.get("owner_id") in owner_ids or deck_id in referenced) and len(deck.get("main_cards", [])) >= DeckRules.minimum]
+    def championship_team_decks(self, team_id):
+        team = self.teams.get(team_id)
+        if not team: return []
+        return [deck for member_id in team.members for deck in self.championship_decks(member_id) if not DeckRules.validate(deck.get("main_cards", []), deck.get("fusion_cards", []), self.cards)]
+    def choose_championship_deck(self, entity_id, opponent_id="", variation=0):
+        decks = self.championship_decks(entity_id)
+        if not decks and entity_id in self.teams: decks = self.championship_team_decks(entity_id)
+        decks = sorted(decks, key=lambda item: (self.deck_level(next((deck_id for deck_id, value in self.decks.items() if value is item), "")), str(item.get("name", ""))))
+        if not decks: return ""
+        deck_ids = [deck_id for deck_id, deck in self.decks.items() if deck in decks]
+        if not deck_ids: return ""
+        offset = (int(variation) + (self.team_level(opponent_id) if opponent_id in self.teams else self.character_level(opponent_id) if opponent_id in self.characters else 0)) % len(deck_ids)
+        return deck_ids[offset]
+    def championship_free_library_counts(self, entity_id):
+        counts = {}
+        for owner_id in self.championship_entity_ids(entity_id):
+            character = self.characters.get(owner_id)
+            if not character: continue
+            owned = self.available_card_counts(owner_id)
+            assigned = {}
+            for deck in self.decks.values():
+                if deck.get("owner_id") != owner_id: continue
+                for card_id in DeckRules.all_cards(deck): assigned[card_id] = assigned.get(card_id, 0) + 1
+            for card_id, amount in owned.items():
+                free = max(0, int(amount) - int(assigned.get(card_id, 0)))
+                if free: counts[card_id] = counts.get(card_id, 0) + free
+        return counts
+    def championship_free_library_candidates(self, entity_id):
+        candidates = []
+        for owner_id in self.championship_entity_ids(entity_id):
+            character = self.characters.get(owner_id)
+            if not character: continue
+            available = self.available_card_counts(owner_id)
+            assigned = {}
+            for deck in self.decks.values():
+                if deck.get("owner_id") != owner_id: continue
+                for card_id in DeckRules.all_cards(deck): assigned[card_id] = assigned.get(card_id, 0) + 1
+            for card_id in sorted(available):
+                count = max(0, int(available.get(card_id, 0)) - int(assigned.get(card_id, 0)))
+                candidates.extend((owner_id, card_id) for _ in range(count))
+        return candidates
+    def take_championship_library_cards(self, entity_id, count):
+        taken = []
+        for owner_id, card_id in self.championship_free_library_candidates(entity_id):
+            if len(taken) >= max(0, int(count)): break
+            character = self.characters.get(owner_id)
+            if character and card_id in character.library_cards:
+                character.library_cards.remove(card_id)
+                taken.append(card_id)
+        return taken
+    def championship_host_requirement_report(self, host_id, level):
         level = clamp(int(level), 1, 5)
-        progression = self.progression_rules()
-        minimum_decks = int(progression.get("championship_host_decks", 5))
-        minimum_main = max(DeckRules.minimum, int(progression.get("championship_host_main_minimum", 50)))
-        library_minimum = int(progression.get("championship_host_library_per_level", 100)) * level
+        profile = self.championship_profile(level)
+        reasons = []
         host_level = self.team_level(host_id) if host_id in self.teams else self.character_level(host_id) if host_id in self.characters else 0
-        decks = [deck for deck in self.championship_decks(host_id) if len(deck.get("main_cards", [])) >= minimum_main and not DeckRules.validate(deck.get("main_cards", []), deck.get("fusion_cards", []), self.cards)]
-        return bool(host_level >= level and len(decks) >= minimum_decks and self.championship_library_count(host_id) >= library_minimum)
+        host_kind = "team" if host_id in self.teams else "character" if host_id in self.characters else "unknown"
+        if host_kind == "unknown": reasons.append("Host does not exist.")
+        if host_level < int(profile.get("minimum_host_level", level)): reasons.append("Host level is below the championship level.")
+        minimum_main = max(DeckRules.minimum, int(profile.get("minimum_main_cards", DeckRules.minimum) or DeckRules.minimum))
+        legal_decks = [deck for deck in self.championship_decks(host_id) if len(deck.get("main_cards", [])) >= minimum_main and not DeckRules.validate(deck.get("main_cards", []), deck.get("fusion_cards", []), self.cards)]
+        minimum_decks = max(1, int(profile.get("minimum_legal_decks", 1) or 1))
+        if len(legal_decks) < minimum_decks: reasons.append("Host does not have enough legal championship deck slots.")
+        free_counts = self.championship_free_library_counts(host_id)
+        total_free = sum(free_counts.values())
+        round_rewards = list(profile.get("host_reward_per_match", []) or [0])
+        team_count = max(2, int(profile.get("team_count", self.championship_team_count(level))))
+        matches_by_round = []
+        remaining = team_count
+        reserve = 0
+        round_index = 0
+        while remaining > 1:
+            matches = remaining // 2
+            reward = int(round_rewards[min(round_index, len(round_rewards) - 1)] or 0)
+            matches_by_round.append({"round": round_index, "matches": matches, "cards_per_match": reward, "cards": matches * reward})
+            reserve += matches * reward
+            remaining //= 2
+            round_index += 1
+        required_free = max(int(profile.get("minimum_free_library", 0) or 0), reserve)
+        if total_free < required_free: reasons.append("Host does not have enough unassigned library cards for the configured tier reserve.")
+        star_counts = {}
+        for threshold in dict(profile.get("minimum_cards_by_star", {}) or {}):
+            threshold_value = int(threshold)
+            value = sum(amount for card_id, amount in free_counts.items() if card_id in self.cards and int(self.cards[card_id].stars) >= threshold_value)
+            star_counts[str(threshold_value)] = value
+            if value < int(dict(profile.get("minimum_cards_by_star", {}))[threshold] or 0): reasons.append("Host lacks the required unassigned cards at star level " + str(threshold_value) + ".")
+        kind_counts = {}
+        for kind, required in dict(profile.get("minimum_cards_by_kind", {}) or {}).items():
+            kind = str(kind).lower()
+            value = sum(amount for card_id, amount in free_counts.items() if card_id in self.cards and (self.cards[card_id].kind == kind or kind == "spell" and self.cards[card_id].kind == "field"))
+            kind_counts[kind] = value
+            if value < int(required or 0): reasons.append("Host lacks the required unassigned " + kind + " cards.")
+        requirements = {"host_level": int(profile.get("minimum_host_level", level)), "minimum_legal_decks": minimum_decks, "minimum_main_cards": minimum_main, "minimum_free_library": int(profile.get("minimum_free_library", 0) or 0), "prize_reserve": reserve, "minimum_free_library_with_reserve": required_free, "cards_by_star": dict(profile.get("minimum_cards_by_star", {}) or {}), "cards_by_kind": dict(profile.get("minimum_cards_by_kind", {}) or {})}
+        return {"eligible": not reasons, "host_id": host_id, "host_kind": host_kind, "championship_level": level, "team_count": team_count, "host_level": host_level, "legal_decks": len(legal_decks), "free_library_cards": total_free, "free_library_counts": free_counts, "observed_cards_by_star": star_counts, "observed_cards_by_kind": kind_counts, "matches_by_round": matches_by_round, "requirements": requirements, "reasons": reasons}
+    def championship_host_eligible(self, host_id, level):
+        return bool(self.championship_host_requirement_report(host_id, level).get("eligible"))
 
     def championship_team_eligible(self, team_id, level):
         team = self.teams.get(team_id)
-        if not team or team.formation_state != "complete" or len(team.members) != 3 or self.team_level(team_id) < int(level): return False
-        return all(member in self.characters and self.characters[member].world_status == "in_playground" for member in team.members)
+        profile = self.championship_profile(level)
+        if not team or team.formation_state != "complete" or len(team.members) != int(profile.get("team_member_count", 3) or 3) or self.team_level(team_id) < int(profile.get("minimum_team_level", level) or level): return False
+        if not self.championship_team_decks(team_id): return False
+        return all(member in self.characters and self.characters[member].world_status == "in_playground" and self.character_level(member) >= int(profile.get("minimum_team_level", level) or level) for member in team.members)
 
     def championship_by_id(self, championship_id):
         return next((item for item in self.world.setdefault("championships", []) if item.get("id") == championship_id), None)
@@ -4285,12 +4398,17 @@ class ContentStore:
     def create_championship(self, level, team_ids=None, host_id=""):
         level = clamp(int(level), 1, 5)
         host_id = host_id or self.role_config()["player_character"]
-        if not self.championship_host_eligible(host_id, level): return None
-        required = self.championship_team_count(level)
+        requirement_report = self.championship_host_requirement_report(host_id, level)
+        if not requirement_report.get("eligible"): return None
+        profile = self.championship_profile(level)
+        championship_rules = self.championship_rules()
+        required = int(profile.get("team_count", self.championship_team_count(level)))
+        tier_place = str(championship_rules.get("tier_places", {}).get(str(level), ""))
+        if tier_place and tier_place not in self.places: tier_place = ""
         candidate_ids = [team_id for team_id in list(team_ids or []) if self.championship_team_eligible(team_id, level)]
         candidate_ids = list(dict.fromkeys(candidate_ids))[:required]
         now = float(self.world.get("simulation_time", 0.0))
-        championship = {"id": "championship_" + str(int(time.time() * 1000)), "level": level, "difficulty": ["easy", "medium", "hard", "extreme", "legendary"][level - 1], "required_teams": required, "host": host_id, "host_kind": "team" if host_id in self.teams else "character", "teams": [], "enrolled": [], "invitations": {}, "waitlist": [], "rounds": [], "current_round": -1, "state": "waiting", "mode": "current", "created": time.time(), "created_sim_time": now, "next_schedule_sim_time": now + 5.0, "history": [], "active_battle_ids": [], "rewards": [], "narrator_intro": {}, "narrator_waiting": {}, "narrator_events": []}
+        championship = {"id": "championship_" + str(int(time.time() * 1000)), "level": level, "difficulty": ["easy", "medium", "hard", "extreme", "legendary"][level - 1], "tier": level, "tier_place": tier_place, "simultaneous_matches": int(profile.get("simultaneous_matches", 1) or 1), "required_teams": required, "host": host_id, "host_kind": "team" if host_id in self.teams else "character", "teams": [], "enrolled": [], "invitations": {}, "waitlist": [], "rounds": [], "current_round": -1, "state": "waiting", "mode": "current", "created": time.time(), "created_sim_time": now, "next_schedule_sim_time": now + 5.0, "host_requirements": requirement_report, "host_prize_reserve": int(requirement_report.get("requirements", {}).get("prize_reserve", 0)), "deck_selection_policy": "one_legal_slot_per_side_per_match", "deck_choices": {}, "watcher_limit": int(championship_rules.get("watcher_limit", 6)), "history": [], "active_battle_ids": [], "rewards": [], "narrator_intro": {}, "narrator_waiting": {}, "narrator_events": []}
         intro = self.narrator_cue("championship_intro", host_id, "", {"championship_id": championship["id"], "level": level, "difficulty": championship["difficulty"], "required_teams": required})
         waiting = self.narrator_cue("championship_waiting", host_id, "", {"championship_id": championship["id"], "level": level, "required_teams": required})
         championship["narrator_intro"] = intro
@@ -4330,15 +4448,19 @@ class ContentStore:
         championship.setdefault("history", []).append({"event": "enrollment_complete", "teams": enrolled, "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
         return True
 
-    def join_championship(self, championship_id, team_id):
+    def join_championship(self, championship_id, team_id, championship_deck_choices=None):
         championship = self.championship_by_id(championship_id)
         if not championship or championship.get("state") != "waiting" or not self.championship_team_eligible(team_id, championship.get("level", 1)): return False
+        team = self.teams.get(team_id)
+        choices = dict(championship_deck_choices or {})
+        if choices and (not team or any(member_id not in team.members or deck_id not in [next((deck_key for deck_key, value in self.decks.items() if value is deck), "") for deck in self.championship_decks(member_id) if not DeckRules.validate(deck.get("main_cards", []), deck.get("fusion_cards", []), self.cards)] for member_id, deck_id in choices.items())): return False
         if team_id in championship.get("enrolled", []): return True
         if len(championship.setdefault("enrolled", [])) >= int(championship.get("required_teams", 0)):
             championship.setdefault("waitlist", []).append(team_id)
             return False
         invitation = championship.setdefault("invitations", {}).setdefault(team_id, {"state": "invited", "sim_time": float(self.world.get("simulation_time", 0.0))})
         invitation["state"] = "accepted"
+        championship.setdefault("deck_choices", {})[team_id] = choices
         championship["enrolled"].append(team_id)
         enrollment = self.narrator_cue("championship_enrollment", championship.get("host", ""), team_id, {"championship_id": championship_id, "level": championship.get("level", 1), "team": team_id, "state": "accepted", "position": len(championship["enrolled"])})
         championship.setdefault("narrator_events", []).append(enrollment)
@@ -4352,8 +4474,15 @@ class ContentStore:
         championship = self.championship_by_id(championship_id)
         if not championship or character_id not in self.characters: return False
         championship.setdefault("watchers", [])
+        watcher_limit = int(championship.get("watcher_limit", self.championship_rules().get("watcher_limit", 6)) or 6)
+        if character_id not in championship["watchers"] and len(championship["watchers"]) >= watcher_limit: return False
         if character_id not in championship["watchers"]: championship["watchers"].append(character_id)
-        self.record_history("character", character_id, "championship_watched", {"championship_id": championship_id})
+        for battle in self.world.setdefault("active_battles", []):
+            if battle.get("status") == "active" and battle.get("championship_id") == championship_id:
+                battle.setdefault("watchers", [])
+                battle["watcher_limit"] = watcher_limit
+                if character_id not in battle["watchers"] and len(battle["watchers"]) < watcher_limit: battle["watchers"].append(character_id)
+        self.record_history("character", character_id, "championship_watched", {"championship_id": championship_id, "watcher_count": len(championship["watchers"]), "watcher_limit": watcher_limit})
         self.save()
         return True
 
@@ -4366,8 +4495,9 @@ class ContentStore:
         resolved_pairs = {int(item.get("pair_index", -1)) for item in round_data.get("results", [])}
         for pair_index, pair in enumerate(round_data.get("pairs", [])):
             if pair_index in scheduled_pairs or pair_index in resolved_pairs or len(pair) != 2: continue
-            place = next((item for item in self.places.values() if item.current_duels < item.capacity), None)
-            if not place: break
+            tier_place_id = str(championship.get("tier_place", ""))
+            place = self.places.get(tier_place_id) if tier_place_id else None
+            if not place or place.current_duels >= place.capacity: break
             if not self.reserve_place(place.id): continue
             for team_id in pair:
                 team = self.teams.get(team_id)
@@ -4375,10 +4505,17 @@ class ContentStore:
                     for member_id in team.members:
                         character = self.characters.get(member_id)
                         if character: character.availability, character.activity = "active", "dueling"
+            player_team = self.teams.get(pair[0])
+            opponent_team = self.teams.get(pair[1])
+            saved_choices = championship.get("deck_choices", {}) if isinstance(championship.get("deck_choices", {}), dict) else {}
+            player_saved = saved_choices.get(pair[0], {}) if isinstance(saved_choices.get(pair[0], {}), dict) else {}
+            opponent_saved = saved_choices.get(pair[1], {}) if isinstance(saved_choices.get(pair[1], {}), dict) else {}
+            player_deck_choices = {member_id: player_saved.get(member_id) or self.choose_championship_deck(member_id, pair[1], round_index + index) for index, member_id in enumerate(player_team.members if player_team else [])}
+            opponent_deck_choices = {member_id: opponent_saved.get(member_id) or self.choose_championship_deck(member_id, pair[0], round_index + index + 1) for index, member_id in enumerate(opponent_team.members if opponent_team else [])}
             battle_id = "champ_battle_" + str(int(time.time() * 1000)) + "_" + str(round_index) + "_" + str(pair_index) + "_" + str(len(championship.get("active_battle_ids", [])))
-            battle = {"id": battle_id, "engine_type": "team", "championship_id": championship["id"], "championship_round": round_index, "championship_pair": pair_index, "player_team": pair[0], "opponent_team": pair[1], "place": place.id, "starter": "opponent", "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "round": 1, "rounds": [], "watchers": list(championship.get("watchers", [])), "started_sim_time": float(self.world.get("simulation_time", 0.0))}
+            battle = {"id": battle_id, "engine_type": "team", "championship_id": championship["id"], "championship_round": round_index, "championship_pair": pair_index, "player_team": pair[0], "opponent_team": pair[1], "place": place.id, "tier_place": place.id, "championship_table": pair_index, "championship_capacity": int(championship.get("simultaneous_matches", 1) or 1), "starter": "opponent", "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "round": 1, "rounds": [], "player_deck_choices": player_deck_choices, "opponent_deck_choices": opponent_deck_choices, "selected_deck_choices": [], "watchers": list(championship.get("watchers", [])), "started_sim_time": float(self.world.get("simulation_time", 0.0))}
             self.world.setdefault("active_battles", []).append(battle)
-            round_data.setdefault("scheduled", []).append({"pair_index": pair_index, "battle_id": battle_id, "place": place.id, "sim_time": float(self.world.get("simulation_time", 0.0))})
+            round_data.setdefault("scheduled", []).append({"pair_index": pair_index, "battle_id": battle_id, "place": place.id, "tier_place": place.id, "table": pair_index, "player_deck_choices": player_deck_choices, "opponent_deck_choices": opponent_deck_choices, "sim_time": float(self.world.get("simulation_time", 0.0))})
             championship.setdefault("active_battle_ids", []).append(battle_id)
             match_cue = self.narrator_cue("championship_match_start", championship.get("host", ""), pair[0], {"championship_id": championship["id"], "round": round_index, "pair": pair_index, "teams": pair, "place": place.id})
             championship.setdefault("narrator_events", []).append(match_cue)
@@ -4824,7 +4961,7 @@ class ContentStore:
             deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck")
             self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "", "owner_id": char_id, "main_cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "fusion_cards": [], "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
         folder = self.scaffold_entity("characters", char_id, display_name)
-        char = CharacterDef(id=char_id, name=display_name, portrait="", stars=clamp(int(stars), 1, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
+        char = CharacterDef(id=char_id, name=display_name, portrait="", stars=clamp(int(stars), 0, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
         char.logic_graph = str(logic_graph or "")
         self.import_entity_image(portrait, folder)
         self.characters[char_id] = char
@@ -8164,7 +8301,7 @@ class TextInput:
 
 
 class TeamDuelEngine:
-    def __init__(self, store, player_team_id=None, opponent_team_id=None, place_id=None, player_team=None, opponent_team=None, format_name="TEAMvTEAM", starter="opponent", reserved=False):
+    def __init__(self, store, player_team_id=None, opponent_team_id=None, place_id=None, player_team=None, opponent_team=None, format_name="TEAMvTEAM", starter="opponent", reserved=False, player_deck_choices=None, opponent_deck_choices=None):
         self.store = store
         roles = store.role_config()
         player_team_id = player_team_id or roles["default_player_team"]
@@ -8174,6 +8311,9 @@ class TeamDuelEngine:
         self.opponent_team = opponent_team or store.teams[opponent_team_id]
         self.format_name = format_name
         self.starter = starter
+        self.player_deck_choices = dict(player_deck_choices or {})
+        self.opponent_deck_choices = dict(opponent_deck_choices or {})
+        self.selected_deck_choices = []
         self.place_id = place_id
         self.place_reserved = reserved or store.reserve_place(place_id)
         self.round = 1
@@ -8201,14 +8341,15 @@ class TeamDuelEngine:
         if not player_roster or not opponent_roster:
             self.finish(self.opponent_team, "missing roster")
             return
-        self.team_lp = {"player": 8000, "opponent": 8000}
-        self.turn_index = 0
-        player = player_roster[0]
-        opponent = opponent_roster[0]
+        player = player_roster[self.turn_index % len(player_roster)]
+        opponent = opponent_roster[self.turn_index % len(opponent_roster)]
         player_effect = self.player_team.team_effect.get("selected") if self.player_team.effect_locked and self.player_team.team_effect else None
         opponent_effect = self.opponent_team.team_effect.get("selected") if self.opponent_team.effect_locked and self.opponent_team.team_effect else None
         try:
-            self.current = DuelEngine(self.store, player.id, opponent.id, self.place_id, self.starter != "player", player_effect, opponent_effect, first_side="player" if self.starter == "player" else "opponent", reward_policy={"mode": "none"})
+            player_deck_id = self.player_deck_choices.get(player.id, "")
+            opponent_deck_id = self.opponent_deck_choices.get(opponent.id, "")
+            self.current = DuelEngine(self.store, player.id, opponent.id, self.place_id, self.starter != "player", player_effect, opponent_effect, first_side="player" if self.starter == "player" else "opponent", reward_policy={"mode": "none"}, player_deck_id=player_deck_id, opponent_deck_id=opponent_deck_id)
+            self.selected_deck_choices.append({"round": self.round, "player_character": player.id, "opponent_character": opponent.id, "player_deck_id": player_deck_id or getattr(player, "deck_id", ""), "opponent_deck_id": opponent_deck_id or getattr(opponent, "deck_id", "")})
         except IllegalDeckError as error:
             self.current = None
             self.finished = True
@@ -8537,7 +8678,7 @@ class BattleScene(Scene):
         ]
         self.utility_button = Button((516, 96, 120, 32), "CHAMPIONSHIP", lambda: self.set_tab("championship"))
         self.format_button = Button((640, 96, 120, 32), "FORMAT: 1V1", lambda: self.cycle_format(), COLORS["violet"])
-        self.place_ids = [""] + sorted(self.app.store.places)
+        self.place_ids = [""] + sorted(item.id for item in self.app.store.places.values() if not getattr(item, "championship_only", False))
         self.place_index = 0
         self.place_button = Button((640, 134, 120, 28), "PLACE: ALL", lambda: self.cycle_place(), COLORS["green"])
         self.back_button = Button((652, 530, 110, 38), "BACK", lambda: self.app.pop())
@@ -8588,9 +8729,18 @@ class BattleScene(Scene):
         elif self.tab == "orders":
             self.items = [(entry.get("title", "Order"), entry.get("taker", ""), entry.get("reward", {}).get("label", entry.get("reward_policy", "random")), 5, 7, entry.get("id")) for entry in self.app.store.world.get("orders", []) if entry.get("status") == "open"]
         elif self.tab == "championship":
-            self.items = [(f"Level {level} championship", "host", "hostable" if self.app.store.championship_host_eligible(self.app.store.role_config()["player_character"], level) else "not qualified", level, 0, level) for level in range(1, 6)]
+            player_id = self.app.store.role_config()["player_character"]
+            for level in range(1, 6):
+                report = self.app.store.championship_host_requirement_report(player_id, level)
+                status = "READY" if report.get("eligible") else "BLOCKED: " + (str(report.get("reasons", ["not qualified"])[0])[:54] if report.get("reasons") else "not qualified")
+                self.items.append((f"Level {level} championship", "host", status, level, report.get("free_library_cards", 0), level))
             for championship in self.app.store.world.get("championships", []):
-                self.items.append((f"{championship.get('difficulty', 'level')} championship", "championship", championship.get("state", "waiting"), championship.get("level", 1), len(championship.get("enrolled", [])), championship.get("id")))
+                active = [battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and battle.get("championship_id") == championship.get("id")]
+                place_id = championship.get("tier_place", "") or "unassigned tier place"
+                watcher_text = f"watchers {len(championship.get('watchers', []))}/{championship.get('watcher_limit', 6)}"
+                match_text = f"live matches {len(active)}" if active else "no live match"
+                status = f"{championship.get('state', 'waiting').upper()} | {place_id} | {match_text} | {watcher_text}"
+                self.items.append((f"{championship.get('difficulty', 'level')} championship", "championship", status, championship.get("level", 1), len(championship.get("enrolled", [])), championship.get("id")))
         else:
             self.items = []
             for battle in sorted((item for item in self.app.store.world.get("active_battles", []) if item.get("status") == "active" and (not place_id or item.get("place") == place_id)), key=lambda item: str(item.get("id", ""))):
@@ -8666,11 +8816,15 @@ class BattleScene(Scene):
         if self.tab == "championship" and entry_id:
             player_id = self.app.store.role_config()["player_character"]
             if target == "host":
+                report = self.app.store.championship_host_requirement_report(player_id, int(entry_id))
                 championship = self.app.store.create_championship(int(entry_id), [], player_id)
-                self.app.notify(f"Level {entry_id} championship opened for real-time enrollment." if championship else f"The player host is not qualified for level {entry_id}.")
+                if championship: self.app.notify(f"Level {entry_id} championship opened at {championship.get('tier_place') or 'its dedicated tier place'} for real-time enrollment.")
+                else: self.app.notify("Cannot host level " + str(entry_id) + ": " + "; ".join(report.get("reasons", ["requirements not met"]))[:220])
             elif target == "championship":
                 watched = self.app.store.watch_championship(entry_id, player_id)
-                self.app.notify("Championship observation registered." if watched else "That championship is no longer available.")
+                active = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and battle.get("championship_id") == entry_id), None)
+                self.app.notify("Championship observation registered." if watched else "That championship is no longer available or has reached six watchers.")
+                if watched and active: self.app.push(TeamWatchScene(self.app, active))
             self.refresh_content()
             return
         if self.tab == "requests" and entry_id:
@@ -8703,7 +8857,8 @@ class DuelOrderScene(Scene):
         self.deck_ids = sorted(deck_id for deck_id in owned_decks if deck_id in app.store.decks)
         self.deck_index = 0
         preferred_places = list(app.store.characters.get(self.placer_id).preferred_places if self.placer_id in app.store.characters else [])
-        self.place_ids = list(dict.fromkeys(preferred_places + sorted(app.store.places)))
+        ordinary_places = [item.id for item in app.store.places.values() if not getattr(item, "championship_only", False)]
+        self.place_ids = list(dict.fromkeys([item for item in preferred_places if item in ordinary_places] + sorted(ordinary_places)))
         self.place_index = 0
         self.reward_modes = ["random library", "random deck", "named card", "no card"]
         self.reward_index = 0
@@ -8803,7 +8958,8 @@ class PreDuelScene(Scene):
         self.format_name = format_name
         self.place_ids = []
         preferred_places = list(getattr(app.store.characters.get(app.store.role_config()["player_character"]), "preferred_places", []) or [])
-        ordered_places = list(dict.fromkeys(preferred_places + sorted(app.store.places)))
+        ordinary_places = [item.id for item in app.store.places.values() if not getattr(item, "championship_only", False)]
+        ordered_places = list(dict.fromkeys([item for item in preferred_places if item in ordinary_places] + sorted(ordinary_places)))
         self.place_ids = [item for item in ordered_places if item in app.store.places and app.store.places[item].current_duels < app.store.places[item].capacity]
         self.place_ids = self.place_ids or ordered_places
         self.place_id = place_id if place_id in self.place_ids else (self.place_ids[0] if self.place_ids else app.store.role_config()["default_place"])
@@ -11858,7 +12014,10 @@ class PlaceDuelViewScene(Scene):
             state_line = "Cards: " + str(len(getattr(player_state, "hand", []) or [])) + " hand / " + str(sum(1 for item in (getattr(player_state, "monsters", []) or []) if item)) + " field  |  " + str(len(getattr(opponent_state, "hand", []) or [])) + " hand / " + str(sum(1 for item in (getattr(opponent_state, "monsters", []) or []) if item)) + " field" if player_state and opponent_state else "Live card snapshot pending"
             draw_text(surface, "Phase: " + str(getattr(current, "phase", battle.get("phase", "duel"))) + "  |  Turn: " + str(getattr(current, "turn", battle.get("turn", 1))) + "  |  " + hp, (72, y + 42), self.app.assets.font(11), COLORS["cyan"])
             draw_text(surface, state_line, (72, y + 62), self.app.assets.font(9), COLORS["cream"])
-            draw_text(surface, "Watchers: " + str(len(battle.get("watchers", []))) + "/6  |  Steps: " + str(len(battle.get("actions", []))) + "  |  House POV retained; player media muted", (72, y + 80), self.app.assets.font(9), COLORS["muted"])
+            watcher_limit = battle.get("watcher_limit", 6)
+            championship = self.app.store.championship_by_id(battle.get("championship_id", "")) if battle.get("championship_id") else None
+            if championship: watcher_limit = championship.get("watcher_limit", watcher_limit)
+            draw_text(surface, "Watchers: " + str(len(battle.get("watchers", []))) + "/" + str(watcher_limit) + "  |  Steps: " + str(len(battle.get("actions", []))) + "  |  House POV retained; player media muted", (72, y + 80), self.app.assets.font(9), COLORS["muted"])
 
     def draw(self, surface):
         place = self.app.store.places.get(self.place_id)
@@ -11894,7 +12053,8 @@ class PlacesScene(Scene):
         draw_text(surface, "Fields can carry background media, music, occupancy, day/night variants, and effects.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.query.draw(surface, self.app.assets.font(11), "Search places")
         self.row_buttons = []
-        for index, place in enumerate(query_entities(self.app.store.places.values(), self.query.value, self.sort_mode)[:3]):
+        ordinary_places = [place for place in self.app.store.places.values() if not getattr(place, "championship_only", False)]
+        for index, place in enumerate(query_entities(ordinary_places, self.query.value, self.sort_mode)[:3]):
             y = 124 + index * 130
             rounded(surface, (40, y, 720, 104), (13, 26, 57), COLORS["green"], 10, 2)
             image = self.app.assets.image(place.background, (160, 92)) if place.background else None

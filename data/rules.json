@@ -36,19 +36,31 @@
   "progression": {
     "min_level": 0,
     "max_level": 10,
-    "deck_thresholds": [0.0, 0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9.0],
+    "deck_thresholds": [
+      0.0,
+      0.9,
+      1.8,
+      2.7,
+      3.6,
+      4.5,
+      5.4,
+      6.3,
+      7.2,
+      8.1,
+      9.0
+    ],
     "character_wins_per_level": 3,
     "character_losses_per_level": 4,
     "team_wins_per_level": 3,
     "team_losses_per_level": 4,
     "strong_opponent_bonus": 1.0,
-    "championship_host_decks": 5,
-    "championship_host_main_minimum": 50,
-    "championship_host_library_per_level": 100,
     "principle": "Character, deck, and team levels use a visible 0-10 scale. Zero is the valid baseline for an untrained or empty profile; authored stars and deck strength provide the starting value, while results, strong-opponent victories, losses, team history, and locked effects change the calculated value. Each adjacent deck threshold is intentionally separated so a level change represents a measurable strength difference. Championship hosts need five legal 50-card Main Decks and one hundred library cards per championship level."
   },
   "narrator": {
-    "idle_seconds": {"character": 30.0, "duel": 45.0},
+    "idle_seconds": {
+      "character": 30.0,
+      "duel": 45.0
+    },
     "cadence": "repeat after each threshold while no meaningful action observation occurs",
     "background_rendering": false
   },
@@ -74,13 +86,18 @@
           "min_stars": 8,
           "max_stars": 8,
           "required_count": 2,
-          "allowed_counts": [2, 3]
+          "allowed_counts": [
+            2,
+            3
+          ]
         },
         {
           "min_stars": 9,
           "max_stars": 9,
           "required_count": 3,
-          "allowed_counts": [3]
+          "allowed_counts": [
+            3
+          ]
         },
         {
           "min_stars": 10,
@@ -96,7 +113,10 @@
     "max_offered_cards": 3,
     "max_requested_cards": 3,
     "max_counter_depth": 3,
-    "interaction_actions": ["talk", "argue"]
+    "interaction_actions": [
+      "talk",
+      "argue"
+    ]
   },
   "trio_distribution": {
     "enabled": true,
@@ -109,5 +129,130 @@
     ],
     "max_grants_per_opportunity": 1,
     "rng": "sha256(world distribution sequence, team id, member id, card id)"
+  },
+  "championships": {
+    "schema": 1,
+    "level_range": [
+      1,
+      5
+    ],
+    "tier_places": {
+      "1": "championship_tier_1",
+      "2": "championship_tier_2",
+      "3": "championship_tier_3",
+      "4": "championship_tier_4",
+      "5": "championship_tier_5"
+    },
+    "watcher_limit": 6,
+    "prize_source": "unassigned_library_only",
+    "main_deck_source": "deck_slots",
+    "team_member_count": 3,
+    "profiles": {
+      "1": {
+        "team_count": 4,
+        "minimum_host_level": 1,
+        "minimum_team_level": 1,
+        "minimum_legal_decks": 1,
+        "minimum_main_cards": 40,
+        "minimum_free_library": 100,
+        "minimum_cards_by_star": {},
+        "minimum_cards_by_kind": {},
+        "host_reward_per_match": [
+          0,
+          1
+        ],
+        "simultaneous_matches": 1
+      },
+      "2": {
+        "team_count": 8,
+        "minimum_host_level": 2,
+        "minimum_team_level": 2,
+        "minimum_legal_decks": 2,
+        "minimum_main_cards": 40,
+        "minimum_free_library": 160,
+        "minimum_cards_by_star": {
+          "6": 20
+        },
+        "minimum_cards_by_kind": {},
+        "host_reward_per_match": [
+          0,
+          1,
+          2
+        ],
+        "simultaneous_matches": 1
+      },
+      "3": {
+        "team_count": 16,
+        "minimum_host_level": 3,
+        "minimum_team_level": 3,
+        "minimum_legal_decks": 3,
+        "minimum_main_cards": 40,
+        "minimum_free_library": 250,
+        "minimum_cards_by_star": {
+          "6": 50
+        },
+        "minimum_cards_by_kind": {
+          "effect": 15,
+          "spell": 10
+        },
+        "host_reward_per_match": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "simultaneous_matches": 2
+      },
+      "4": {
+        "team_count": 32,
+        "minimum_host_level": 4,
+        "minimum_team_level": 4,
+        "minimum_legal_decks": 4,
+        "minimum_main_cards": 40,
+        "minimum_free_library": 350,
+        "minimum_cards_by_star": {
+          "6": 100
+        },
+        "minimum_cards_by_kind": {
+          "effect": 25,
+          "spell": 20,
+          "legendary": 1
+        },
+        "host_reward_per_match": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "simultaneous_matches": 4
+      },
+      "5": {
+        "team_count": 64,
+        "minimum_host_level": 5,
+        "minimum_team_level": 5,
+        "minimum_legal_decks": 5,
+        "minimum_main_cards": 50,
+        "minimum_free_library": 400,
+        "minimum_cards_by_star": {
+          "6": 200
+        },
+        "minimum_cards_by_kind": {
+          "effect": 50,
+          "spell": 30,
+          "legendary": 3
+        },
+        "host_reward_per_match": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "simultaneous_matches": 8
+      }
+    },
+    "notes": "Requirements are authored profiles. Host reserve is calculated from bracket match count and host_reward_per_match by bracket round; composition checks count unassigned library copies and never cards assigned to any host deck."
   }
 }

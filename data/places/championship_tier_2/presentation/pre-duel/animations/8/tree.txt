@@ -1,0 +1,12 @@
+<frame-number>.bmp
+<frame-number>.jpeg
+<frame-number>.jpg
+<frame-number>.png
+<frame-number>.webp
+tree.txt
+video.avi
+video.gif
+video.mkv
+video.mov
+video.mp4
+video.webm
