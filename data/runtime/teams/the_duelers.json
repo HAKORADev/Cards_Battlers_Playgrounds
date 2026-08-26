@@ -3,6 +3,10 @@
   "id": "the_duelers",
   "category": "teams",
   "state": {
+    "effect_locked": false,
+    "knowledge_state": {},
+    "team_effect": {},
+    "formation_requests": [],
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -10,8 +14,14 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "rank": 1,
-    "formation_requests": [],
+    "relationship": "stranger",
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0
+    },
+    "formation_state": "complete",
     "history": [
       {
         "event": "duel_completed",
@@ -1126,19 +1136,1159 @@
           "tide_courier"
         ],
         "time": 1787704341.513243
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "copper_gryphon"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708506.2034655
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mirror_force"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708506.57253
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mystical_space_typhoon"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708506.9502041
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708507.2941823
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "ember_drone"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708507.6862202
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_fridge"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708507.9547856
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708508.2601135
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708508.7197957
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "garden_sentinel"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708508.9481928
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 14,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708509.3199136
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 16,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708509.7438326
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708510.0379343
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708510.3343334
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 13,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mystical_space_typhoon"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708510.7056172
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708510.9936364
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708511.2439237
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708511.5563564
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_mysterio_card_02"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708511.9410558
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708512.3116837
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708512.580156
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 21,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunlit_field"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708513.1159687
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708513.3829834
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "grave_bloom"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708513.6847417
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708514.1394773
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 150.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787708514.388807
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "man_eater_bug"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709913.8743832
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_mysterio_card_05"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709914.282539
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "river_colossus"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709914.694406
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "copper_gryphon"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709915.0286264
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709915.4521637
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_oath"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709915.7602613
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709916.0971768
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunlit_field"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709916.597321
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "solar_burst"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709916.854722
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 14,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunforge_guard"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709917.2549899
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 20,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "man_eater_bug"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709917.7726748
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709918.095459
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mirror_trap"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709918.4208038
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 13,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "grave_bloom"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709918.8243482
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709919.1443086
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "moonlit_drake"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709919.4248483
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709919.770895
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunforge_guard"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709920.1853259
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709920.5886443
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709920.887845
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 21,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "quiet_alchemist"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709921.4491327
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709921.7423458
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709922.077343
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "trio_relic"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709922.5678098
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "repair_matrix"
+        ],
+        "sim_time": 160.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ],
+        "time": 1787709922.849712
       }
     ],
     "learning_state": {},
-    "effect_locked": false,
-    "team_effect": {},
-    "relationship": "stranger",
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0
-    },
-    "formation_state": "complete",
-    "knowledge_state": {}
+    "rank": 1
   }
 }

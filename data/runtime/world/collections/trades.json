@@ -151,6 +151,75 @@
       ],
       "ownership_transferred": false,
       "next_decision_sim_time": 165.0
+    },
+    {
+      "id": "trade_1001000_1",
+      "creator": "aqua_scribe",
+      "recipient": "coral_scout",
+      "offered_cards": [
+        "tide_oracle"
+      ],
+      "requested_cards": [
+        "aurora_bridge"
+      ],
+      "requested_family": "",
+      "requested_kind": "",
+      "intent": "card_trade",
+      "relationship": "ally",
+      "state": "accepted",
+      "parent_id": "",
+      "chain_depth": 0,
+      "created": 1001.0,
+      "created_sim_time": 160.0,
+      "expires": 10960.0,
+      "expires_sim_time": 10960.0,
+      "history": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 160.0,
+          "time": 1001.0
+        },
+        {
+          "actor": "coral_scout",
+          "action": "accepted",
+          "status": "accepted",
+          "received": [
+            "tide_oracle"
+          ],
+          "gave": [
+            "aurora_bridge"
+          ],
+          "sim_time": 160.0,
+          "time": 1001.0
+        }
+      ],
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 160.0
+        },
+        {
+          "status": "accepted",
+          "actor": "coral_scout",
+          "action": "accepted",
+          "sim_time": 160.0,
+          "received": [
+            "tide_oracle"
+          ],
+          "gave": [
+            "aurora_bridge"
+          ],
+          "transaction_id": "tx_trade_1001000_1"
+        }
+      ],
+      "ownership_transferred": true,
+      "next_decision_sim_time": 175.0,
+      "accepted_sim_time": 160.0,
+      "transaction_id": "tx_trade_1001000_1"
     }
   ]
 }

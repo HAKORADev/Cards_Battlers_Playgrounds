@@ -977,6 +977,7 @@ class MediaRegistry:
     audio_extensions = {".wav", ".ogg", ".mp3", ".flac", ".m4a"}
     video_extensions = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".gif"}
     variant_pattern = re.compile(r"(10|[1-9])$")
+    frame_pattern = re.compile(r"[1-9][0-9]*$")
 
     def __init__(self, root):
         self.root = Path(root)
@@ -1026,8 +1027,8 @@ class MediaRegistry:
         if not folder.exists(): return found
         for path in folder.iterdir():
             if not path.is_file() or path.suffix.lower() not in extensions: continue
-            match = self.variant_pattern.fullmatch(path.stem)
-            if match: found[int(match.group(1))] = str(path)
+            match = self.frame_pattern.fullmatch(path.stem)
+            if match: found[int(match.group(0))] = str(path)
         return found
 
     def _variant_ids(self, animation_root, audio_root):
@@ -1134,10 +1135,13 @@ class MediaRegistry:
             card_root = self.entity_path("cards", entity_id) if entity_id else self.data_root / "cards"
             card_folder = card_root.name
             relation_names = dict.fromkeys([relation, "opponent" if relation == "stranger" else "stranger", "neutral"])
+            card_roots = [character_root / "cards" / card_folder, character_root / "cards" / "best-class" / card_folder]
             for relation_name in relation_names:
                 add(character_root / "duel" / "reactions" / relation_name / event, character_root / "duel" / "reactions" / relation_name / event / "audio")
-                add(character_root / "cards" / card_folder / relation_name / event / "animations", character_root / "cards" / card_folder / relation_name / event / "audio")
-            add(character_root / "cards" / card_folder / event / "animations", character_root / "cards" / card_folder / event / "audio")
+                for card_specific_root in card_roots:
+                    add(card_specific_root / relation_name / event / "animations", card_specific_root / relation_name / event / "audio")
+            for card_specific_root in card_roots:
+                add(card_specific_root / event / "animations", card_specific_root / event / "audio")
             add(character_root / "animations" / event, character_root / "audio" / event)
         if entity_type == "cards" and entity_id:
             root = self.entity_path("cards", entity_id)
@@ -3465,18 +3469,82 @@ class ContentStore:
                     self.record_history("character", record.get("lender", ""), "borrow_card_returned", {"borrow_id": record.get("id", ""), "card": record.get("card_id", ""), "from": character_id})
         if changed: self.save()
 
+    def progression_rules(self):
+        defaults = {"max_level": 10, "deck_thresholds": [0.0, 1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8, 8.8, 9.8], "character_wins_per_level": 3, "character_losses_per_level": 4, "team_wins_per_level": 3, "team_losses_per_level": 4, "strong_opponent_bonus": 1.0}
+        configured = dict((self.rules or {}).get("progression", {}) or {})
+        result = dict(defaults)
+        result.update(configured)
+        result["max_level"] = clamp(int(result.get("max_level", 10) or 10), 1, 10)
+        result["deck_thresholds"] = [float(value) for value in list(result.get("deck_thresholds", defaults["deck_thresholds"]) or defaults["deck_thresholds"])][:result["max_level"]]
+        while len(result["deck_thresholds"]) < result["max_level"]: result["deck_thresholds"].append(result["deck_thresholds"][-1] + 1.0)
+        return result
+
+    def deck_level_profile(self, deck_id):
+        deck = self.decks.get(deck_id, {})
+        main_cards = list(deck.get("main_cards", []) if isinstance(deck, dict) else [])
+        cards = [self.cards[card_id] for card_id in main_cards if card_id in self.cards]
+        if not cards: return {"level": 1, "score": 0.0, "average_stars": 0.0, "max_stars": 0, "elite_cards": 0, "legendary_cards": 0, "enablers": 0, "extra_cards": 0}
+        average_stars = sum(int(card.stars) for card in cards) / len(cards)
+        max_stars = max(int(card.stars) for card in cards)
+        elite_cards = sum(1 for card in cards if int(card.stars) >= 8)
+        legendary_cards = sum(1 for card in cards if card.kind == "legendary")
+        enablers = sum(1 for card in cards if card.kind in ["spell", "effect"] and any(str(action.get("name", "")) in ["fusion_summon", "ritual_summon", "special_summon"] for raw in card.effects for action in list((raw or {}).get("actions", []) or []) if isinstance(action, dict)))
+        extra_cards = len(deck.get("fusion_cards", []) if isinstance(deck, dict) else [])
+        score = average_stars * 0.6 + max_stars * 0.2 + min(elite_cards, 6) * 0.35 + min(extra_cards, 15) * 0.12 + min(legendary_cards, 1) * 0.8 + min(enablers, 4) * 0.15
+        thresholds = self.progression_rules()["deck_thresholds"]
+        level = 1 + sum(score >= threshold for threshold in thresholds[1:])
+        return {"level": clamp(level, 1, self.progression_rules()["max_level"]), "score": round(score, 3), "average_stars": round(average_stars, 3), "max_stars": max_stars, "elite_cards": elite_cards, "legendary_cards": legendary_cards, "enablers": enablers, "extra_cards": extra_cards}
+
+    def deck_level(self, deck_id):
+        return int(self.deck_level_profile(deck_id).get("level", 1))
+
+    def character_level(self, character_id):
+        character = self.characters.get(character_id)
+        if not character: return 1
+        base = clamp(int(character.stars), 1, 10)
+        wins = sum(1 for item in character.history if item.get("result") == "win")
+        losses = sum(1 for item in character.history if item.get("result") == "loss")
+        strong_wins = 0
+        for item in character.history:
+            if item.get("result") != "win": continue
+            opponent_id = item.get("opponent", "")
+            opponent = self.characters.get(opponent_id)
+            if opponent and int(opponent.stars) >= int(character.stars) + 2: strong_wins += 1
+        deck_bonus = max(0, self.deck_level(getattr(character, "deck_id", "")) - 5) // 2
+        rules = self.progression_rules()
+        level = base + wins // max(1, int(rules["character_wins_per_level"])) - losses // max(1, int(rules["character_losses_per_level"])) + min(strong_wins, 3)
+        level += deck_bonus
+        return clamp(level, 1, rules["max_level"])
+
+    def team_level(self, team_id):
+        team = self.teams.get(team_id)
+        if not team: return 1
+        members = [self.characters[member_id] for member_id in team.members if member_id in self.characters]
+        if not members: return 1
+        wins = sum(1 for item in team.history if item.get("result") == "win")
+        losses = sum(1 for item in team.history if item.get("result") == "loss")
+        rules = self.progression_rules()
+        level = round(sum(self.character_level(member.id) for member in members) / len(members))
+        level += wins // max(1, int(rules["team_wins_per_level"])) - losses // max(1, int(rules["team_losses_per_level"]))
+        if team.effect_locked: level += 1
+        return clamp(level, 1, rules["max_level"])
+
+    def level_gap(self, actor_id, opponent_id):
+        return self.character_level(actor_id) - self.character_level(opponent_id)
+
     def calculate_rank(self, entity_id):
         if entity_id in self.characters:
             character = self.characters[entity_id]
             wins = sum(1 for item in character.history if item.get("result") == "win")
             losses = sum(1 for item in character.history if item.get("result") == "loss")
-            rank = clamp(1 + wins // 2 - losses // 3 + max(0, character.stars - 4) // 3, 1, 10)
+            rank = clamp(1 + wins // 2 - losses // 3 + max(0, self.character_level(entity_id) - 4) // 2, 1, 10)
         elif entity_id in self.teams:
             members = self.teams[entity_id].members
             rank = clamp(round(sum(self.calculate_rank(member) for member in members) / max(1, len(members))), 1, 10)
         else: rank = 1
         self.world.setdefault("ranks", {})[entity_id] = rank
         if entity_id in self.characters: self.characters[entity_id].rank = rank
+        if entity_id in self.teams: self.teams[entity_id].rank = rank
         self.save()
         return rank
 
@@ -3825,6 +3893,25 @@ class ContentStore:
         championship.setdefault("history", []).append({"event": "match_resolved", **result, "narrator": progress_cue})
         winner_team = self.teams.get(winner_id)
         loser_team = self.teams.get(loser_id)
+        for team_id, result, opponent_id in [(winner_id, "win", loser_id), (loser_id, "loss", winner_id)]:
+            team = self.teams.get(team_id)
+            if not team: continue
+            team.experience = dict(getattr(team, "experience", {}) or {})
+            team.experience["duels"] = int(team.experience.get("duels", 0)) + 1
+            team.experience[result + "s"] = int(team.experience.get(result + "s", 0)) + 1
+            team.history.append({"event": "championship_match", "result": result, "opponent": opponent_id, "championship_id": championship_id, "round": round_index, "pair": pair_index, "time": time.time()})
+            team.history = team.history[-50:]
+            for member_id in team.members:
+                character = self.characters.get(member_id)
+                if not character: continue
+                character.experience = dict(getattr(character, "experience", {}) or {})
+                character.experience["duels"] = int(character.experience.get("duels", 0)) + 1
+                character.experience[result + "s"] = int(character.experience.get(result + "s", 0)) + 1
+                character.history.append({"event": "championship_match", "result": result, "opponent": opponent_id, "championship_id": championship_id, "round": round_index, "pair": pair_index, "time": time.time()})
+                character.history = character.history[-20:]
+                character.learning_state = dict(getattr(character, "learning_state", {}) or {})
+                character.learning_state["updates"] = int(character.learning_state.get("updates", 0)) + 1
+                character.learning_state["last_update"] = time.time()
         reward_amount = int(round_index)
         if winner_team and loser_team and reward_amount > 0:
             winner_member = winner_team.leader if winner_team.leader in winner_team.members else winner_team.members[0]
@@ -3857,6 +3944,7 @@ class ContentStore:
                 championship["winner"] = winners[0]
                 outro = self.narrator_cue("championship_outro", championship.get("host", ""), winners[0], {"championship_id": championship_id, "level": championship.get("level", 0), "difficulty": championship.get("difficulty", ""), "winner": winners[0], "rewards": list(championship.get("rewards", []))})
                 championship["narrator_outro"] = outro
+                championship.setdefault("narrator_events", []).append(outro)
                 self.record_history("team", winners[0], "championship_won", {"championship_id": championship_id, "level": championship.get("level", 0), "rewards": list(championship.get("rewards", [])), "narrator": outro})
                 for team_id in championship.get("teams", []): self.calculate_rank(team_id)
                 self.add_achievement(self.teams[winners[0]].leader, "Championship victory", f"Won championship {championship_id}.")
@@ -3874,7 +3962,6 @@ class ContentStore:
         }
         if category == "cards":
             trees[category].extend(f"interactions/{event}/{part}" for event in events for part in ["animations", "audio", "vfx"])
-            trees[category].append("characters")
         if category == "characters":
             trees[category].extend(f"animations/{event}" for event in events)
             trees[category].extend(f"audio/{event}" for event in events)
@@ -3882,6 +3969,8 @@ class ContentStore:
             trees[category].extend(f"duel/interactions/{event}/{part}" for event in events for part in ["animations", "audio"])
             trees[category].extend(f"duel/vfx/{event}" for event in events)
             trees[category].extend(f"duel/effects/{event}" for event in events)
+            trees[category].extend(f"cards/{slug(card_id)}" for card_id in sorted(self.cards))
+            trees[category].extend(f"cards/best-class/{slug(card_id)}" for card_id in sorted(self.cards))
         if category == "teams":
             trees[category].extend(f"animations/{event}" for event in events)
             trees[category].extend(f"audio/{event}" for event in events)
@@ -3898,6 +3987,9 @@ class ContentStore:
         for folder in folders:
             parts = Path(folder).parts
             directories.update(Path(*parts[:index]) for index in range(1, len(parts) + 1))
+        image_extensions = sorted(MediaRegistry.image_extensions)
+        audio_extensions = sorted(MediaRegistry.audio_extensions)
+        video_extensions = sorted(MediaRegistry.video_extensions)
         for directory in sorted(directories, key=lambda item: (len(item.parts), str(item))):
             current = root / directory
             current.mkdir(parents=True, exist_ok=True)
@@ -3907,10 +3999,36 @@ class ContentStore:
             for child in current.iterdir():
                 if child.name == "tree.txt": continue
                 if child.is_file() and child.name == "manifest.json" and directory == Path("."): legal.add("manifest.json")
-            if directory.parts and directory.parts[-1] in {"logic", "weights", "metadata", "experience"}: legal.update(["*.json"])
-            if directory.parts and directory.parts[-1] in {"art", "pfp"}: legal.update(["variants/"])
-            if directory.parts and directory.parts[-1] == "variants": legal.update([f"{index}.png" for index in range(1, 11)])
-            if directory.parts and directory.parts[-1] in {"animations", "audio", "vfx"}: legal.update([f"{index}/" for index in range(1, 11)] if directory.parts[-1] == "animations" else ["1..10.*"])
+            parts = directory.parts
+            if parts and parts[-1] == "logic":
+                legal.add(root.name + ".json")
+                legal.update(f"effect-{index}.json" for index in range(1, 11))
+            if parts and parts[-1] == "weights": legal.update(["base.json", "learned.json", "experience.json"])
+            if parts and parts[-1] in {"metadata", "experience"}: legal.update(["data.json"])
+            if parts and parts[-1] in {"art", "pfp"}: legal.add("variants/")
+            if parts and parts[-1] == "variants": legal.update(f"{index}.png" for index in range(1, 11))
+            card_slugs = {slug(card_id) for card_id in self.cards}
+            if "cards" in parts and parts[-1] == "cards":
+                legal.update(item + "/" for item in sorted(card_slugs))
+                legal.add("best-class/")
+            elif "cards" in parts and parts[-1] == "best-class":
+                legal.update(item + "/" for item in sorted(card_slugs))
+            elif "cards" in parts and parts[-1] in card_slugs:
+                legal.update(event + "/" for event in ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"])
+                legal.update(relation + "/" for relation in ["stranger", "ally", "enemy", "opponent"])
+            elif "cards" in parts and parts[-1] in {"stranger", "ally", "enemy", "opponent"}:
+                legal.update(event + "/" for event in ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"])
+            if "animations" in parts:
+                if parts[-1] == "animations":
+                    legal.update(f"{index}/" for index in range(1, 11))
+                    legal.update(f"{index}{extension}" for index in range(1, 11) for extension in video_extensions)
+                elif parts[-1].isdigit():
+                    legal.update(f"<frame-number>{extension}" for extension in image_extensions)
+                    legal.update(f"video{extension}" for extension in video_extensions)
+            if "audio" in parts:
+                legal.update(f"{index}{extension}" for index in range(1, 11) for extension in audio_extensions)
+            if parts and parts[-1] == "vfx":
+                legal.update(["vfx.png", "effect.png", "universal.png", "1.png"])
             (current / "tree.txt").write_text("\n".join(sorted(legal | {"tree.txt"})) + "\n", encoding="utf-8")
 
     def scaffold_entity(self, category, entity_id, display_name, folders=None, created=None, folder_name=""):
@@ -7156,6 +7274,11 @@ class DuelEngine:
         urgency = float(weights.get("risk_tolerance", 3.0)) if mode in ["monster", "set"] else float(weights.get("reward_value", 5.0))
         watcher_pressure = self.watcher_pressure(actor)
         hp_pressure = max(0, 8000 - actor.hp) / 800.0 if mode == "spell" else 0.0
+        level_gap = self.store.level_gap(character.id, enemy.character.id)
+        level_pressure = level_gap * (1.0 + float(character.cognition.get("planning", 5.0)) / 10.0)
+        if mode == "monster": level_pressure *= 7.0 if level_gap >= 0 else 3.0
+        elif mode == "set": level_pressure *= 4.0 if level_gap < 0 else 1.0
+        else: level_pressure *= 1.5
         effect_score = 0
         for index, raw_effect in enumerate(card.card.effects):
             spec = EffectSpec.from_dict(raw_effect, card.card.id + "_effect_" + str(index))
@@ -7170,7 +7293,7 @@ class DuelEngine:
         if mode == "spell": stat_score += float(technique.get("control", 5.0)) * 20 + float(technique.get("resource", 5.0)) * 10
         bias_key = "summon_bias" if mode == "monster" else "set_bias" if mode == "set" else "activation_bias" if mode in ["spell", "trap"] else "summon_bias"
         bias = max(0.1, float(weights.get("duel", {}).get(bias_key, 1.0)))
-        return (stat_score + family_weight * 100 * phase_weight * state_weight + kind_weight * 45 + subtype_weight * 30 + preferred_bonus + learned_weight * 20 + urgency * 25 + watcher_pressure * 18 + hp_pressure * 200 + effect_score) * bias
+        return (stat_score + family_weight * 100 * phase_weight * state_weight + kind_weight * 45 + subtype_weight * 30 + preferred_bonus + learned_weight * 20 + urgency * 25 + watcher_pressure * 18 + hp_pressure * 200 + level_pressure + effect_score) * bias
 
     def ai_activation_spec(self, card):
         return next((EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)) for index, raw in enumerate(card.card.effects) if EffectSpec.from_dict(raw, card.card.id + "_effect_" + str(index)).trigger == "activate"), None)
@@ -7225,6 +7348,8 @@ class DuelEngine:
         visible_attack = max([self.effective_atk(item, enemy) for item in visible] or [0])
         winning_targets = [item for item in visible if attack > self.effective_atk(item, enemy)]
         score = attack * 0.34 + defense * 0.08 + float(card.card.stars) * 28
+        level_gap = self.store.level_gap(actor.character.id, enemy.character.id)
+        score += level_gap * (attack * 0.025 if level_gap >= 0 else defense * 0.018)
         if not visible:
             score += attack * 0.42 + 300
         elif winning_targets:
@@ -7246,6 +7371,8 @@ class DuelEngine:
         visible = [item for item in enemy.monsters if item and item.face_up and self.known_card(actor, item)]
         strongest = max([self.effective_atk(item, enemy) for item in visible] or [0])
         score = defense * 0.31 + attack * 0.06
+        level_gap = self.store.level_gap(actor.character.id, enemy.character.id)
+        score += (-level_gap if level_gap < 0 else level_gap * 0.35) * defense * 0.02
         if strongest:
             score += max(0.0, defense - strongest) * 0.55
             score += max(0.0, strongest - attack) * 0.28
@@ -9524,7 +9651,7 @@ class DeckScene(Scene):
             fusion_count = len(deck.get("fusion_cards", []))
             summary = DeckRules.summary(deck.get("main_cards", []), deck.get("fusion_cards", []), self.app.store.cards)
             owner_marker = "SLOT" if deck.get("owner_id") == owner_id else "SHARED"
-            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | {summary} | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
+            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | LVL {self.app.store.deck_level(deck_id)}/10 | {summary} | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -9615,7 +9742,7 @@ class DeckEditorScene(Scene):
         main_count = len(state["main_cards"]) if state else 0
         extra_count = len(state["fusion_cards"]) if state else 0
         status = "LEGAL" if state and state["legal"] else "INCOMPLETE / INVALID"
-        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
+        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  LVL {self.app.store.deck_level(self.deck_id)}/10  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
         self.draw_panel(surface, (32, 155, 360, 330), "CURRENT CARDS", COLORS["gold"])
         self.draw_panel(surface, (410, 155, 358, 330), "CARD CATALOG", COLORS["cyan"])
         self.card_buttons = []
@@ -10049,7 +10176,7 @@ class CharactersScene(Scene):
             image = self.app.assets.character_portrait(char, (64, 64))
             if image: ui_blit(surface, image, (50, y + 9))
             draw_text(surface, char.name, (132, y + 14), self.app.assets.font(16, True), COLORS["cream"])
-            draw_text(surface, f"{char.stars} stars  |  rank {char.rank}  |  smartness {char.smartness}/10  |  mood {char.mood}", (132, y + 41), self.app.assets.font(11), accent)
+            draw_text(surface, f"LVL {self.app.store.character_level(char.id)}/10  |  {char.stars} stars  |  rank {char.rank}  |  smartness {char.smartness}/10  |  mood {char.mood}", (132, y + 41), self.app.assets.font(11), accent)
             active_battle = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and char.id in [battle.get("from"), battle.get("to")]), None)
             current_state = "OUT OF GAME" if char.world_status != "in_playground" else "IN DUEL" if active_battle else str(char.availability).upper() + " / " + str(char.activity).upper()
             draw_text(surface, current_state + "  |  place: " + (char.current_place or "none") + "  |  history: " + str(len(char.history)), (132, y + 62), self.app.assets.font(10), COLORS["muted"])
@@ -10098,12 +10225,12 @@ class EntityDetailScene(Scene):
             weights = ", ".join(f"{key}={float(value):.1f}" for key, value in sorted(entity.behavior_weights.items()) if key != "movement_duration" and isinstance(value, (int, float)))
             active_battle = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and entity.id in [battle.get("from"), battle.get("to")]), None)
             current_state = "OUT OF GAME" if entity.world_status != "in_playground" else "IN DUEL" if active_battle else str(entity.availability).upper() + " / " + str(entity.activity).upper()
-            lines = [f"Gender: {entity.gender}", f"Origin: {entity.origin}", f"Stars: {entity.stars}", f"Rank: {entity.rank}", f"Smartness: {entity.smartness}/10", f"Mood: {entity.mood}", f"Relationship: {entity.relationship}", "Runtime: " + current_state, "Current place: " + (entity.current_place or "none"), "Preferred: " + ", ".join(entity.preferred_families), "Best cards: " + ", ".join(entity.best_cards or ["not set"]), f"Learned opponents: {len(entity.learned_opponents)}  |  learned cards: {len(entity.learned_cards)}", "Weights: " + (weights or "default"), f"History events: {len(entity.history)}"]
+            lines = [f"Gender: {entity.gender}", f"Origin: {entity.origin}", f"Stars: {entity.stars}", f"Level: {self.app.store.character_level(entity.id)}/10", f"Rank: {entity.rank}", f"Smartness: {entity.smartness}/10", f"Mood: {entity.mood}", f"Relationship: {entity.relationship}", "Runtime: " + current_state, "Current place: " + (entity.current_place or "none"), "Preferred: " + ", ".join(entity.preferred_families), "Best cards: " + ", ".join(entity.best_cards or ["not set"]), f"Learned opponents: {len(entity.learned_opponents)}  |  learned cards: {len(entity.learned_cards)}", "Weights: " + (weights or "default"), f"History events: {len(entity.history)}"]
         elif self.entity_type == "places":
             lines = [f"Capacity: {entity.capacity}", f"Active duels: {entity.current_duels}", f"Background: {entity.background}", f"Day/night: {'enabled' if entity.day_night else 'disabled'}", f"Media folder: {entity.media_folder or 'legacy/id folder'}"]
         else:
             effect = entity.team_effect.get("selected") if entity.team_effect else None
-            lines = [f"Members: {len(entity.members)}", f"Leader: {entity.leader}", f"Rank: {entity.rank}", f"Relationship: {entity.relationship}", f"Effect: {effect.get('kind') if effect else 'not crafted'}", f"History events: {len(entity.history)}"]
+            lines = [f"Members: {len(entity.members)}", f"Leader: {entity.leader}", f"Level: {self.app.store.team_level(entity.id)}/10", f"Rank: {entity.rank}", f"Relationship: {entity.relationship}", f"Effect: {effect.get('kind') if effect else 'not crafted'}", f"History events: {len(entity.history)}"]
         for index, line in enumerate(lines): draw_text(surface, line, (270 if self.entity_type == "characters" else 70, 170 + index * 28), self.app.assets.font(13), COLORS["cream"])
         self.draw_buttons(surface, 12)
 
@@ -10339,7 +10466,7 @@ class TeamsScene(Scene):
             y = 118 + index * 95
             rounded(surface, (40, y, 720, 82), (14, 24, 52), COLORS["violet"], 8, 2)
             draw_text(surface, team.name, (64, y + 14), self.app.assets.font(16, True), COLORS["cream"])
-            draw_text(surface, f"Members: {len(team.members)}   |   Leader: {team.leader}   |   Rank: {team.rank}   |   {team.relationship}", (64, y + 42), self.app.assets.font(11), COLORS["cyan"])
+            draw_text(surface, f"Members: {len(team.members)}   |   Leader: {team.leader}   |   LVL {self.app.store.team_level(team.id)}/10   |   Rank: {team.rank}   |   {team.relationship}", (64, y + 42), self.app.assets.font(11), COLORS["cyan"])
             effect = team.team_effect.get("selected") if team.team_effect else None
             draw_text(surface, "Effect: " + (effect.get("kind", "candidate") if effect else "not crafted") + "  |  places: " + (", ".join(team.preferred_places) or "none"), (64, y + 63), self.app.assets.font(10), COLORS["muted"])
             button = Button((650, y + 22, 92, 34), "DETAIL", lambda team_id=team.id: self.app.push(EntityDetailScene(self.app, "teams", team_id)), COLORS["gold"])

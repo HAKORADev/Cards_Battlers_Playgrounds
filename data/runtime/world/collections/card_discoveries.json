@@ -26,6 +26,1190 @@
         "distribution_sequence": 3
       },
       "sim_time": 0.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "copper_gryphon",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "copper_gryphon",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "mirror_force",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "mirror_force",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "mystical_space_typhoon",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "mystical_space_typhoon",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "ember_drone",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "ember_drone",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "iron_fridge",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "iron_fridge",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "garden_sentinel",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "garden_sentinel",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "sky_archer",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "sky_archer",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "mystical_space_typhoon",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "mystical_space_typhoon",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_mysterio_card_02",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_mysterio_card_02",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "sunlit_field",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "sunlit_field",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "grave_bloom",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "grave_bloom",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 150.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "echo_bolt",
+      "source": "traded",
+      "owner": "coral_scout",
+      "context": {
+        "duel": true,
+        "mode": "timed"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "coral_scout",
+      "card": "echo_bolt",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "timed"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "coral_scout",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "timed"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "coral_scout",
+      "context": {
+        "duel": true,
+        "mode": "timed"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "tide_oracle",
+      "source": "traded",
+      "owner": "coral_scout",
+      "context": {
+        "trade_id": "trade_1001000_1"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "coral_scout",
+      "card": "tide_oracle",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "trade_id": "trade_1001000_1"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "aurora_bridge",
+      "source": "traded",
+      "owner": "coral_scout",
+      "context": {
+        "trade_id": "trade_1001000_1"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "coral_scout",
+      "card": "aurora_bridge",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "trade_id": "trade_1001000_1"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "man_eater_bug",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "man_eater_bug",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_mysterio_card_05",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_mysterio_card_05",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "river_colossus",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "river_colossus",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "copper_gryphon",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "copper_gryphon",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "iron_oath",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "iron_oath",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "sunlit_field",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "sunlit_field",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "solar_burst",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "solar_burst",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "sunforge_guard",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "sunforge_guard",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "man_eater_bug",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "man_eater_bug",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "mirror_trap",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "mirror_trap",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "grave_bloom",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "grave_bloom",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "moonlit_drake",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "moonlit_drake",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "aqua_sentinel",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "sunforge_guard",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "sunforge_guard",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "quiet_alchemist",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "quiet_alchemist",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "cinder_knight",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "void_titan",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_relic",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "repair_matrix",
+      "source": "traded",
+      "owner": "aqua_scribe",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
+    },
+    {
+      "viewer": "aqua_scribe",
+      "card": "repair_matrix",
+      "source": "traded",
+      "owner": "rival_echo",
+      "context": {
+        "duel": true,
+        "mode": "current"
+      },
+      "sim_time": 160.0
     }
   ]
 }

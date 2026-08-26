@@ -817,6 +817,125 @@
           "sim_time": 150.0
         }
       ]
+    },
+    {
+      "id": "trade_1001000_1",
+      "family": "trade",
+      "from": "aqua_scribe",
+      "to": "coral_scout",
+      "participants": [
+        "aqua_scribe",
+        "coral_scout"
+      ],
+      "intent": "card_trade",
+      "status": "accepted",
+      "created_sim_time": 160.0,
+      "expires_sim_time": 10960.0,
+      "payload": {
+        "creator": "aqua_scribe",
+        "recipient": "coral_scout",
+        "offered_cards": [
+          "tide_oracle"
+        ],
+        "requested_cards": [
+          "aurora_bridge"
+        ],
+        "requested_family": "",
+        "requested_kind": "",
+        "intent": "card_trade",
+        "relationship": "ally",
+        "parent_id": "",
+        "chain_depth": 0,
+        "created": 1001.0,
+        "created_sim_time": 160.0,
+        "expires": 10960.0,
+        "expires_sim_time": 10960.0,
+        "ownership_transferred": true,
+        "next_decision_sim_time": 175.0,
+        "accepted_sim_time": 160.0,
+        "transaction_id": "tx_trade_1001000_1"
+      },
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 160.0
+        },
+        {
+          "status": "accepted",
+          "actor": "coral_scout",
+          "action": "accepted",
+          "sim_time": 160.0,
+          "received": [
+            "tide_oracle"
+          ],
+          "gave": [
+            "aurora_bridge"
+          ],
+          "transaction_id": "tx_trade_1001000_1"
+        }
+      ]
+    },
+    {
+      "id": "borrow_1001000_1",
+      "family": "borrow",
+      "from": "aqua_scribe",
+      "to": "coral_scout",
+      "participants": [
+        "aqua_scribe",
+        "coral_scout"
+      ],
+      "intent": "card_borrow",
+      "status": "returned",
+      "created_sim_time": 160.0,
+      "expires_sim_time": 10960.0,
+      "payload": {
+        "lender": "aqua_scribe",
+        "borrower": "coral_scout",
+        "requester": "coral_scout",
+        "target": "aqua_scribe",
+        "card_id": "man_eater_bug",
+        "deck_id": "coral_deck",
+        "remaining_duels": 0,
+        "intent": "card_borrow",
+        "created": 1001.0,
+        "created_sim_time": 160.0,
+        "expires_sim_time": 10960.0,
+        "approvals": {
+          "coral_scout": true,
+          "aqua_scribe": false
+        },
+        "activated_sim_time": 160.0
+      },
+      "events": [
+        {
+          "actor": "coral_scout",
+          "action": "opened",
+          "status": "requested",
+          "sim_time": 160.0
+        },
+        {
+          "actor": "aqua_scribe",
+          "action": "accepted",
+          "status": "active",
+          "sim_time": 160.0
+        },
+        {
+          "status": "active",
+          "actor": "aqua_scribe",
+          "action": "accepted",
+          "sim_time": 160.0,
+          "deck_id": "coral_deck",
+          "card_id": "man_eater_bug"
+        },
+        {
+          "status": "returned",
+          "actor": "coral_scout",
+          "action": "returned",
+          "sim_time": 160.0
+        }
+      ]
     }
   ]
 }

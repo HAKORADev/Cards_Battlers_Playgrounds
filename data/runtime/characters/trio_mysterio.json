@@ -3,52 +3,9 @@
   "id": "trio_mysterio",
   "category": "characters",
   "state": {
-    "idle_elapsed": 0.0,
+    "mood": "mysterious",
     "movement_progress": 0.0,
-    "enemies": [],
-    "rank": 3,
-    "availability": "free",
-    "current_place": "",
-    "persona_state": {
-      "reputation": 0.4,
-      "trust": {},
-      "confidence": 0.8
-    },
-    "borrowed_cards": [],
-    "library_cards": [
-      "trio_relic",
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
-    "allies": [],
-    "learned_opponents": {
-      "rival_echo": 2
-    },
     "out_of_game_until": 0.0,
-    "experience": {
-      "duels": 2,
-      "wins": 2,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "rival_echo": {
-          "observed_cards": [],
-          "last_result": "win",
-          "turns": 1,
-          "updated": 1787704341.4750571
-        }
-      }
-    },
-    "mood_state": {
-      "current": "mysterious",
-      "intensity": 0.0
-    },
-    "learned_cards": {},
-    "relationship_history": [],
-    "destination": "",
     "memories": [
       {
         "event": "trio_card_given",
@@ -152,7 +109,132 @@
         "sim_time": 30.0
       }
     ],
-    "idle_cue_count": 0,
+    "world_status": "in_playground",
+    "current_place": "",
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {
+        "rival_echo": {
+          "cards": {},
+          "effects": {},
+          "sightings": 0
+        }
+      },
+      "effects": {}
+    },
+    "persona_state": {
+      "reputation": 0.4,
+      "trust": {},
+      "confidence": 0.8
+    },
+    "allies": [],
+    "cooldown_until": 0.0,
+    "borrowed_cards": [],
+    "availability": "free",
+    "goals": [
+      {
+        "id": "master_god_of_cards",
+        "kind": "master_family",
+        "target": "god_of_cards",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 3.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_elapsed": 0.0,
+    "history": [
+      {
+        "opponent": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_id": "",
+        "cards": [],
+        "time": 1787704341.4749978
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "time": 1787704341.5131772
+      },
+      {
+        "event": "trio_card_given",
+        "scope": "character",
+        "card": "trio_mysterio_card_02",
+        "recipient": "rival_echo",
+        "team": "trio_team",
+        "trigger": "team_win",
+        "sim_time": 0.0,
+        "time": 1787704341.5134537
+      },
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349458_11",
+        "to": "pearl_guard",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4594505
+      },
+      {
+        "event": "meaningful_activity",
+        "scope": "character",
+        "state": "active",
+        "sim_time": 30.0,
+        "time": 1787704349.4785066
+      }
+    ],
+    "destination": "",
+    "activity": "dueling",
+    "rank": 5,
+    "library_cards": [
+      "trio_relic",
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ],
+    "learned_opponents": {
+      "rival_echo": 2
+    },
+    "mood_state": {
+      "current": "mysterious",
+      "intensity": 0.0
+    },
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -219,111 +301,29 @@
       },
       "subtype_weights": {}
     },
-    "goals": [
-      {
-        "id": "master_god_of_cards",
-        "kind": "master_family",
-        "target": "god_of_cards",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 3.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
+    "relationship": "stranger",
+    "experience": {
+      "duels": 2,
+      "wins": 2,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "rival_echo": {
+          "observed_cards": [],
+          "last_result": "win",
+          "turns": 1,
+          "updated": 1787704341.4750571
+        }
       }
-    ],
-    "history": [
-      {
-        "opponent": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "distribution-trigger-test",
-        "mode": "current",
-        "place": "",
-        "finisher": "distribution-trigger-test",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787704341.4749978
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "trio_mysterio",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "distribution-trigger-test",
-        "mode": "current",
-        "place": "",
-        "finisher": "distribution-trigger-test",
-        "deck_ids": {},
-        "transferred_cards": [],
-        "sim_time": 0.0,
-        "time": 1787704341.5131772
-      },
-      {
-        "event": "trio_card_given",
-        "scope": "character",
-        "card": "trio_mysterio_card_02",
-        "recipient": "rival_echo",
-        "team": "trio_team",
-        "trigger": "team_win",
-        "sim_time": 0.0,
-        "time": 1787704341.5134537
-      },
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349458_11",
-        "to": "pearl_guard",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4594505
-      },
-      {
-        "event": "meaningful_activity",
-        "scope": "character",
-        "state": "active",
-        "sim_time": 30.0,
-        "time": 1787704349.4785066
-      }
-    ],
-    "world_status": "in_playground",
-    "activity": "dueling",
-    "cooldown_until": 0.0,
+    },
+    "relationship_history": [],
+    "enemies": [],
+    "idle_cue_count": 0,
     "learning_state": {
       "observations": 0,
       "updates": 2,
       "last_update": 1787704341.4750032
     },
-    "relationship": "stranger",
-    "mood": "mysterious",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {
-        "rival_echo": {
-          "cards": {},
-          "effects": {},
-          "sightings": 0
-        }
-      },
-      "effects": {}
-    }
+    "learned_cards": {}
   }
 }

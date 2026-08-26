@@ -3,127 +3,9 @@
   "id": "forge_watcher",
   "category": "characters",
   "state": {
-    "idle_elapsed": 0.0,
+    "mood": "neutral",
     "movement_progress": 0.0,
-    "enemies": [],
-    "rank": 4,
-    "availability": "free",
-    "current_place": "",
-    "persona_state": {
-      "reputation": 0.8,
-      "trust": {},
-      "confidence": 1.6
-    },
-    "borrowed_cards": [],
-    "library_cards": [
-      "cinder_knight",
-      "storm_lancer",
-      "solar_burst",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "echo_bolt",
-      "sunlit_field",
-      "ember_chimera",
-      "ritual_warden",
-      "dark_hole",
-      "mystical_space_typhoon",
-      "summoned_skull",
-      "dark_magician",
-      "mirror_force",
-      "man_eater_bug",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard",
-      "ember_chimera",
-      "aqua_sentinel",
-      "echo_bolt"
-    ],
-    "allies": [],
-    "learned_opponents": {
-      "tide_courier": 4
-    },
     "out_of_game_until": 0.0,
-    "experience": {
-      "duels": 4,
-      "wins": 3,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "tide_courier": {
-          "observed_cards": [
-            "solar_burst",
-            "cinder_knight",
-            "copper_gryphon",
-            "aqua_sentinel",
-            "sunforge_guard",
-            "archive_signal",
-            "aurora_bridge",
-            "sunlit_field",
-            "tide_oracle",
-            "man_eater_bug",
-            "iron_fridge",
-            "grave_bloom",
-            "mirror_force",
-            "tide_mender",
-            "repair_matrix",
-            "night_lure",
-            "ember_drone",
-            "moonlit_drake"
-          ],
-          "last_result": "win",
-          "turns": 9,
-          "updated": 1787702813.222174
-        }
-      },
-      "losss": 1
-    },
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
-    },
-    "learned_cards": {
-      "solar_burst": 42,
-      "cinder_knight": 42,
-      "copper_gryphon": 62,
-      "aqua_sentinel": 43,
-      "sunforge_guard": 6,
-      "archive_signal": 59,
-      "aurora_bridge": 103,
-      "sunlit_field": 59,
-      "tide_oracle": 65,
-      "man_eater_bug": 77,
-      "iron_fridge": 53,
-      "grave_bloom": 60,
-      "mirror_force": 76,
-      "tide_mender": 3,
-      "repair_matrix": 45,
-      "night_lure": 38,
-      "ember_drone": 26,
-      "moonlit_drake": 21
-    },
-    "relationship_history": [],
-    "destination": "",
     "memories": [
       {
         "event": "duel_completed",
@@ -202,7 +84,117 @@
         "sim_time": 0.0
       }
     ],
-    "idle_cue_count": 5,
+    "world_status": "in_playground",
+    "current_place": "",
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    },
+    "persona_state": {
+      "reputation": 0.8,
+      "trust": {},
+      "confidence": 1.6
+    },
+    "allies": [],
+    "cooldown_until": 0.0,
+    "borrowed_cards": [],
+    "availability": "free",
+    "goals": [
+      {
+        "id": "master_warrior",
+        "kind": "master_family",
+        "target": "warrior",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 4.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_elapsed": 10.0,
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349447_3",
+        "to": "trio_mysterio",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4488916
+      }
+    ],
+    "destination": "",
+    "activity": "idle",
+    "rank": 1,
+    "library_cards": [
+      "cinder_knight",
+      "storm_lancer",
+      "solar_burst",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "echo_bolt",
+      "sunlit_field",
+      "ember_chimera",
+      "ritual_warden",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard",
+      "ember_chimera",
+      "aqua_sentinel",
+      "echo_bolt"
+    ],
+    "learned_opponents": {
+      "tide_courier": 4
+    },
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -269,60 +261,68 @@
         "trap_threshold": 0.0
       }
     },
-    "goals": [
-      {
-        "id": "master_warrior",
-        "kind": "master_family",
-        "target": "warrior",
-        "progress": 0.0,
-        "priority": 1.0
+    "relationship": "stranger",
+    "experience": {
+      "duels": 4,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "tide_courier": {
+          "observed_cards": [
+            "solar_burst",
+            "cinder_knight",
+            "copper_gryphon",
+            "aqua_sentinel",
+            "sunforge_guard",
+            "archive_signal",
+            "aurora_bridge",
+            "sunlit_field",
+            "tide_oracle",
+            "man_eater_bug",
+            "iron_fridge",
+            "grave_bloom",
+            "mirror_force",
+            "tide_mender",
+            "repair_matrix",
+            "night_lure",
+            "ember_drone",
+            "moonlit_drake"
+          ],
+          "last_result": "win",
+          "turns": 9,
+          "updated": 1787702813.222174
+        }
       },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 4.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "history": [
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349447_3",
-        "to": "trio_mysterio",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4488916
-      }
-    ],
-    "world_status": "in_playground",
-    "activity": "idle",
-    "cooldown_until": 0.0,
+      "losss": 1
+    },
+    "relationship_history": [],
+    "enemies": [],
+    "idle_cue_count": 5,
     "learning_state": {
       "observations": 9737,
       "updates": 4,
       "last_update": 1787702813.22117
     },
-    "relationship": "stranger",
-    "mood": "neutral",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
+    "learned_cards": {
+      "solar_burst": 42,
+      "cinder_knight": 42,
+      "copper_gryphon": 62,
+      "aqua_sentinel": 43,
+      "sunforge_guard": 6,
+      "archive_signal": 59,
+      "aurora_bridge": 103,
+      "sunlit_field": 59,
+      "tide_oracle": 65,
+      "man_eater_bug": 77,
+      "iron_fridge": 53,
+      "grave_bloom": 60,
+      "mirror_force": 76,
+      "tide_mender": 3,
+      "repair_matrix": 45,
+      "night_lure": 38,
+      "ember_drone": 26,
+      "moonlit_drake": 21
     }
   }
 }

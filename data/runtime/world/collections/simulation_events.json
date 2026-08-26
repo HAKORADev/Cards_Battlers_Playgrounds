@@ -4,280 +4,386 @@
   "id": "simulation_events",
   "value": [
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "coral_scout",
-      "target": "trio_mysterio",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "coral_scout",
-        "target_id": "trio_mysterio",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349444_1",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 2,
+      "sim_time": 60.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "ember_sage",
-      "target": "trio_mysterio",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "ember_sage",
-        "target_id": "trio_mysterio",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349446_2",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 2,
+      "sim_time": 60.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "forge_watcher",
-      "target": "trio_mysterio",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "forge_watcher",
-        "target_id": "trio_mysterio",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349447_3",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 2,
+      "sim_time": 60.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "iron_mason",
-      "target": "trio_mysterio",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "iron_mason",
-        "target_id": "trio_mysterio",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349449_4",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 2,
+      "sim_time": 60.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "moss_keeper",
-      "target": "trio_mysterio",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "moss_keeper",
-        "target_id": "trio_mysterio",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349450_5",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 2,
+      "sim_time": 60.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "mystery_arc",
-      "target": "pearl_guard",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "mystery_arc",
-        "target_id": "pearl_guard",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349451_6",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 2,
+      "sim_time": 60.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "mystery_veil",
-      "target": "pearl_guard",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "mystery_veil",
-        "target_id": "pearl_guard",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349453_7",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 3,
+      "sim_time": 150.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "pearl_guard",
-      "target": "trio_mysterio",
-      "relation": "stranger",
-      "selection": {
-        "event": "request_open",
-        "actor_id": "pearl_guard",
-        "target_id": "trio_mysterio",
-        "relation": "stranger",
-        "source": "placeholder",
-        "variant": 0,
-        "image": "",
-        "audio": "",
-        "mode": "hang",
-        "placeholder": true,
-        "frames": [],
-        "video": "",
-        "duration": 0.0,
-        "animation_duration": 0.0,
-        "frame_rate": 60,
-        "sync": "hang",
-        "presentation": {},
-        "metadata": {}
-      },
-      "metadata": {
-        "request_id": "request_1787704349454_8",
-        "reason": "goal pursuit: master_family"
-      },
-      "sim_time": 29.9
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 4,
+      "sim_time": 150.0
     },
     {
-      "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 1,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 2,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 1,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 2,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "request_first",
+      "text": "The accepting side may choose who moves first.",
+      "audio": "/home/ubuntu/cbp_repo/data/characters/narrator/audio/request_first/1.wav",
+      "variant": 1,
       "actor": "rival_echo",
-      "target": "mystery_veil",
+      "target": "aqua_scribe",
+      "context": {
+        "format": "1v1",
+        "launcher": "aqua_scribe",
+        "value": 0
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "request_first",
+      "text": "A first-turn request has been made. The other side may accept or spin the dice.",
+      "audio": "/home/ubuntu/cbp_repo/data/characters/narrator/audio/request_first/1.wav",
+      "variant": 2,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "format": "1v1",
+        "launcher": "aqua_scribe",
+        "value": 0
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "request_first",
+      "text": "Before the duel begins, one side asks for the opening turn.",
+      "audio": "/home/ubuntu/cbp_repo/data/characters/narrator/audio/request_first/1.wav",
+      "variant": 3,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "format": "1v1",
+        "launcher": "aqua_scribe",
+        "value": 0
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "ready",
+      "text": "The first turn is locked in.",
+      "audio": "/home/ubuntu/cbp_repo/data/characters/narrator/audio/ready/1.wav",
+      "variant": 4,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "format": "1v1",
+        "launcher": "aqua_scribe",
+        "value": 0
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The duel is decided. The losing duelist carries the result forward.",
+      "audio": "",
+      "variant": 1,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "copper_gryphon"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
       "relation": "stranger",
       "selection": {
-        "event": "request_open",
+        "event": "reward_transfer",
         "actor_id": "rival_echo",
-        "target_id": "mystery_veil",
+        "target_id": "aqua_scribe",
         "relation": "stranger",
         "source": "placeholder",
         "variant": 0,
@@ -295,22 +401,60 @@
         "metadata": {}
       },
       "metadata": {
-        "request_id": "request_1787704349455_9",
-        "reason": "goal pursuit: master_family"
+        "cards": [
+          "copper_gryphon"
+        ]
       },
-      "sim_time": 29.9
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The final field state favors the winning duelist.",
+      "audio": "",
+      "variant": 2,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "mirror_force"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
     },
     {
       "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "tide_courier",
-      "target": "trio_mysterio",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
       "relation": "stranger",
       "selection": {
-        "event": "request_open",
-        "actor_id": "tide_courier",
-        "target_id": "trio_mysterio",
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
         "relation": "stranger",
         "source": "placeholder",
         "variant": 0,
@@ -328,22 +472,60 @@
         "metadata": {}
       },
       "metadata": {
-        "request_id": "request_1787704349456_10",
-        "reason": "goal pursuit: master_family"
+        "cards": [
+          "mirror_force"
+        ]
       },
-      "sim_time": 29.9
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "A loss is recorded, and its lessons remain available.",
+      "audio": "",
+      "variant": 3,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "mystical_space_typhoon"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
     },
     {
       "type": "interaction_media",
-      "family": "request",
-      "event": "request_open",
-      "actor": "trio_mysterio",
-      "target": "pearl_guard",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
       "relation": "stranger",
       "selection": {
-        "event": "request_open",
-        "actor_id": "trio_mysterio",
-        "target_id": "pearl_guard",
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
         "relation": "stranger",
         "source": "placeholder",
         "variant": 0,
@@ -361,395 +543,3506 @@
         "metadata": {}
       },
       "metadata": {
-        "request_id": "request_1787704349458_11",
-        "reason": "goal pursuit: master_family"
+        "cards": [
+          "mystical_space_typhoon"
+        ]
       },
-      "sim_time": 29.9
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "rival_echo",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "trio_mysterio",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_veil",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_arc",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "ember_sage",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "tide_courier",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "iron_mason",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "moss_keeper",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "forge_watcher",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "pearl_guard",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "coral_scout",
-      "cadence": 1,
-      "sim_time": 30.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "aqua_scribe",
-      "cadence": 1,
-      "sim_time": 59.9
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "rival_echo",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "trio_mysterio",
-      "cadence": 1,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_veil",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_arc",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "ember_sage",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "tide_courier",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "iron_mason",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "moss_keeper",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "forge_watcher",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "pearl_guard",
-      "cadence": 2,
-      "sim_time": 60.0
-    },
-    {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "rival_echo",
-      "cadence": 3,
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "rival_echo",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The winner stands after the last exchange.",
+      "audio": "",
+      "variant": 4,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "rival_echo",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_veil",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_veil",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The match closes with a clear defeat.",
+      "audio": "",
+      "variant": 5,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_veil",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "ember_drone"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_arc",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "ember_drone"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_arc",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The final move becomes part of the winner\u2019s lessons.",
+      "audio": "",
+      "variant": 6,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "mystery_arc",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "iron_fridge"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "ember_sage",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "iron_fridge"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "ember_sage",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The field goes quiet after the losing side\u2019s final defense.",
+      "audio": "",
+      "variant": 7,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "ember_sage",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "void_titan"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "tide_courier",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "void_titan"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "tide_courier",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The result is complete. The winning side may receive its terms.",
+      "audio": "",
+      "variant": 8,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "tide_courier",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "void_titan"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "iron_mason",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "void_titan"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "iron_mason",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The match is over, and the victor is known.",
+      "audio": "",
+      "variant": 9,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "iron_mason",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "garden_sentinel"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "moss_keeper",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "garden_sentinel"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "moss_keeper",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The playground records a defeat without hiding its lesson.",
+      "audio": "",
+      "variant": 10,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "moss_keeper",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "forge_watcher",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "forge_watcher",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The duel is decided. The winner takes the result into history.",
+      "audio": "",
+      "variant": 1,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "forge_watcher",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "aqua_sentinel"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "aqua_scribe",
-      "cadence": 1,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "aqua_sentinel"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "aqua_scribe",
-      "cadence": 2,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The final field state favors the winning duelist.",
+      "audio": "",
+      "variant": 2,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "aqua_scribe",
-      "cadence": 3,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "void_titan"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "pearl_guard",
-      "cadence": 3,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "void_titan"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "pearl_guard",
-      "cadence": 4,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "Victory is recorded across the characters and the place.",
+      "audio": "",
+      "variant": 3,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "pearl_guard",
-      "cadence": 5,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "sky_archer"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "coral_scout",
-      "cadence": 1,
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "sky_archer"
+        ]
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "coral_scout",
-      "cadence": 2,
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The winner stands after the last exchange.",
+      "audio": "",
+      "variant": 4,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
       "sim_time": 150.0
     },
     {
-      "type": "character_idle",
-      "state": "character_idle",
-      "character": "coral_scout",
-      "cadence": 3,
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "mystical_space_typhoon"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
       "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "mystical_space_typhoon"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The duel has closed with a clear victor.",
+      "audio": "",
+      "variant": 5,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The result will shape future choices and rematches.",
+      "audio": "",
+      "variant": 6,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "One duelist remains ahead when the field goes quiet.",
+      "audio": "",
+      "variant": 7,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The result is complete. The winning side may receive its terms.",
+      "audio": "",
+      "variant": 8,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "trio_mysterio_card_02"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_mysterio_card_02"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "One duelist leaves the field behind the winner.",
+      "audio": "",
+      "variant": 9,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The playground records another victory.",
+      "audio": "",
+      "variant": 10,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The duel is decided. The losing duelist carries the result forward.",
+      "audio": "",
+      "variant": 1,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "sunlit_field"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "sunlit_field"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The final field state has turned against this side.",
+      "audio": "",
+      "variant": 2,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "A loss is recorded, and its lessons remain available.",
+      "audio": "",
+      "variant": 3,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "grave_bloom"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "grave_bloom"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The winner stands after the last exchange.",
+      "audio": "",
+      "variant": 4,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The match closes with a clear defeat.",
+      "audio": "",
+      "variant": 5,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 150.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "time_end_house_win",
+      "text": "Time is up. The house wins instantly on the higher life total.",
+      "audio": "/home/ubuntu/cbp_repo/data/characters/narrator/audio/time-end/house-win/1.wav",
+      "variant": 1,
+      "actor": "aqua_scribe",
+      "target": "coral_scout",
+      "context": {
+        "mode": "timed",
+        "reason": "timed-instant-win",
+        "winner": "aqua_scribe",
+        "time_end": true
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "coral_scout",
+      "cards": [
+        "echo_bolt"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "coral_scout",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "coral_scout",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "echo_bolt"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "time_end_house_lose",
+      "text": "The clock reaches zero. The opponent takes the timed victory.",
+      "audio": "/home/ubuntu/cbp_repo/data/characters/narrator/audio/time-end/house-lose/1.wav",
+      "variant": 2,
+      "actor": "coral_scout",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "timed",
+        "reason": "timed-instant-lose",
+        "winner": "coral_scout",
+        "time_end": true
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "coral_scout",
+      "loser": "aqua_scribe",
+      "cards": [
+        "void_titan"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "coral_scout",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "coral_scout",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "void_titan"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "timed_draw",
+      "text": "Neither side is ahead when the timer expires.",
+      "audio": "",
+      "variant": 3,
+      "actor": "aqua_scribe",
+      "target": "coral_scout",
+      "context": {
+        "mode": "timed",
+        "reason": "timed-draw",
+        "winner": "",
+        "time_end": true
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The duel is decided. The losing duelist carries the result forward.",
+      "audio": "",
+      "variant": 1,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "man_eater_bug"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "man_eater_bug"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The final field state favors the winning duelist.",
+      "audio": "",
+      "variant": 2,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "trio_mysterio_card_05"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_mysterio_card_05"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "A loss is recorded, and its lessons remain available.",
+      "audio": "",
+      "variant": 3,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "river_colossus"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "river_colossus"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The winner stands after the last exchange.",
+      "audio": "",
+      "variant": 4,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "copper_gryphon"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "copper_gryphon"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The match closes with a clear defeat.",
+      "audio": "",
+      "variant": 5,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "aqua_sentinel"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "aqua_sentinel"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The final move becomes part of the winner\u2019s lessons.",
+      "audio": "",
+      "variant": 6,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "iron_oath"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "iron_oath"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The field goes quiet after the losing side\u2019s final defense.",
+      "audio": "",
+      "variant": 7,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "aqua_sentinel"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "aqua_sentinel"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The result is complete. The winning side may receive its terms.",
+      "audio": "",
+      "variant": 8,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "sunlit_field"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "sunlit_field"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The match is over, and the victor is known.",
+      "audio": "",
+      "variant": 9,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "solar_burst"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "solar_burst"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The playground records a defeat without hiding its lesson.",
+      "audio": "",
+      "variant": 10,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "sunforge_guard"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "sunforge_guard"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The duel is decided. The winner takes the result into history.",
+      "audio": "",
+      "variant": 1,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "man_eater_bug"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "man_eater_bug"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The final field state favors the winning duelist.",
+      "audio": "",
+      "variant": 2,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "Victory is recorded across the characters and the place.",
+      "audio": "",
+      "variant": 3,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "mirror_trap"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "mirror_trap"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The winner stands after the last exchange.",
+      "audio": "",
+      "variant": 4,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "grave_bloom"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "grave_bloom"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The duel has closed with a clear victor.",
+      "audio": "",
+      "variant": 5,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "aqua_sentinel"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "aqua_sentinel"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The result will shape future choices and rematches.",
+      "audio": "",
+      "variant": 6,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "moonlit_drake"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "moonlit_drake"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "One duelist remains ahead when the field goes quiet.",
+      "audio": "",
+      "variant": 7,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "aqua_sentinel"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "aqua_sentinel"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The result is complete. The winning side may receive its terms.",
+      "audio": "",
+      "variant": 8,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "sunforge_guard"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "sunforge_guard"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "One duelist leaves the field behind the winner.",
+      "audio": "",
+      "variant": 9,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The playground records another victory.",
+      "audio": "",
+      "variant": 10,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The duel is decided. The losing duelist carries the result forward.",
+      "audio": "",
+      "variant": 1,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "quiet_alchemist"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "quiet_alchemist"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The final field state has turned against this side.",
+      "audio": "",
+      "variant": 2,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "cinder_knight"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "cinder_knight"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "A loss is recorded, and its lessons remain available.",
+      "audio": "",
+      "variant": 3,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "void_titan"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "void_titan"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_win",
+      "text": "The winner stands after the last exchange.",
+      "audio": "",
+      "variant": 4,
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "aqua_scribe",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "aqua_scribe",
+      "loser": "rival_echo",
+      "cards": [
+        "trio_relic"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "aqua_scribe",
+      "target": "rival_echo",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "aqua_scribe",
+        "target_id": "rival_echo",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "trio_relic"
+        ]
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "narrator_cue",
+      "state": "post_duel_loss",
+      "text": "The match closes with a clear defeat.",
+      "audio": "",
+      "variant": 5,
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "context": {
+        "mode": "current",
+        "reason": "health",
+        "winner": "rival_echo",
+        "time_end": false
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "duel_reward_transfer",
+      "winner": "rival_echo",
+      "loser": "aqua_scribe",
+      "cards": [
+        "repair_matrix"
+      ],
+      "policy": {
+        "mode": "random",
+        "source": "library",
+        "card_ids": [],
+        "count": 1,
+        "card_kind": "",
+        "family": "",
+        "giver_id": "",
+        "trigger": "loser_to_winner",
+        "duel_required": false,
+        "label": ""
+      },
+      "sim_time": 160.0
+    },
+    {
+      "type": "interaction_media",
+      "family": "duel_reward",
+      "event": "reward_transfer",
+      "actor": "rival_echo",
+      "target": "aqua_scribe",
+      "relation": "stranger",
+      "selection": {
+        "event": "reward_transfer",
+        "actor_id": "rival_echo",
+        "target_id": "aqua_scribe",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "cards": [
+          "repair_matrix"
+        ]
+      },
+      "sim_time": 160.0
     }
   ]
 }

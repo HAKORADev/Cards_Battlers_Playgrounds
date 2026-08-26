@@ -3,55 +3,9 @@
   "id": "mystery_arc",
   "category": "characters",
   "state": {
-    "idle_elapsed": 0.0,
+    "mood": "curious",
     "movement_progress": 0.0,
-    "enemies": [],
-    "rank": 4,
-    "availability": "free",
-    "current_place": "",
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
-    "borrowed_cards": [],
-    "library_cards": [
-      "void_titan",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "void_titan",
-      "cinder_knight",
-      "sky_archer",
-      "trio_relic",
-      "aqua_sentinel"
-    ],
-    "allies": [],
-    "learned_opponents": {
-      "rival_echo": 3
-    },
     "out_of_game_until": 0.0,
-    "experience": {
-      "duels": 3,
-      "wins": 3,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "rival_echo": {
-          "observed_cards": [],
-          "last_result": "win",
-          "turns": 1,
-          "updated": 1787666900.2376344
-        }
-      }
-    },
-    "mood_state": {
-      "current": "curious",
-      "intensity": 0.0
-    },
-    "learned_cards": {},
-    "relationship_history": [],
-    "destination": "",
     "memories": [
       {
         "event": "trio_card_given",
@@ -94,7 +48,94 @@
         "sim_time": 0.0
       }
     ],
-    "idle_cue_count": 5,
+    "world_status": "in_playground",
+    "current_place": "",
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    },
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
+    },
+    "allies": [],
+    "cooldown_until": 0.0,
+    "borrowed_cards": [],
+    "availability": "free",
+    "goals": [
+      {
+        "id": "master_spell",
+        "kind": "master_family",
+        "target": "spell",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 5,
+        "progress": 4.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_elapsed": 10.0,
+    "history": [
+      {
+        "event": "trio_card_given",
+        "scope": "character",
+        "card": "trio_mysterio_card_05",
+        "recipient": "rival_echo",
+        "team": "trio_team",
+        "trigger": "team_win",
+        "sim_time": 0.0,
+        "time": 1787704341.513597
+      },
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349451_6",
+        "to": "pearl_guard",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4529097
+      }
+    ],
+    "destination": "",
+    "activity": "idle",
+    "rank": 3,
+    "library_cards": [
+      "void_titan",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "void_titan",
+      "cinder_knight",
+      "sky_archer",
+      "trio_relic",
+      "aqua_sentinel"
+    ],
+    "learned_opponents": {
+      "rival_echo": 3
+    },
+    "mood_state": {
+      "current": "curious",
+      "intensity": 0.0
+    },
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -161,70 +202,29 @@
       },
       "subtype_weights": {}
     },
-    "goals": [
-      {
-        "id": "master_spell",
-        "kind": "master_family",
-        "target": "spell",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 5,
-        "progress": 4.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
+    "relationship": "stranger",
+    "experience": {
+      "duels": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "rival_echo": {
+          "observed_cards": [],
+          "last_result": "win",
+          "turns": 1,
+          "updated": 1787666900.2376344
+        }
       }
-    ],
-    "history": [
-      {
-        "event": "trio_card_given",
-        "scope": "character",
-        "card": "trio_mysterio_card_05",
-        "recipient": "rival_echo",
-        "team": "trio_team",
-        "trigger": "team_win",
-        "sim_time": 0.0,
-        "time": 1787704341.513597
-      },
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349451_6",
-        "to": "pearl_guard",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4529097
-      }
-    ],
-    "world_status": "in_playground",
-    "activity": "idle",
-    "cooldown_until": 0.0,
+    },
+    "relationship_history": [],
+    "enemies": [],
+    "idle_cue_count": 5,
     "learning_state": {
       "observations": 0,
       "updates": 3,
       "last_update": 1787666900.2375994
     },
-    "relationship": "stranger",
-    "mood": "curious",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
-    }
+    "learned_cards": {}
   }
 }

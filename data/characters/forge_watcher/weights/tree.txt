@@ -1,2 +1,4 @@
-*.json
+base.json
+experience.json
+learned.json
 tree.txt

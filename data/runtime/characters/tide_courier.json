@@ -3,125 +3,9 @@
   "id": "tide_courier",
   "category": "characters",
   "state": {
-    "idle_elapsed": 0.0,
+    "mood": "neutral",
     "movement_progress": 0.0,
-    "enemies": [],
-    "rank": 2,
-    "availability": "free",
-    "current_place": "",
-    "persona_state": {
-      "reputation": 0.8,
-      "trust": {},
-      "confidence": 1.6
-    },
-    "borrowed_cards": [],
-    "library_cards": [
-      "tide_oracle",
-      "archive_signal",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "sunlit_field",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "mystical_space_typhoon",
-      "summoned_skull",
-      "dark_magician",
-      "mirror_force",
-      "man_eater_bug",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard",
-      "night_lure"
-    ],
-    "allies": [],
-    "learned_opponents": {
-      "forge_watcher": 4
-    },
     "out_of_game_until": 0.0,
-    "experience": {
-      "duels": 4,
-      "wins": 1,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "forge_watcher": {
-          "observed_cards": [
-            "echo_bolt",
-            "tide_mender",
-            "quiet_alchemist",
-            "archive_signal",
-            "ember_drone",
-            "cinder_knight",
-            "glass_sphinx",
-            "thunder_kite",
-            "dark_hole",
-            "sunforge_guard",
-            "grave_bloom",
-            "solar_burst",
-            "man_eater_bug",
-            "moonlit_drake",
-            "sky_archer",
-            "mystical_space_typhoon",
-            "aqua_sentinel",
-            "mirror_trap",
-            "tide_oracle"
-          ],
-          "last_result": "loss",
-          "turns": 9,
-          "updated": 1787702813.222181
-        }
-      },
-      "losss": 3
-    },
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
-    },
-    "learned_cards": {
-      "echo_bolt": 52,
-      "tide_mender": 29,
-      "quiet_alchemist": 17,
-      "archive_signal": 12,
-      "ember_drone": 5,
-      "cinder_knight": 115,
-      "glass_sphinx": 91,
-      "thunder_kite": 41,
-      "dark_hole": 41,
-      "sunforge_guard": 67,
-      "grave_bloom": 17,
-      "solar_burst": 105,
-      "man_eater_bug": 5,
-      "moonlit_drake": 78,
-      "sky_archer": 4,
-      "mystical_space_typhoon": 39,
-      "aqua_sentinel": 27,
-      "mirror_trap": 20,
-      "tide_oracle": 3
-    },
-    "relationship_history": [],
-    "destination": "",
     "memories": [
       {
         "event": "duel_completed",
@@ -200,7 +84,113 @@
         "sim_time": 0.0
       }
     ],
-    "idle_cue_count": 5,
+    "world_status": "in_playground",
+    "current_place": "",
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    },
+    "persona_state": {
+      "reputation": 0.8,
+      "trust": {},
+      "confidence": 1.6
+    },
+    "allies": [],
+    "cooldown_until": 0.0,
+    "borrowed_cards": [],
+    "availability": "free",
+    "goals": [
+      {
+        "id": "master_aqua",
+        "kind": "master_family",
+        "target": "aqua",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 2.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_elapsed": 10.0,
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349456_10",
+        "to": "trio_mysterio",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4581373
+      }
+    ],
+    "destination": "",
+    "activity": "idle",
+    "rank": 1,
+    "library_cards": [
+      "tide_oracle",
+      "archive_signal",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "sunlit_field",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard",
+      "night_lure"
+    ],
+    "learned_opponents": {
+      "forge_watcher": 4
+    },
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -267,60 +257,70 @@
         "trap_threshold": 0.0
       }
     },
-    "goals": [
-      {
-        "id": "master_aqua",
-        "kind": "master_family",
-        "target": "aqua",
-        "progress": 0.0,
-        "priority": 1.0
+    "relationship": "stranger",
+    "experience": {
+      "duels": 4,
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "forge_watcher": {
+          "observed_cards": [
+            "echo_bolt",
+            "tide_mender",
+            "quiet_alchemist",
+            "archive_signal",
+            "ember_drone",
+            "cinder_knight",
+            "glass_sphinx",
+            "thunder_kite",
+            "dark_hole",
+            "sunforge_guard",
+            "grave_bloom",
+            "solar_burst",
+            "man_eater_bug",
+            "moonlit_drake",
+            "sky_archer",
+            "mystical_space_typhoon",
+            "aqua_sentinel",
+            "mirror_trap",
+            "tide_oracle"
+          ],
+          "last_result": "loss",
+          "turns": 9,
+          "updated": 1787702813.222181
+        }
       },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 2.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "history": [
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349456_10",
-        "to": "trio_mysterio",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4581373
-      }
-    ],
-    "world_status": "in_playground",
-    "activity": "idle",
-    "cooldown_until": 0.0,
+      "losss": 3
+    },
+    "relationship_history": [],
+    "enemies": [],
+    "idle_cue_count": 5,
     "learning_state": {
       "observations": 9538,
       "updates": 4,
       "last_update": 1787702813.2211733
     },
-    "relationship": "stranger",
-    "mood": "neutral",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
+    "learned_cards": {
+      "echo_bolt": 52,
+      "tide_mender": 29,
+      "quiet_alchemist": 17,
+      "archive_signal": 12,
+      "ember_drone": 5,
+      "cinder_knight": 115,
+      "glass_sphinx": 91,
+      "thunder_kite": 41,
+      "dark_hole": 41,
+      "sunforge_guard": 67,
+      "grave_bloom": 17,
+      "solar_burst": 105,
+      "man_eater_bug": 5,
+      "moonlit_drake": 78,
+      "sky_archer": 4,
+      "mystical_space_typhoon": 39,
+      "aqua_sentinel": 27,
+      "mirror_trap": 20,
+      "tide_oracle": 3
     }
   }
 }

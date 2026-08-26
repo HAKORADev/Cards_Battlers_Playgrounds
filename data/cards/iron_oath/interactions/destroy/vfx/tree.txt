@@ -1,2 +1,5 @@
-1..10.*
+1.png
+effect.png
 tree.txt
+universal.png
+vfx.png

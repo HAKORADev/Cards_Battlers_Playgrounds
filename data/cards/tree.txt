@@ -2,6 +2,7 @@ aqua_sentinel/
 archive_signal/
 aurora_bridge/
 basalt_keeper/
+best-class/
 briar_runner/
 cinder_knight/
 clockwork_mite/

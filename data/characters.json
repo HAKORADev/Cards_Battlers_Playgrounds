@@ -62,7 +62,11 @@
     },
     "logic_graph": "",
     "deck_slots": [
-      "rival_deck"
+      "rival_deck",
+      "rival_control_deck",
+      "rival_storm_deck",
+      "rival_oath_deck",
+      "rival_bridge_deck"
     ]
   },
   {
@@ -593,7 +597,7 @@
     "name": "Aqua Scribe",
     "portrait": "",
     "stars": 4,
-    "smartness": 6,
+    "smartness": 7,
     "preferred_families": [
       "aqua"
     ],
@@ -724,7 +728,7 @@
     "name": "Coral Scout",
     "portrait": "",
     "stars": 3,
-    "smartness": 6,
+    "smartness": 7,
     "preferred_families": [
       "aqua"
     ],

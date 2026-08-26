@@ -3,130 +3,9 @@
   "id": "coral_scout",
   "category": "characters",
   "state": {
-    "idle_elapsed": 0.0,
+    "mood": "neutral",
     "movement_progress": 0.0,
-    "enemies": [],
-    "rank": 2,
-    "availability": "free",
-    "current_place": "",
-    "persona_state": {
-      "reputation": -0.19999999999999996,
-      "trust": {},
-      "confidence": 1.6
-    },
-    "borrowed_cards": [],
-    "library_cards": [
-      "aurora_bridge",
-      "garden_sentinel",
-      "tide_oracle",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "echo_bolt",
-      "ember_chimera",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "mystical_space_typhoon",
-      "summoned_skull",
-      "dark_magician",
-      "mirror_force",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard",
-      "moonlit_drake"
-    ],
-    "allies": [],
-    "learned_opponents": {
-      "moss_keeper": 4
-    },
     "out_of_game_until": 0.0,
-    "experience": {
-      "duels": 4,
-      "wins": 1,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "moss_keeper": {
-          "observed_cards": [
-            "garden_sentinel",
-            "repair_matrix",
-            "sky_archer",
-            "solar_burst",
-            "sunforge_guard",
-            "river_colossus",
-            "iron_fridge",
-            "sunlit_field",
-            "man_eater_bug",
-            "night_lure",
-            "mirror_force",
-            "mystical_space_typhoon",
-            "summoned_skull",
-            "storm_lancer",
-            "dark_magician",
-            "void_titan",
-            "echo_bolt",
-            "archive_signal",
-            "grave_bloom",
-            "tide_oracle"
-          ],
-          "last_result": "loss",
-          "turns": 10,
-          "updated": 1787702813.756189
-        }
-      },
-      "losss": 3
-    },
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
-    },
-    "learned_cards": {
-      "garden_sentinel": 128,
-      "repair_matrix": 92,
-      "sky_archer": 116,
-      "solar_burst": 80,
-      "sunforge_guard": 54,
-      "river_colossus": 44,
-      "iron_fridge": 30,
-      "sunlit_field": 18,
-      "man_eater_bug": 18,
-      "night_lure": 11,
-      "mirror_force": 11,
-      "mystical_space_typhoon": 87,
-      "summoned_skull": 41,
-      "storm_lancer": 79,
-      "dark_magician": 17,
-      "void_titan": 43,
-      "echo_bolt": 108,
-      "archive_signal": 58,
-      "grave_bloom": 53,
-      "tide_oracle": 3,
-      "aurora_bridge": 51,
-      "clockwork_mite": 15,
-      "dark_hole": 15
-    },
-    "relationship_history": [],
-    "destination": "",
     "memories": [
       {
         "event": "duel_completed",
@@ -217,9 +96,381 @@
           "trade_id": "trade_1787704349480_2"
         },
         "sim_time": 150.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "coral_scout",
+          "result": "win",
+          "turns": 1,
+          "reason": "timed-instant-win",
+          "mode": "timed",
+          "place": "mystery_void",
+          "finisher": "timed-instant-win",
+          "deck_ids": {},
+          "transferred_cards": [
+            "echo_bolt"
+          ],
+          "sim_time": 160.0
+        },
+        "sim_time": 160.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "coral_scout",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 1,
+          "reason": "timed-instant-lose",
+          "mode": "timed",
+          "place": "mystery_void",
+          "finisher": "timed-instant-lose",
+          "deck_ids": {},
+          "transferred_cards": [
+            "void_titan"
+          ],
+          "sim_time": 160.0
+        },
+        "sim_time": 160.0
+      },
+      {
+        "event": "trade_completed",
+        "payload": {
+          "trade_id": "trade_1001000_1",
+          "with": "aqua_scribe",
+          "received": [
+            "tide_oracle"
+          ],
+          "gave": [
+            "aurora_bridge"
+          ]
+        },
+        "sim_time": 160.0
+      },
+      {
+        "event": "borrow_requested",
+        "payload": {
+          "borrow_id": "borrow_1001000_1",
+          "lender": "aqua_scribe",
+          "card": "man_eater_bug",
+          "state": "requested"
+        },
+        "sim_time": 160.0
+      },
+      {
+        "event": "borrow_started",
+        "payload": {
+          "borrow_id": "borrow_1001000_1",
+          "card": "man_eater_bug",
+          "from": "aqua_scribe",
+          "duels": 2
+        },
+        "sim_time": 160.0
+      },
+      {
+        "event": "borrow_returned",
+        "payload": {
+          "borrow_id": "borrow_1001000_1",
+          "card": "man_eater_bug",
+          "to": "aqua_scribe"
+        },
+        "sim_time": 160.0
       }
     ],
-    "idle_cue_count": 0,
+    "world_status": "in_playground",
+    "current_place": "",
+    "knowledge_state": {
+      "cards": {
+        "echo_bolt": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "aqua_scribe"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "timed"
+            }
+          ]
+        },
+        "void_titan": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "aqua_scribe"
+          ],
+          "contexts": [
+            {
+              "duel": true,
+              "mode": "timed"
+            }
+          ]
+        },
+        "tide_oracle": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "aqua_scribe"
+          ],
+          "contexts": [
+            {
+              "trade_id": "trade_1001000_1"
+            }
+          ]
+        },
+        "aurora_bridge": {
+          "sources": [
+            "traded"
+          ],
+          "sightings": 1,
+          "owners": [
+            "aqua_scribe"
+          ],
+          "contexts": [
+            {
+              "trade_id": "trade_1001000_1"
+            }
+          ]
+        }
+      },
+      "opponents": {
+        "aqua_scribe": {
+          "cards": {},
+          "effects": {},
+          "sightings": 0
+        }
+      },
+      "effects": {}
+    },
+    "persona_state": {
+      "reputation": 1.2000000000000002,
+      "trust": {
+        "aqua_scribe": 1.5
+      },
+      "confidence": 2.4
+    },
+    "allies": [],
+    "cooldown_until": 0.0,
+    "borrowed_cards": [],
+    "availability": "free",
+    "goals": [
+      {
+        "id": "master_aqua",
+        "kind": "master_family",
+        "target": "aqua",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 1.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 2.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "idle_elapsed": 0.0,
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349444_1",
+        "to": "trio_mysterio",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4462147
+      },
+      {
+        "event": "trade_canceled",
+        "scope": "character",
+        "trade_id": "trade_1787704349459_1",
+        "sim_time": 59.9,
+        "time": 1787704349.4799414
+      },
+      {
+        "event": "trade_canceled",
+        "scope": "character",
+        "trade_id": "trade_1787704349480_2",
+        "sim_time": 150.0,
+        "time": 1787704349.497628
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "loss",
+        "turns": 1,
+        "reason": "timed-instant-win",
+        "mode": "timed",
+        "place": "mystery_void",
+        "finisher": "timed-instant-win",
+        "deck_id": "",
+        "cards": [],
+        "time": 1001.0
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "aqua_scribe",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-instant-win",
+        "mode": "timed",
+        "place": "mystery_void",
+        "finisher": "timed-instant-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "echo_bolt"
+        ],
+        "sim_time": 160.0,
+        "time": 1001.0
+      },
+      {
+        "opponent": "aqua_scribe",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-instant-lose",
+        "mode": "timed",
+        "place": "mystery_void",
+        "finisher": "timed-instant-lose",
+        "deck_id": "",
+        "cards": [],
+        "time": 1001.0
+      },
+      {
+        "event": "duel_completed",
+        "scope": "character",
+        "winner": "coral_scout",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-instant-lose",
+        "mode": "timed",
+        "place": "mystery_void",
+        "finisher": "timed-instant-lose",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 160.0,
+        "time": 1001.0
+      },
+      {
+        "event": "trade_completed",
+        "scope": "character",
+        "trade_id": "trade_1001000_1",
+        "with": "aqua_scribe",
+        "received": [
+          "tide_oracle"
+        ],
+        "gave": [
+          "aurora_bridge"
+        ],
+        "sim_time": 160.0,
+        "time": 1001.0
+      },
+      {
+        "event": "borrow_requested",
+        "scope": "character",
+        "borrow_id": "borrow_1001000_1",
+        "lender": "aqua_scribe",
+        "card": "man_eater_bug",
+        "state": "requested",
+        "sim_time": 160.0,
+        "time": 1001.0
+      },
+      {
+        "event": "borrow_started",
+        "scope": "character",
+        "borrow_id": "borrow_1001000_1",
+        "card": "man_eater_bug",
+        "from": "aqua_scribe",
+        "duels": 2,
+        "sim_time": 160.0,
+        "time": 1001.0
+      },
+      {
+        "event": "borrow_returned",
+        "scope": "character",
+        "borrow_id": "borrow_1001000_1",
+        "card": "man_eater_bug",
+        "to": "aqua_scribe",
+        "sim_time": 160.0,
+        "time": 1001.0
+      }
+    ],
+    "destination": "",
+    "activity": "idle",
+    "rank": 2,
+    "library_cards": [
+      "garden_sentinel",
+      "tide_oracle",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "ember_chimera",
+      "ritual_warden",
+      "night_lure",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard",
+      "moonlit_drake",
+      "void_titan",
+      "tide_oracle"
+    ],
+    "learned_opponents": {
+      "moss_keeper": 4,
+      "aqua_scribe": 2
+    },
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -228,7 +479,7 @@
       "place_preference": 5.0,
       "ally_bias": 4.0,
       "enemy_bias": 6.0,
-      "adaptation": 2.9499999999999993,
+      "adaptation": 3.799999999999999,
       "memory": 5.0,
       "inference": 5.0,
       "planning": 5.0,
@@ -286,74 +537,81 @@
         "trap_threshold": 0.0
       }
     },
-    "goals": [
-      {
-        "id": "master_aqua",
-        "kind": "master_family",
-        "target": "aqua",
-        "progress": 0.0,
-        "priority": 1.0
+    "relationship": "stranger",
+    "experience": {
+      "duels": 6,
+      "wins": 2,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "moss_keeper": {
+          "observed_cards": [
+            "garden_sentinel",
+            "repair_matrix",
+            "sky_archer",
+            "solar_burst",
+            "sunforge_guard",
+            "river_colossus",
+            "iron_fridge",
+            "sunlit_field",
+            "man_eater_bug",
+            "night_lure",
+            "mirror_force",
+            "mystical_space_typhoon",
+            "summoned_skull",
+            "storm_lancer",
+            "dark_magician",
+            "void_titan",
+            "echo_bolt",
+            "archive_signal",
+            "grave_bloom",
+            "tide_oracle"
+          ],
+          "last_result": "loss",
+          "turns": 10,
+          "updated": 1787702813.756189
+        },
+        "aqua_scribe": {
+          "observed_cards": [],
+          "last_result": "win",
+          "turns": 1,
+          "updated": 1001.0
+        }
       },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 2.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "history": [
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349444_1",
-        "to": "trio_mysterio",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4462147
-      },
-      {
-        "event": "trade_canceled",
-        "scope": "character",
-        "trade_id": "trade_1787704349459_1",
-        "sim_time": 59.9,
-        "time": 1787704349.4799414
-      },
-      {
-        "event": "trade_canceled",
-        "scope": "character",
-        "trade_id": "trade_1787704349480_2",
-        "sim_time": 150.0,
-        "time": 1787704349.497628
-      }
-    ],
-    "world_status": "in_playground",
-    "activity": "idle",
-    "cooldown_until": 0.0,
+      "losss": 4
+    },
+    "relationship_history": [],
+    "enemies": [],
+    "idle_cue_count": 0,
     "learning_state": {
       "observations": 12093,
-      "updates": 4,
-      "last_update": 1787702813.7551265
+      "updates": 6,
+      "last_update": 1001.0
     },
-    "relationship": "stranger",
-    "mood": "neutral",
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
+    "learned_cards": {
+      "garden_sentinel": 128,
+      "repair_matrix": 92,
+      "sky_archer": 116,
+      "solar_burst": 80,
+      "sunforge_guard": 54,
+      "river_colossus": 44,
+      "iron_fridge": 30,
+      "sunlit_field": 18,
+      "man_eater_bug": 18,
+      "night_lure": 11,
+      "mirror_force": 11,
+      "mystical_space_typhoon": 87,
+      "summoned_skull": 41,
+      "storm_lancer": 79,
+      "dark_magician": 17,
+      "void_titan": 43,
+      "echo_bolt": 108,
+      "archive_signal": 58,
+      "grave_bloom": 53,
+      "tide_oracle": 3,
+      "aurora_bridge": 51,
+      "clockwork_mite": 15,
+      "dark_hole": 15
     }
   }
 }

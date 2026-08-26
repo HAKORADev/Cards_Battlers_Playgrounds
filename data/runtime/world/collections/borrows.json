@@ -2,5 +2,70 @@
   "schema": 2,
   "category": "world_collection",
   "id": "borrows",
-  "value": []
+  "value": [
+    {
+      "id": "borrow_1001000_1",
+      "lender": "aqua_scribe",
+      "borrower": "coral_scout",
+      "requester": "coral_scout",
+      "target": "aqua_scribe",
+      "card_id": "man_eater_bug",
+      "deck_id": "coral_deck",
+      "remaining_duels": 0,
+      "intent": "card_borrow",
+      "state": "returned",
+      "created": 1001.0,
+      "created_sim_time": 160.0,
+      "expires_sim_time": 10960.0,
+      "approvals": {
+        "coral_scout": true,
+        "aqua_scribe": false
+      },
+      "history": [
+        {
+          "actor": "coral_scout",
+          "action": "opened",
+          "status": "requested",
+          "sim_time": 160.0,
+          "time": 1001.0
+        },
+        {
+          "actor": "aqua_scribe",
+          "action": "accepted",
+          "status": "active",
+          "sim_time": 160.0,
+          "time": 1001.0
+        }
+      ],
+      "events": [
+        {
+          "actor": "coral_scout",
+          "action": "opened",
+          "status": "requested",
+          "sim_time": 160.0
+        },
+        {
+          "actor": "aqua_scribe",
+          "action": "accepted",
+          "status": "active",
+          "sim_time": 160.0
+        },
+        {
+          "status": "active",
+          "actor": "aqua_scribe",
+          "action": "accepted",
+          "sim_time": 160.0,
+          "deck_id": "coral_deck",
+          "card_id": "man_eater_bug"
+        },
+        {
+          "status": "returned",
+          "actor": "coral_scout",
+          "action": "returned",
+          "sim_time": 160.0
+        }
+      ],
+      "activated_sim_time": 160.0
+    }
+  ]
 }

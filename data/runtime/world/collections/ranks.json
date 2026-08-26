@@ -3,15 +3,21 @@
   "category": "world_collection",
   "id": "ranks",
   "value": {
-    "trio_mysterio": 3,
-    "rival_echo": 1,
-    "aqua_scribe": 10,
-    "ember_sage": 5,
-    "tide_courier": 2,
-    "forge_watcher": 4,
-    "pearl_guard": 3,
-    "iron_mason": 3,
-    "moss_keeper": 4,
-    "coral_scout": 2
+    "trio_mysterio": 5,
+    "rival_echo": 10,
+    "aqua_scribe": 7,
+    "ember_sage": 1,
+    "tide_courier": 1,
+    "forge_watcher": 1,
+    "pearl_guard": 1,
+    "iron_mason": 1,
+    "moss_keeper": 1,
+    "coral_scout": 2,
+    "mystery_veil": 3,
+    "mystery_arc": 3,
+    "the_duelers": 1,
+    "trio_team": 4,
+    "iron_garden": 1,
+    "aqua_archives": 1
   }
 }

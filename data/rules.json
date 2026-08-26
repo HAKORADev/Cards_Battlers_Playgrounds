@@ -33,6 +33,16 @@
     ],
     "no_other_legendary_deck_rule": false
   },
+  "progression": {
+    "max_level": 10,
+    "deck_thresholds": [0.0, 1.8, 2.8, 3.8, 4.8, 5.8, 6.8, 7.8, 8.8, 9.8],
+    "character_wins_per_level": 3,
+    "character_losses_per_level": 4,
+    "team_wins_per_level": 3,
+    "team_losses_per_level": 4,
+    "strong_opponent_bonus": 1.0,
+    "principle": "Character levels start from authored stars and change through results, strong-opponent victories, losses, and deck level. Deck levels come from card strength and authored enabler coverage. Team levels aggregate member levels, team results, and a locked team effect."
+  },
   "narrator": {
     "idle_seconds": {"character": 30.0, "duel": 45.0},
     "cadence": "repeat after each threshold while no meaningful action observation occurs",

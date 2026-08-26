@@ -1,2 +1,12 @@
-*.json
+copper_gryphon.json
+effect-1.json
+effect-10.json
+effect-2.json
+effect-3.json
+effect-4.json
+effect-5.json
+effect-6.json
+effect-7.json
+effect-8.json
+effect-9.json
 tree.txt
