@@ -9,7 +9,7 @@
     "default_place": "neon_playground"
   },
   "place_occupancy": {
-    "neon_playground": 1,
+    "neon_playground": 0,
     "mystery_void": 0
   },
   "clock_epoch": 1787666817,

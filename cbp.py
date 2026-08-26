@@ -262,6 +262,8 @@ class BitmapFont:
         self.index = assets.font_indexes.get(profile, {})
         self.by_char = {str(value.get("char", "")): str(value.get("file", "")) for value in self.index.values() if isinstance(value, dict) and value.get("file")}
         self.cache = {}
+        self.source_cache = {}
+        self.metric_cache = {}
 
     def _filename(self, character):
         filename = self.by_char.get(character)
@@ -269,9 +271,20 @@ class BitmapFont:
         return self.by_char.get("?") or "question.png"
 
     def _source(self, character):
+        if character in self.source_cache: return self.source_cache[character]
         filename = self._filename(character)
         key = Path(filename).with_suffix("").as_posix()
-        return self.assets.image(f"fonts/{self.profile}/{key}")
+        image = self.assets.image(f"fonts/{self.profile}/{key}")
+        self.source_cache[character] = image
+        return image
+
+    def _metrics(self, character):
+        if character in self.metric_cache: return self.metric_cache[character]
+        image = self._source(character)
+        scale = self.size_value / 128.0
+        metrics = (max(1, int(round((image.get_width() if image else self.size_value * 0.55) * scale))), max(1, int(round((image.get_height() if image else self.size_value) * scale))))
+        self.metric_cache[character] = metrics
+        return metrics
 
     def _tinted(self, image, color, size):
         key = (id(image), tuple(color), tuple(size))
@@ -289,15 +302,17 @@ class BitmapFont:
 
     def size(self, text):
         text = str(text)
-        scale = self.size_value / 128.0
         width = 0
         height = self.size_value
+        line_width = 0
         for character in text:
-            if character == "\\n":
+            if character == "\n":
+                width = max(width, line_width)
+                line_width = 0
                 height += self.size_value
                 continue
-            image = self._source(character)
-            width += max(1, int(round((image.get_width() if image else self.size_value * 0.55) * scale)))
+            line_width += self._metrics(character)[0]
+        width = max(width, line_width)
         return (max(1, width), max(1, height))
 
     def get_height(self):
@@ -307,19 +322,18 @@ class BitmapFont:
         text = str(text)
         color = tuple(color[:3]) if color else (18, 16, 20)
         line_height = self.size_value
-        lines = text.split("\\n")
+        lines = text.split("\n")
         width = max(self.size(line)[0] for line in lines) if lines else self.size_value
         surface = pygame.Surface((max(1, width), max(1, line_height * max(1, len(lines)))), pygame.SRCALPHA)
-        scale = self.size_value / 128.0
         y = 0
         for line in lines:
             x = 0
             for character in line:
                 image = self._source(character)
+                glyph_size = self._metrics(character)
                 if image is None:
-                    x += max(1, int(self.size_value * 0.55))
+                    x += glyph_size[0]
                     continue
-                glyph_size = (max(1, int(round(image.get_width() * scale))), max(1, int(round(image.get_height() * scale))))
                 glyph = self._tinted(image, color, glyph_size)
                 surface.blit(glyph, (x, y + max(0, line_height - glyph_size[1]) // 2))
                 x += glyph_size[0]
@@ -593,6 +607,8 @@ class AssetBank:
         self.media_sounds = {}
         self.media_video_frames = {}
         self.media_scopes = {}
+        self.scan_generation = 0
+        self.scanned_generation = -1
         self.current_music_path = ""
         self.card_templates = {}
         self.card_badges = {}
@@ -625,7 +641,7 @@ class AssetBank:
 
     def play_button_sound(self, kind="in", enabled=True, volume=0.35):
         if not enabled or not pygame.mixer.get_init(): return False
-        key = "button_" + ("out" if kind == "out" else "in")
+        key = "button-" + ("out" if kind == "out" else "in")
         path = UNIVERSAL_MAIN / "audio" / "ui" / "buttons" / (key + ".wav")
         if not path.exists(): return False
         try:
@@ -1145,7 +1161,6 @@ class PlaceDef:
     day_night: bool
     media_folder: str = ""
     effects: list = field(default_factory=list)
-    event_response_policies: dict = field(default_factory=dict)
     event_window_policies: dict = field(default_factory=dict)
     trigger_order_policies: dict = field(default_factory=dict)
     logic_graph: str = ""
@@ -1232,17 +1247,30 @@ class MediaRegistry:
         self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
         self.variant_cache = {}
         self.duration_cache = {}
+        self.scan_generation = 0
+        self.scanned_generation = -1
+
+    def invalidate(self):
+        self.scan_generation += 1
 
     def scan(self):
-        self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
-        for path in self.data_root.rglob("*"):
-            if not path.is_file(): continue
-            suffix = path.suffix.lower()
-            if suffix in self.image_extensions: self.catalog["images"].append(str(path))
-            elif suffix in self.audio_extensions: self.catalog["audio"].append(str(path))
-            elif suffix in self.video_extensions: self.catalog["video"].append(str(path))
-            elif path.name.endswith("timeline.json"): self.catalog["timelines"].append(str(path))
-        for values in self.catalog.values(): values[:] = sorted(set(values))
+        if self.scanned_generation == self.scan_generation: return self.catalog
+        catalog = {"images": [], "audio": [], "video": [], "timelines": []}
+        for directory, _, filenames in os.walk(self.data_root, followlinks=True):
+            for name in filenames:
+                if name in {"tree.txt", "manifest.json"}: continue
+                path = Path(directory) / name
+                if name.endswith("timeline.json"):
+                    catalog["timelines"].append(str(path))
+                    continue
+                if name.endswith(".json"): continue
+                suffix = path.suffix.lower()
+                if suffix in self.image_extensions: catalog["images"].append(str(path))
+                elif suffix in self.audio_extensions: catalog["audio"].append(str(path))
+                elif suffix in self.video_extensions: catalog["video"].append(str(path))
+        for values in catalog.values(): values[:] = sorted(set(values))
+        self.catalog = catalog
+        self.scanned_generation = self.scan_generation
         self.variant_cache.clear()
         return self.catalog
 
@@ -1905,20 +1933,11 @@ class ContentStore:
         root = RUNTIME_CHARACTERS if category == "characters" else RUNTIME_TEAMS
         return root / f"{entity_id}.json"
 
-    def migrate_runtime_state(self, entries, category, fields):
-        for entry in entries:
-            entity_id = entry.get("id", "")
-            if not entity_id: continue
-            path = self.runtime_path(category, entity_id)
-            if path.exists(): continue
-            state = {key: entry[key] for key in fields if key in entry}
-            write_json(path, {"schema": 1, "id": entity_id, "category": category, "state": state})
-
     def overlay_runtime_state(self, entry, category, fields):
         result = dict(entry)
         path = self.runtime_path(category, entry.get("id", ""))
         stored = read_json(path, {}) if path.exists() else {}
-        state = stored.get("state", stored) if isinstance(stored, dict) else {}
+        state = stored.get("state", {}) if isinstance(stored, dict) else {}
         for key in fields:
             if key in state: result[key] = state[key]
         return result
@@ -1931,7 +1950,7 @@ class ContentStore:
             path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
             if not path.exists(): continue
             payload = read_json(path, {})
-            value = payload.get("value", payload.get("state", payload)) if isinstance(payload, dict) else payload
+            value = payload.get("value", []) if isinstance(payload, dict) else payload
             state[key] = value
         state["roles"] = dict(state.get("roles", {}) or {})
         return state
@@ -1951,13 +1970,32 @@ class ContentStore:
     def sync_place_runtime(self):
         self.world["place_occupancy"] = {place.id: int(place.current_duels) for place in self.places.values()}
 
+    def reconcile_runtime_world(self):
+        simulation_time = float(self.world.get("simulation_time", 0.0))
+        for request in self.world.setdefault("requests", []):
+            if request.get("status") in ["open", "queued"] and simulation_time >= float(request.get("expires_sim_time", 0.0) or 0.0):
+                self.transition_interaction("request", request, "expired", "world", "expired")
+        active = [battle for battle in self.world.setdefault("active_battles", []) if battle.get("status") == "active" and battle.get("place") in self.places]
+        self.world["active_battles"] = active
+        occupancy = {place_id: 0 for place_id in self.places}
+        active_characters = set()
+        for battle in active:
+            place_id = battle.get("place", "")
+            occupancy[place_id] += 1
+            active_characters.update([battle.get("from", ""), battle.get("to", ""), battle.get("house", ""), battle.get("guest", "")])
+        for place in self.places.values(): place.current_duels = min(place.capacity, occupancy.get(place.id, 0))
+        for character in self.characters.values():
+            if character.id in active_characters:
+                character.availability, character.activity = "active", "dueling"
+            elif character.availability == "active" or character.activity == "dueling":
+                character.availability, character.activity = "free", "idle"
+        self.sync_place_runtime()
+
     def load(self):
         cards_data = read_json(DATA / "cards.json", [])
         character_data = read_json(DATA / "characters.json", [])
         team_data = read_json(DATA / "teams.json", [])
         fresh_character_ids = {entry.get("id") for entry in character_data if entry.get("id") and not self.runtime_path("characters", entry.get("id")).exists()}
-        self.migrate_runtime_state(character_data, "characters", CHARACTER_RUNTIME_FIELDS)
-        self.migrate_runtime_state(team_data, "teams", TEAM_RUNTIME_FIELDS)
         self.cards = {entry["id"]: CardDef(**entry) for entry in cards_data}
         for card in self.cards.values(): card.subtypes = self.normalize_profile_list(getattr(card, "subtypes", []), limit=2)
         self.characters = {entry["id"]: CharacterDef(**self.overlay_runtime_state({**entry, "relationship": entry.get("relationship", "stranger")}, "characters", CHARACTER_RUNTIME_FIELDS)) for entry in character_data}
@@ -1994,7 +2032,7 @@ class ContentStore:
         for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("distribution_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0), ("last_wall_time", 0.0), ("clock_mode", "wall_clock")]: self.world.setdefault(key, default)
         occupancy = self.world.get("place_occupancy", {}) if isinstance(self.world, dict) else {}
         for place in self.places.values(): place.current_duels = int(occupancy.get(place.id, place.current_duels) or 0)
-        self.sync_place_runtime()
+        self.reconcile_runtime_world()
         if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
         self.rules = read_json(DATA / "rules.json", self.rules if isinstance(self.rules, dict) else {})
         DeckRules.configure(self.rules)
@@ -2019,7 +2057,9 @@ class ContentStore:
                     self.logic_owners[graph_key] = logic_root
                     self.logic_files[graph_key] = path.name
         self.ensure_entity_scaffolds()
+        self.media.invalidate()
         self.media.scan()
+        self.save({"runtime_characters", "runtime_world"})
         self.world_sessions = {}
         self.world_team_sessions = {}
         self.dirty_domains.clear()
@@ -2268,9 +2308,35 @@ class ContentStore:
         intent = "ally" if goal.get("kind") == "build_relationship" and self.relationship_for(character_id, target.id) == "stranger" else "enemy" if goal.get("kind") == "challenge_enemy" else "stranger"
         return self.add_request(character_id, target.id, reason, kind="learning", format_name="1v1", preferred_place=character.preferred_places[0] if character.preferred_places and character.preferred_places[0] in self.places else self.role_config()["default_place"], relationship_intent=intent, expires_in=10800)
 
+    def ai_request_decision(self, request, recipient):
+        sender = self.characters.get(request.get("from", ""))
+        player_id = self.role_config()["player_character"]
+        if not sender or recipient.id == player_id or sender.id == player_id: return "defer"
+        if not self.social_available(recipient.id) or not self.social_available(sender.id): return "defer"
+        if any(item.get("status") in ["queued", "active"] and recipient.id in [item.get("from"), item.get("to")] for item in self.world.setdefault("requests", [])): return "defer"
+        relation = self.relationship_for(recipient.id, sender.id)
+        weights = recipient.behavior_weights
+        technique = recipient.technique_profile
+        reward = self.normalize_duel_reward(request.get("reward", request.get("reward_policy", "none")))
+        reward_value = len(reward.get("card_ids", [])) + (1 if reward.get("mode") not in ["none", ""] else 0)
+        level_gap = abs(int(recipient.stars) - int(sender.stars))
+        score = self._relationship_score(recipient, sender) + float(weights.get("learning_value", 5.0)) * 0.35 + float(weights.get("reward_value", 5.0)) * reward_value * 0.2 + float(technique.get("adaptation", 5.0)) * 0.15 - level_gap * (1.0 - float(weights.get("risk_tolerance", 3.0)) / 10.0)
+        if relation == "enemy": score += float(weights.get("enemy_bias", 6.0)) * 0.3
+        if relation == "ally": score += float(weights.get("ally_bias", 4.0)) * 0.2
+        duel_terms = request.get("duel_terms", {}) if isinstance(request.get("duel_terms", {}), dict) else {}
+        if duel_terms.get("mode") == "gamble" and float(technique.get("risk", 5.0)) < 4.0: return "deny"
+        return "accept" if score >= 5.0 else "deny"
+
     def _ai_request_tick(self):
         if float(self.world.get("simulation_time", 0.0)) < float(self.world.get("last_ai_request_time", 0.0)) + 10.0: return
         self.world["last_ai_request_time"] = float(self.world.get("simulation_time", 0.0))
+        player_id = self.role_config()["player_character"]
+        for request in sorted(self.world.setdefault("requests", []), key=lambda item: item.get("id", "")):
+            if request.get("status") != "open": continue
+            recipient = self.characters.get(request.get("to", ""))
+            if not recipient or recipient.id == player_id or request.get("from") == player_id: continue
+            decision = self.ai_request_decision(request, recipient)
+            if decision in ["accept", "deny"]: self.respond_request(request.get("id", ""), recipient.id, decision)
         for character in sorted(self.characters.values(), key=lambda item: item.id):
             if character.id == self.role_config()["player_character"] or character.world_status != "in_playground" or character.availability != "free": continue
             order = self.choose_ai_order(character.id)
@@ -4457,7 +4523,6 @@ class ContentStore:
         if "background" in values and values["background"]: place.background = str(values["background"])
         if "day_night" in values: place.day_night = bool(values["day_night"])
         if "effects" in values and isinstance(values["effects"], list): place.effects = list(values["effects"])
-        if "event_response_policies" in values and isinstance(values["event_response_policies"], dict): place.event_response_policies = dict(values["event_response_policies"])
         if "event_window_policies" in values and isinstance(values["event_window_policies"], dict): place.event_window_policies = dict(values["event_window_policies"])
         if "trigger_order_policies" in values and isinstance(values["trigger_order_policies"], dict): place.trigger_order_policies = dict(values["trigger_order_policies"])
         if "logic_graph" in values: place.logic_graph = str(values["logic_graph"] or "")
@@ -4826,6 +4891,7 @@ class ContentStore:
                 target.write_bytes(archive.read(name))
         self.ensure_behavior_weights()
         self.ensure_entity_scaffolds()
+        self.media.invalidate()
         self.media.scan()
         self.save()
         return {"imported": sorted(imported), "source": str(path), "nested_media": True, "manifest": manifest, "experience_included": bool(include_experience), "conflict": conflict, "conflicts": preview["conflicts"], "requested": sorted(requested)}
@@ -5425,7 +5491,6 @@ class DuelEngine:
         record = {"kind": "reaction", "event": event, "actor": actor_id, "target": target_id, "relation": relation, "selection": selection.to_dict(), "metadata": dict(metadata or {}), "sequence": len(self.reaction_events) + 1, "time": time.time()}
         self.reaction_events.append(record)
         self.reaction_events = self.reaction_events[-100:]
-        self.log(f"MEDIA {event}: {selection.source} variant {selection.variant or 'placeholder'}")
         return selection
 
     def logical_anchor(self, side, zone, card=None):
@@ -6158,10 +6223,8 @@ class DuelEngine:
         return True
 
     def normalize_event_window(self, trigger, actor=None, source=None, target=None, metadata=None):
-        legacy = dict(getattr(self.place, "event_response_policies", {}).get(trigger, {}) or {})
         authored_registry = getattr(self.place, "event_window_policies", {})
-        authored = dict(authored_registry.get(trigger, authored_registry.get("*", {})) or {})
-        policy = {**legacy, **authored}
+        policy = dict(authored_registry.get(trigger, authored_registry.get("*", {})) or {})
         phases = policy.get("phases", policy.get("phase", []))
         phases = phases if isinstance(phases, list) else [phases] if phases else []
         normalized_phases = [str(item).lower().replace(" ", "_") for item in phases]
@@ -7367,14 +7430,22 @@ class DuelEngine:
         elif attack_value < target_value:
             damage = target_value - attack_value
             attacker_anchor = self.logical_anchor(self.side_key(attacker_side), "monster", attacker)
-            self.destroy(attacker_side, attacker)
-            self.card_react("destroy", attacker, attacker_side, defender_side, {"anchor": attacker_anchor, "cause": "battle", "destroyed_by": target.card.id})
-            self.card_react("hit", attacker, attacker_side, defender_side, {"amount": damage, "cause": "battle", "anchor": attacker_anchor, "destroyed": True})
-            attacker_side.hp = max(0, attacker_side.hp - damage)
-            self.emit_event("damage", defender_side, source=target, target=attacker_side, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": attacker.card.id})
-            self.react("damage_dealt", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"amount": damage, "target_card_id": attacker.card.id})
-            self.react("damage_received", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "source_card_id": target.card.id, "anchor": attacker_anchor})
-            self.log(f"{attacker.card.name} loses the battle and {attacker_side.name} takes {damage} damage.")
+            if target_in_attack:
+                self.destroy(attacker_side, attacker)
+                self.card_react("destroy", attacker, attacker_side, defender_side, {"anchor": attacker_anchor, "cause": "battle", "destroyed_by": target.card.id})
+                self.card_react("hit", attacker, attacker_side, defender_side, {"amount": damage, "cause": "battle", "anchor": attacker_anchor, "destroyed": True})
+                attacker_side.hp = max(0, attacker_side.hp - damage)
+                self.emit_event("damage", defender_side, source=target, target=attacker_side, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": attacker.card.id})
+                self.react("damage_dealt", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"amount": damage, "target_card_id": attacker.card.id})
+                self.react("damage_received", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "source_card_id": target.card.id, "anchor": attacker_anchor})
+                self.log(f"{attacker.card.name} loses the attack battle and {attacker_side.name} takes {damage} damage.")
+            else:
+                attacker_side.hp = max(0, attacker_side.hp - damage)
+                self.emit_event("damage", defender_side, source=target, target=attacker_side, metadata={"amount": damage, "source": "battle", "direct": False, "attacker": attacker.card.id, "defense_battle": True})
+                self.react("damage_dealt", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"amount": damage, "target_card_id": attacker.card.id, "defense_battle": True})
+                self.react("damage_received", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "source_card_id": target.card.id, "anchor": attacker_anchor, "defense_battle": True})
+                self.card_react("hit", target, defender_side, attacker_side, {"amount": damage, "cause": "battle", "anchor": self.logical_anchor(self.side_key(defender_side), "monster", target), "destroyed": False})
+                self.log(f"{attacker.card.name} loses the defense battle and {attacker_side.name} takes {damage} damage.")
         elif target_in_attack:
             attacker_anchor = self.logical_anchor(self.side_key(attacker_side), "monster", attacker)
             target_anchor = self.logical_anchor(self.side_key(defender_side), "monster", target)
@@ -9814,16 +9885,79 @@ class CardsScene(Scene):
 
 
 class EffectDescriber:
-    phrases = {"damage": "deal {amount} damage", "heal": "restore {amount} health", "draw": "draw {amount} card(s)", "boost": "increase this card by {amount} ATK"}
+    action_labels = {"damage": "deal {amount} damage to {target}", "heal": "restore {amount} LP to {target}", "draw": "draw {amount} card(s)", "discard": "discard {amount} card(s)", "destroy": "destroy {target}", "banish": "banish {target}", "send_to_graveyard": "send {target} to the Graveyard", "return_to_hand": "return {target} to the hand", "set_face_up": "change {target} to face-up", "set_face_down": "change {target} to face-down", "switch_position": "switch {target}'s battle position", "shuffle": "shuffle the deck", "control": "take control of {target}", "grant_normal_summon": "gain {amount} additional Normal Summon(s)"}
+
+    @classmethod
+    def target_text(cls, action, selector):
+        target = str(action.get("target", "") or "").lower()
+        names = {"source": "this card", "actor": "you", "opponent": "your opponent", "selected": "the selected card(s)", "target": "the selected target"}
+        text = names.get(target, "the affected card(s)")
+        if target in ["selected", "target"] and selector:
+            details = []
+            card_kind = selector.get("card_kind")
+            zone = selector.get("zone")
+            side = selector.get("side")
+            if card_kind: details.append(str(card_kind).replace("_", " "))
+            if zone:
+                zones = zone if isinstance(zone, list) else [zone]
+                details.append(" or ".join(str(item).replace("_", " ") for item in zones))
+            if side and side != "self": details.append("on " + ("both sides" if side == "both" else "your opponent's side" if side == "opponent" else "your side"))
+            if details: text = text + " (" + ", ".join(details) + ")"
+        return text
+
+    @classmethod
+    def amount_text(cls, action):
+        amount = action.get("amount", "")
+        if isinstance(amount, dict): amount = amount.get("value", amount.get("count", ""))
+        return str(amount) if amount not in [None, ""] else "the specified number of"
+
+    @classmethod
+    def action_text(cls, action, selector):
+        name = str(action.get("name", "")).strip().lower()
+        amount = cls.amount_text(action)
+        target = cls.target_text(action, selector)
+        if name in ["boost_attack", "boost_defense"]:
+            stat = "ATK" if name == "boost_attack" else "DEF"
+            try: numeric = int(float(amount))
+            except (TypeError, ValueError): numeric = 0
+            verb = "increase" if numeric >= 0 else "reduce"
+            return f"{verb} {target}'s {stat} by {abs(numeric)}"
+        if name in ["fusion_summon", "ritual_summon", "special_summon", "summon"]:
+            label = {"fusion_summon": "Fusion Summon", "ritual_summon": "Ritual Summon", "special_summon": "Special Summon", "summon": "Summon"}[name]
+            return f"{label} {cls.target_text(action, selector)}"
+        template = cls.action_labels.get(name)
+        return template.format(amount=amount, target=target) if template else f"resolve {name or 'the effect'}"
+
+    @classmethod
+    def modifier_text(cls, modifier):
+        stat = str(modifier.get("stat", "effect")).upper()
+        family = str(modifier.get("family", "all")).replace("_", " ")
+        scope = str(modifier.get("scope", "field")).replace("_", " ")
+        operation = str(modifier.get("operation", "add")).lower()
+        amount = modifier.get("amount", modifier.get("value", ""))
+        try: amount = int(float(amount))
+        except (TypeError, ValueError): amount = str(amount or "the specified amount")
+        if operation in ["add", "increase"]: verb = "increases"
+        elif operation in ["subtract", "reduce"]: verb = "reduces"
+        else: verb = operation
+        return f"while active, {scope} {family} cards' {stat} {verb} by {abs(amount)}"
 
     @classmethod
     def describe(cls, card):
-        if not card.effects: return card.description
+        effects = list(getattr(card, "effects", []) or [])
+        if not effects: return str(getattr(card, "description", "") or "")
         parts = []
-        for effect in card.effects:
-            template = cls.phrases.get(effect.get("action"), effect.get("action", "perform an action") + " {amount}")
-            parts.append(template.format(amount=effect.get("amount", 0)))
-        return "When " + ", then ".join(parts) + "."
+        for effect in effects:
+            if not isinstance(effect, dict): continue
+            trigger = str(effect.get("trigger", "") or "").replace("_", " ").strip()
+            selector = dict(effect.get("selector") or {})
+            actions = [item for item in effect.get("actions", []) if isinstance(item, dict)]
+            if not actions and effect.get("modifier"):
+                text = cls.modifier_text(dict(effect.get("modifier") or {}))
+            else:
+                text = ", then ".join(cls.action_text(action, selector) for action in actions) or "resolve the effect"
+            parts.append(("When " + trigger + ", " if trigger else "") + text)
+        return ". ".join(parts).rstrip(".") + "."
 
 
 class CardInfoOverlay:
@@ -10673,7 +10807,7 @@ class EntityDetailScene(Scene):
             current_state = "OUT OF GAME" if entity.world_status != "in_playground" else "IN DUEL" if active_battle else str(entity.availability).upper() + " / " + str(entity.activity).upper()
             lines = [f"Gender: {entity.gender}", f"Origin: {entity.origin}", f"Stars: {entity.stars}", f"Level: {self.app.store.character_level(entity.id)}/10", f"Rank: {entity.rank}", f"Smartness: {entity.smartness}/10", f"Mood: {entity.mood}", f"Relationship: {entity.relationship}", "Runtime: " + current_state, "Current place: " + (entity.current_place or "none"), "Preferred: " + ", ".join(entity.preferred_families), "Best cards: " + ", ".join(entity.best_cards or ["not set"]), f"Learned opponents: {len(entity.learned_opponents)}  |  learned cards: {len(entity.learned_cards)}", "Weights: " + (weights or "default"), f"History events: {len(entity.history)}"]
         elif self.entity_type == "places":
-            lines = [f"Capacity: {entity.capacity}", f"Active duels: {entity.current_duels}", f"Background: {entity.background}", f"Day/night: {'enabled' if entity.day_night else 'disabled'}", f"Media folder: {entity.media_folder or 'legacy/id folder'}"]
+            lines = [f"Capacity: {entity.capacity}", f"Active duels: {entity.current_duels}", f"Background: {entity.background}", f"Day/night: {'enabled' if entity.day_night else 'disabled'}", f"Media folder: {entity.media_folder or 'not set'}"]
         else:
             effect = entity.team_effect.get("selected") if entity.team_effect else None
             self.draw_level_badge(surface, "teams", entity, self.app.store.team_level(entity.id), (190, 228), 42)
@@ -11259,7 +11393,7 @@ class PlacesScene(Scene):
             occupants = len(snapshot.get("occupants", []))
             selected_effect = snapshot.get("team_effect", {}).get("selected", {}) if isinstance(snapshot.get("team_effect", {}), dict) else {}
             effect_label = selected_effect.get("kind", "none") if isinstance(selected_effect, dict) else "none"
-            draw_text(surface, "Day/night: " + ("enabled" if place.day_night else "disabled") + "  |  media: " + ("scaffolded" if place.media_folder else "legacy"), (238, y + 75), self.app.assets.font(10), COLORS["muted"])
+            draw_text(surface, "Day/night: " + ("enabled" if place.day_night else "disabled") + "  |  media: " + ("scaffolded" if place.media_folder else "not set"), (238, y + 75), self.app.assets.font(10), COLORS["muted"])
             draw_text(surface, f"Linked teams: {linked}  |  occupants: {occupants}  |  effect: {effect_label}", (238, y + 91), self.app.assets.font(9), COLORS["gold"] if effect_label != "none" else COLORS["muted"])
             view_button = Button((548, y + 34, 92, 34), "VIEW", lambda place_id=place.id: self.app.push(PlaceDuelViewScene(self.app, place_id)), COLORS["cyan"])
             detail_button = Button((650, y + 34, 92, 34), "DETAIL", lambda place_id=place.id: self.app.push(EntityDetailScene(self.app, "places", place_id)), COLORS["green"])
@@ -11760,7 +11894,7 @@ class Application:
                 cursor, hotspot = self.assets.cursor(cursor_pressed(pygame.mouse.get_pressed()))
                 if cursor: ui_blit(render_surface, cursor, (scene_mouse[0] - hotspot[0], scene_mouse[1] - hotspot[1]))
             view_position, view_size = self.presentation_view()
-            scaled = pygame.transform.smoothscale(render_surface, view_size)
+            scaled = pygame.transform.scale(render_surface, view_size)
             self.screen.fill((0, 0, 0))
             self.screen.blit(scaled, view_position)
             pygame.display.flip()
