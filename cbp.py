@@ -70,6 +70,7 @@ DUEL_PHASE_ABBREVIATIONS = {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATT
 DUEL_MODES = ["current", "timed", "gamble"]
 DUEL_MODE_FORMATS = {"current": ["1v1", "1vTEAM", "TEAMv1", "TEAMvTEAM"], "timed": ["1v1"], "gamble": ["1v1"]}
 DECK_SLOT_COUNT = 10
+CARD_BODY_DESCRIPTION_LIMIT = 200
 class IllegalDeckError(ValueError):
     def __init__(self, side, character_id, deck_id, errors):
         self.side = str(side)
@@ -400,7 +401,7 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     subtype = card.family.upper()[:16]
     draw_text(surface, subtype, (layout_rect.centerx, layout_art_rect.bottom + int(layout_rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
     if not compact and not field_mode:
-        lines = wrap(assets.font(body_size), card.description, max(30, layout_rect.width - 12))[:3]
+        lines = wrap(assets.font(body_size), str(card.description or "")[:CARD_BODY_DESCRIPTION_LIMIT], max(30, layout_rect.width - 12))[:3]
         for index, line in enumerate(lines):
             draw_text(surface, line, (layout_rect.x + 6, layout_art_rect.bottom + int(layout_rect.height * 0.12) + index * (body_size + 1)), assets.font(body_size), COLORS["ink"])
     stat = f"ATK {card.atk}  DEF {card.defense}" if monster_kind else card.kind.upper()
@@ -8505,6 +8506,8 @@ class DuelScene(Scene):
         self.trigger_selection = []
         self.question_choice_rects = []
         self.card_list_popup = None
+        self.card_list_rects = []
+        self.card_info_overlay = None
         self.player_deck_rect = self.layout.side_well_rect("player", "deck")
         self.hp_display = {"player": 8000, "opponent": 8000}
         self.hp_delta = {"player": 0, "opponent": 0}
@@ -8562,6 +8565,14 @@ class DuelScene(Scene):
         self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", state)
 
     def handle(self, event):
+        if self.card_info_overlay:
+            if self.card_info_overlay.handle(event): return
+            self.card_info_overlay = None
+            return
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
+            card, known = self.card_info_at(event.pos)
+            if card: self.card_info_overlay = CardInfoOverlay(self.app, card, known)
+            return
         if self.spectator:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: self.app.pop(); return
             super().handle(event)
@@ -8680,6 +8691,20 @@ class DuelScene(Scene):
                 self.engine.selected_monster = self.hover_attacker
                 self.attack_preview_clock = 0.0
                 return
+
+    def card_info_at(self, pos):
+        card, rect = self.hand_card_at(pos)
+        if card: return card, True
+        for side, monsters, spells in [("player", self.engine.player.monsters, self.engine.player.spells), ("opponent", self.engine.opponent.monsters, self.engine.opponent.spells)]:
+            for index, item in enumerate(monsters):
+                rect = self.layout.monster_rect(side, index)
+                if item and rect.collidepoint(pos): return item, side == "player" or bool(item.face_up)
+            for index, item in enumerate(spells):
+                rect = self.layout.spell_rect(side, index)
+                if item and rect.collidepoint(pos): return item, side == "player" or bool(item.face_up)
+        for rect, item, known in self.card_list_rects:
+            if rect.collidepoint(pos): return item, known
+        return None, False
 
     def action_mode_for_hand(self, card):
         if self.action_mode == "set": return "set"
@@ -8984,6 +9009,7 @@ class DuelScene(Scene):
         self.draw_question(surface)
         self.draw_card_list_popup(surface)
         if self.engine.finished: self.draw_result(surface)
+        if self.card_info_overlay: self.card_info_overlay.draw(surface)
 
     def draw_watchers(self, surface):
         watcher_ids = list(self.watched_battle.get("watchers", [])) if self.spectator else list(getattr(self.engine, "watcher_ids", []))
@@ -9251,6 +9277,7 @@ class DuelScene(Scene):
                 draw_text(surface, "PASS" if kind == "chain" else "OK", rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
 
     def draw_card_list_popup(self, surface):
+        self.card_list_rects = []
         if not self.card_list_popup: return
         panel = self.layout.card_list_popup_rect()
         rounded(surface, panel, (45, 42, 49), (255, 255, 255), 12, 2)
@@ -9261,6 +9288,7 @@ class DuelScene(Scene):
         start_x = panel.centerx - ((len(visible) - 1) * gap + card_width) // 2
         for index, item in enumerate(visible):
             rect = pygame.Rect(start_x + index * gap, panel.y + 32, card_width, card_height)
+            self.card_list_rects.append((rect, item, True))
             render_engine_card(surface, rect, item.card, self.app.assets, self.app.store.media, True, False, item.variant, True)
         if len(cards) > len(visible): draw_text(surface, f"+{len(cards) - len(visible)}", (panel.right - 20, panel.bottom - 14), self.app.assets.font(8, True), COLORS["gold"], "center")
 
@@ -9513,10 +9541,86 @@ class EffectDescriber:
         return "When " + ", then ".join(parts) + "."
 
 
+class CardInfoOverlay:
+    def __init__(self, app, card, known=True):
+        self.app = app
+        self.card = getattr(card, "card", card)
+        self.known = bool(known)
+        self.scroll = 0
+        self.line_height = 20
+        self.panel = pygame.Rect(52, 42, 696, 516)
+        self.content = pygame.Rect(354, 158, 336, 322)
+        self.refresh()
+
+    def refresh(self):
+        font = self.app.assets.font(14)
+        if not self.known or not self.card:
+            self.lines = ["This card is unknown to the current viewer.", "Play against it, study it, or receive it to reveal its details."]
+        else:
+            parts = [str(self.card.description or ""), "", "PARSED EFFECT", EffectDescriber.describe(self.card), "", f"TYPE: {self.card.kind.upper()}", f"FAMILY: {self.card.family.upper()}"]
+            if getattr(self.card, "subtypes", []): parts.append("SUBTYPES: " + ", ".join(self.card.subtypes).upper())
+            if self.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]: parts.append(f"STARS: {self.card.stars}   ATK: {self.card.atk}   DEF: {self.card.defense}")
+            self.lines = []
+            for part in parts:
+                self.lines.extend(wrap(font, part, self.content.width - 28) or [""])
+        self.max_scroll = max(0, len(self.lines) * self.line_height - self.content.height)
+        self.scroll = clamp(self.scroll, 0, self.max_scroll)
+
+    def handle(self, event):
+        if event.type == pygame.MOUSEWHEEL:
+            self.scroll -= event.y * self.line_height * 3
+            self.scroll = clamp(self.scroll, 0, self.max_scroll)
+            return True
+        if event.type == pygame.KEYDOWN:
+            if event.key in [pygame.K_UP, pygame.K_PAGEUP]: self.scroll -= self.line_height * (1 if event.key == pygame.K_UP else 8)
+            elif event.key in [pygame.K_DOWN, pygame.K_PAGEDOWN]: self.scroll += self.line_height * (1 if event.key == pygame.K_DOWN else 8)
+            elif event.key == pygame.K_HOME: self.scroll = 0
+            elif event.key == pygame.K_END: self.scroll = self.max_scroll
+            elif event.key == pygame.K_ESCAPE: return False
+            else: return True
+            self.scroll = clamp(self.scroll, 0, self.max_scroll)
+            return True
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if not self.panel.collidepoint(event.pos): return False
+            if self.content.collidepoint(event.pos) and self.max_scroll:
+                track = pygame.Rect(self.content.right - 14, self.content.y, 10, self.content.height)
+                if track.collidepoint(event.pos):
+                    self.scroll = clamp(int((event.pos[1] - track.y) / max(1, track.height) * self.max_scroll), 0, self.max_scroll)
+            return True
+        return False
+
+    def draw(self, surface):
+        veil = ui_surface((W, H), pygame.SRCALPHA)
+        veil.fill((8, 12, 24, 185))
+        ui_blit(surface, veil, (0, 0))
+        rounded(surface, self.panel, (236, 225, 188), (124, 101, 64), 14, 3)
+        title = self.card.name if self.card and self.known else "CARD INFORMATION"
+        draw_text(surface, title, (self.panel.centerx, self.panel.y + 24), self.app.assets.font(20, True), COLORS["ink"], "midtop")
+        if self.card and self.known:
+            render_engine_card(surface, (82, 110, 238, 330), self.card, self.app.assets, self.app.store.media, True, False, self.card.art_variant, False)
+        else:
+            blit_aspect(surface, self.app.assets.image("placeholder/card_back"), pygame.Rect(82, 110, 238, 330))
+        rounded(surface, (340, 110, 370, 370), (249, 242, 215), (124, 101, 64), 8, 1)
+        draw_text(surface, "FULL DESCRIPTION / CARD DATA", (354, 130), self.app.assets.font(11, True), COLORS["ink"])
+        old_clip = surface.get_clip()
+        surface.set_clip(render_rect(surface, self.content))
+        start_y = self.content.y - self.scroll
+        font = self.app.assets.font(14)
+        for index, line in enumerate(self.lines): draw_text(surface, line, (self.content.x, start_y + index * self.line_height), font, COLORS["ink"])
+        surface.set_clip(old_clip)
+        track = pygame.Rect(self.content.right - 12, self.content.y, 8, self.content.height)
+        ui_draw_rect(surface, (211, 196, 157), track, border_radius=4)
+        thumb_height = max(24, int(track.height * self.content.height / max(self.content.height, len(self.lines) * self.line_height)))
+        thumb_y = track.y if not self.max_scroll else track.y + int((track.height - thumb_height) * self.scroll / self.max_scroll)
+        ui_draw_rect(surface, (124, 101, 64), pygame.Rect(track.x, thumb_y, track.width, thumb_height), border_radius=4)
+        draw_text(surface, "Scroll with wheel or ↑/↓  |  Click outside to close", (self.panel.centerx, self.panel.bottom - 22), self.app.assets.font(10), COLORS["ink"], "center")
+
+
 class LibraryScene(Scene):
     def enter(self):
         self.page = 0
         self.card_rects = []
+        self.card_info_overlay = None
         self.buttons = [Button((650, 530, 110, 38), "BACK", lambda: self.app.pop())]
 
     def known_cards(self):
@@ -9525,10 +9629,20 @@ class LibraryScene(Scene):
         return set(player.library_cards) | set(DeckRules.all_cards(deck))
 
     def handle(self, event):
+        if self.card_info_overlay:
+            if self.card_info_overlay.handle(event): return
+            self.card_info_overlay = None
+            return
         super().handle(event)
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RIGHT: self.page += 1
             if event.key == pygame.K_LEFT: self.page = max(0, self.page - 1)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
+            known = self.known_cards()
+            for rect, card_id in self.card_rects:
+                if rect.collidepoint(event.pos):
+                    self.card_info_overlay = CardInfoOverlay(self.app, self.app.store.cards[card_id], card_id in known)
+                    return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for rect, card_id in self.card_rects:
                 if rect.collidepoint(event.pos):
@@ -9552,6 +9666,7 @@ class LibraryScene(Scene):
         draw_text(surface, "Click a card to inspect its authored description and effect data.", (400, 530), self.app.assets.font(11), COLORS["gold"], "center")
         draw_text(surface, f"Page {self.page + 1} / {max(1, math.ceil(len(cards) / 6))}   Left / Right", (400, 576), self.app.assets.font(12), COLORS["muted"], "center")
         self.draw_buttons(surface, 12)
+        if self.card_info_overlay: self.card_info_overlay.draw(surface)
 
     def draw_library_card(self, surface, card, x, y, known):
         rounded(surface, (x, y, 210, 175), COLORS["panel"], COLORS["line"] if known else COLORS["muted"], 9, 2)
