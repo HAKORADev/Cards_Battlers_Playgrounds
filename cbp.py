@@ -4789,7 +4789,8 @@ class ContentStore:
         allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood", "logic_graph"}
         for key, value in values.items():
             if key not in allowed: continue
-            if key in ["stars", "smartness"]: value = clamp(int(value), 1, 10)
+            if key == "stars": value = clamp(int(value), 0, 10)
+            if key == "smartness": value = clamp(int(value), 1, 10)
             if key in ["preferred_families", "preferred_card_kinds", "preferred_subtypes"]: value = value if isinstance(value, list) else [value]
             if key in ["preferred_cards", "best_cards"]: value = [str(item) for item in (value if isinstance(value, list) else [value]) if str(item) in self.cards][:20]
             if key == "preferred_places": value = [str(item) for item in (value if isinstance(value, list) else [value]) if str(item) in self.places][:20]
@@ -4979,7 +4980,7 @@ class ContentStore:
         deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck", folder_name=deck_id + "_deck")
         self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "", "owner_id": user_id, "main_cards": card_ids, "fusion_cards": [], "best_cards": [], "preferred_families": ["warrior"], "preferred_card_kinds": [], "media_folder": deck_folder}
         character_folder = self.scaffold_entity("characters", user_id, display_name, folder_name=user_id)
-        character = CharacterDef(id=user_id, name=display_name, portrait="", stars=5, smartness=5, relationship="stranger", preferred_families=["warrior"], deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(card_ids), gender=gender or "other", origin="user", best_cards=[], borrowed_cards=[], rank=1, media_folder=character_folder)
+        character = CharacterDef(id=user_id, name=display_name, portrait="", stars=0, smartness=5, relationship="stranger", preferred_families=["warrior"], deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=list(card_ids), gender=gender or "other", origin="user", best_cards=[], borrowed_cards=[], rank=1, media_folder=character_folder)
         self.import_entity_image(portrait, character_folder)
         self.characters[user_id] = character
         self.save_data.update({"active_user_id": user_id, "active_user_folder": character_folder, "setup_complete": True})
@@ -5606,6 +5607,8 @@ class DuelEngine:
         self.event_dispatch_stack = []
         self.chain_links = []
         self.chain_history = []
+        self.completed_chains = []
+        self.last_chain_result = None
         self.chain_sequence = 0
         self.chain_priority = None
         self.chain_passes = []
@@ -6910,7 +6913,7 @@ class DuelEngine:
         return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
 
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
@@ -6989,7 +6992,7 @@ class DuelEngine:
             self.team_effect = dict(payload.get("team_effect", {})); self.opponent_team_effect = dict(payload.get("opponent_team_effect", {}))
             self.import_knowledge(payload.get("knowledge", {}))
             self.notifications = [Notification(**item) for item in payload.get("notifications", [])]
-            self.notification_history = list(payload.get("notification_history", [])); self.observation_log = list(payload.get("observation_log", [])); self.event_history = list(payload.get("event_history", [])); self.chain_history = list(payload.get("chain_history", [])); self.resolution_history = list(payload.get("resolution_history", []))
+            self.notification_history = list(payload.get("notification_history", [])); self.observation_log = list(payload.get("observation_log", [])); self.event_history = list(payload.get("event_history", [])); self.chain_history = list(payload.get("chain_history", [])); self.completed_chains = list(payload.get("completed_chains", [])); self.last_chain_result = dict(payload.get("last_chain_result", {}) or {}) or None; self.resolution_history = list(payload.get("resolution_history", []))
             self.effect_queue, self.continuous_effects, self.chain_links, self.chain_window = [], [], [], None
             chain_payload = payload.get("chain")
             if chain_payload:
@@ -7144,6 +7147,10 @@ class DuelEngine:
             if notification.kind == "chain_response" and notification.status == "pending": notification.status, notification.answer = "resolved", "resolved"
         self.chain_history.append({"event": "chain_resolved", "chain_id": chain["chain_id"], "links": [{"id": item.link_id, "status": item.status, "negated": item.negated} for item in self.chain_links]})
         result = [(item.link_id, item.status) for item in self.chain_links]
+        completed = {"chain_id": chain["chain_id"], "trigger": chain.get("trigger", ""), "opened_by": chain.get("opened_by", ""), "links": [{"id": item.link_id, "index": item.index, "source": item.source.card.id, "actor": self.side_key(item.actor), "status": item.status, "negated": item.negated, "targets": list(item.context.get("target_snapshot", []))} for item in self.chain_links]}
+        self.completed_chains.append(completed)
+        self.completed_chains = self.completed_chains[-64:]
+        self.last_chain_result = completed
         self.chain_links = []
         self.chain_window = None
         self.chain_priority = None
@@ -11631,12 +11638,12 @@ class CharacterMakerScene(Scene):
         self.origin = TextInput((70, 350, 300, 30), character.origin if character else "community")
         self.logic = TextInput((400, 350, 300, 30), getattr(character, "logic_graph", "") if character else "")
         self.gender = character.gender if character else "other"
-        self.stars = int(character.stars) if character else 5
+        self.stars = int(character.stars) if character else 0
         self.smartness = int(character.smartness) if character else 5
         label = "SAVE CHARACTER" if character else "CREATE CHARACTER"
         self.buttons = [Button((70, 390, 150, 32), "GENDER: " + self.gender.upper(), lambda: self.cycle_gender(), COLORS["violet"]), Button((236, 390, 140, 32), "EDIT WEIGHTS", lambda: self.open_weights(), COLORS["gold"]), Button((392, 390, 90, 32), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((492, 390, 110, 32), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((70, 430, 210, 36), label, lambda: self.save_character(), COLORS["green"]), Button((300, 430, 180, 36), "EXPORT CHARACTER", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
-    def change(self, field, amount): setattr(self, field, clamp(getattr(self, field) + amount, 1, 10))
+    def change(self, field, amount): setattr(self, field, clamp(getattr(self, field) + amount, 0 if field == "stars" else 1, 10))
 
     def cycle_gender(self):
         self.gender = self.genders[(self.genders.index(self.gender) + 1) % len(self.genders)]
