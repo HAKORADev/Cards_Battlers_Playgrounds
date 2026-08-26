@@ -3,6 +3,15 @@
   "id": "trio_team",
   "category": "teams",
   "state": {
+    "behavior_weights": {
+      "coordination": 5.0,
+      "risk": 5.0,
+      "resource": 5.0,
+      "switching": 5.0,
+      "adaptation": 5.0
+    },
+    "rank": 1,
+    "formation_requests": [],
     "history": [
       {
         "event": "duel_completed",
@@ -70,28 +79,61 @@
           "mystery_arc"
         ],
         "time": 1787666900.251313
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "trio_mysterio",
+          "mystery_veil",
+          "mystery_arc"
+        ],
+        "time": 1787700848.1397521
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "trio_mysterio",
+          "mystery_veil",
+          "mystery_arc"
+        ],
+        "time": 1787704341.5132513
       }
     ],
-    "team_effect": {},
-    "behavior_weights": {
-      "coordination": 5.0,
-      "risk": 5.0,
-      "resource": 5.0,
-      "switching": 5.0,
-      "adaptation": 5.0
-    },
-    "formation_state": "complete",
-    "effect_locked": false,
-    "formation_requests": [],
-    "relationship": "stranger",
-    "knowledge_state": {},
     "learning_state": {},
-    "rank": 1,
+    "effect_locked": false,
+    "team_effect": {},
+    "relationship": "stranger",
     "experience": {
       "duels": 0,
       "wins": 0,
       "losses": 0,
       "draws": 0
-    }
+    },
+    "formation_state": "complete",
+    "knowledge_state": {}
   }
 }

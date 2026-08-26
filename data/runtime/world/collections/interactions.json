@@ -2,5 +2,821 @@
   "schema": 2,
   "category": "world_collection",
   "id": "interactions",
-  "value": []
+  "value": [
+    {
+      "id": "request_1787704349444_1",
+      "family": "request",
+      "from": "coral_scout",
+      "to": "trio_mysterio",
+      "participants": [
+        "coral_scout",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "coral_scout requests a goal pursuit: master_family",
+        "from": "coral_scout",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "coral_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "coral_scout",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349446_2",
+      "family": "request",
+      "from": "ember_sage",
+      "to": "trio_mysterio",
+      "participants": [
+        "ember_sage",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "ember_sage requests a goal pursuit: master_family",
+        "from": "ember_sage",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "ember_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "ember_sage",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349447_3",
+      "family": "request",
+      "from": "forge_watcher",
+      "to": "trio_mysterio",
+      "participants": [
+        "forge_watcher",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "forge_watcher requests a goal pursuit: master_family",
+        "from": "forge_watcher",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "forge_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "forge_watcher",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349449_4",
+      "family": "request",
+      "from": "iron_mason",
+      "to": "trio_mysterio",
+      "participants": [
+        "iron_mason",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "iron_mason requests a goal pursuit: master_family",
+        "from": "iron_mason",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "iron_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "iron_mason",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349450_5",
+      "family": "request",
+      "from": "moss_keeper",
+      "to": "trio_mysterio",
+      "participants": [
+        "moss_keeper",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "moss_keeper requests a goal pursuit: master_family",
+        "from": "moss_keeper",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "moss_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "moss_keeper",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349451_6",
+      "family": "request",
+      "from": "mystery_arc",
+      "to": "pearl_guard",
+      "participants": [
+        "mystery_arc",
+        "pearl_guard"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "mystery_arc requests a goal pursuit: master_family",
+        "from": "mystery_arc",
+        "to": "pearl_guard",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "trio_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "mystery_arc",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349453_7",
+      "family": "request",
+      "from": "mystery_veil",
+      "to": "pearl_guard",
+      "participants": [
+        "mystery_veil",
+        "pearl_guard"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "mystery_veil requests a goal pursuit: master_family",
+        "from": "mystery_veil",
+        "to": "pearl_guard",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "trio_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "mystery_veil",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349454_8",
+      "family": "request",
+      "from": "pearl_guard",
+      "to": "trio_mysterio",
+      "participants": [
+        "pearl_guard",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "pearl_guard requests a goal pursuit: master_family",
+        "from": "pearl_guard",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "pearl_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "pearl_guard",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349455_9",
+      "family": "request",
+      "from": "rival_echo",
+      "to": "mystery_veil",
+      "participants": [
+        "rival_echo",
+        "mystery_veil"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "rival_echo requests a goal pursuit: master_family",
+        "from": "rival_echo",
+        "to": "mystery_veil",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "rival_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "rival_echo",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349456_10",
+      "family": "request",
+      "from": "tide_courier",
+      "to": "trio_mysterio",
+      "participants": [
+        "tide_courier",
+        "trio_mysterio"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "tide_courier requests a goal pursuit: master_family",
+        "from": "tide_courier",
+        "to": "trio_mysterio",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "tide_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "tide_courier",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "request_1787704349458_11",
+      "family": "request",
+      "from": "trio_mysterio",
+      "to": "pearl_guard",
+      "participants": [
+        "trio_mysterio",
+        "pearl_guard"
+      ],
+      "intent": "stranger",
+      "status": "open",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "title": "trio_mysterio requests a goal pursuit: master_family",
+        "from": "trio_mysterio",
+        "to": "pearl_guard",
+        "kind": "learning",
+        "reason": "goal pursuit: master_family",
+        "relationship_intent": "stranger",
+        "intent": "stranger",
+        "format": "1v1",
+        "preferred_place": "neon_playground",
+        "deck_id": "trio_deck",
+        "reward_policy": "random",
+        "reward": {
+          "mode": "random",
+          "source": "library",
+          "card_ids": [],
+          "count": 1,
+          "card_kind": "",
+          "family": "",
+          "giver_id": "",
+          "trigger": "loser_to_winner",
+          "duel_required": false,
+          "label": ""
+        },
+        "duel_mode": "current",
+        "duel_terms": {
+          "mode": "current",
+          "format": "1v1",
+          "valid": true,
+          "time_limit": 0.0,
+          "wager_count": 0,
+          "house_cards": [],
+          "guest_cards": [],
+          "selection": "none",
+          "state": "unprepared"
+        },
+        "created_sim_time": 29.9,
+        "expires_sim_time": 10829.9
+      },
+      "events": [
+        {
+          "status": "open",
+          "actor": "trio_mysterio",
+          "action": "open",
+          "sim_time": 29.9
+        }
+      ]
+    },
+    {
+      "id": "trade_1787704349459_1",
+      "family": "trade",
+      "from": "aqua_scribe",
+      "to": "coral_scout",
+      "participants": [
+        "aqua_scribe",
+        "coral_scout"
+      ],
+      "intent": "card_trade",
+      "status": "canceled",
+      "created_sim_time": 29.9,
+      "expires_sim_time": 10829.9,
+      "payload": {
+        "creator": "aqua_scribe",
+        "recipient": "coral_scout",
+        "offered_cards": [
+          "archive_signal"
+        ],
+        "requested_cards": [
+          "tide_mender"
+        ],
+        "requested_family": "",
+        "requested_kind": "",
+        "intent": "card_trade",
+        "relationship": "stranger",
+        "parent_id": "",
+        "chain_depth": 0,
+        "created": 1787704349.459834,
+        "created_sim_time": 29.9,
+        "expires": 10829.9,
+        "expires_sim_time": 10829.9,
+        "ownership_transferred": false,
+        "next_decision_sim_time": 89.9
+      },
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 29.9
+        },
+        {
+          "status": "canceled",
+          "actor": "coral_scout",
+          "action": "canceled",
+          "sim_time": 59.9
+        }
+      ]
+    },
+    {
+      "id": "trade_1787704349480_2",
+      "family": "trade",
+      "from": "aqua_scribe",
+      "to": "coral_scout",
+      "participants": [
+        "aqua_scribe",
+        "coral_scout"
+      ],
+      "intent": "card_trade",
+      "status": "canceled",
+      "created_sim_time": 59.9,
+      "expires_sim_time": 10859.9,
+      "payload": {
+        "creator": "aqua_scribe",
+        "recipient": "coral_scout",
+        "offered_cards": [
+          "archive_signal"
+        ],
+        "requested_cards": [
+          "tide_mender"
+        ],
+        "requested_family": "",
+        "requested_kind": "",
+        "intent": "card_trade",
+        "relationship": "stranger",
+        "parent_id": "",
+        "chain_depth": 0,
+        "created": 1787704349.480269,
+        "created_sim_time": 59.9,
+        "expires": 10859.9,
+        "expires_sim_time": 10859.9,
+        "ownership_transferred": false,
+        "next_decision_sim_time": 180.0
+      },
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 59.9
+        },
+        {
+          "status": "canceled",
+          "actor": "coral_scout",
+          "action": "canceled",
+          "sim_time": 150.0
+        }
+      ]
+    },
+    {
+      "id": "trade_1787704349497_3",
+      "family": "trade",
+      "from": "aqua_scribe",
+      "to": "coral_scout",
+      "participants": [
+        "aqua_scribe",
+        "coral_scout"
+      ],
+      "intent": "card_trade",
+      "status": "open",
+      "created_sim_time": 150.0,
+      "expires_sim_time": 10950.0,
+      "payload": {
+        "creator": "aqua_scribe",
+        "recipient": "coral_scout",
+        "offered_cards": [
+          "archive_signal"
+        ],
+        "requested_cards": [
+          "tide_mender"
+        ],
+        "requested_family": "",
+        "requested_kind": "",
+        "intent": "card_trade",
+        "relationship": "stranger",
+        "parent_id": "",
+        "chain_depth": 0,
+        "created": 1787704349.4979656,
+        "created_sim_time": 150.0,
+        "expires": 10950.0,
+        "expires_sim_time": 10950.0,
+        "ownership_transferred": false,
+        "next_decision_sim_time": 165.0
+      },
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 150.0
+        }
+      ]
+    }
+  ]
 }

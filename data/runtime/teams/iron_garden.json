@@ -3,8 +3,6 @@
   "id": "iron_garden",
   "category": "teams",
   "state": {
-    "history": [],
-    "team_effect": {},
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -12,18 +10,297 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "formation_state": "complete",
-    "effect_locked": false,
-    "formation_requests": [],
-    "relationship": "neutral",
-    "knowledge_state": {},
-    "learning_state": {},
     "rank": 1,
+    "formation_requests": [],
+    "history": [
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "tide_courier",
+        "loser": "forge_watcher",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "night_lure"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702808.1228178
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "pearl_guard",
+        "loser": "iron_mason",
+        "result": "win",
+        "turns": 17,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "copper_gryphon"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702808.6719491
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "moss_keeper",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 13,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702809.3701496
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "forge_watcher",
+        "loser": "tide_courier",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "ember_chimera"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702810.4262574
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "pearl_guard",
+        "loser": "iron_mason",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "tide_oracle"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702810.7238443
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "moss_keeper",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunlit_field"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702811.0260403
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "forge_watcher",
+        "loser": "tide_courier",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702811.8438709
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "iron_mason",
+        "loser": "pearl_guard",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mirror_force"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702812.093289
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "coral_scout",
+        "loser": "moss_keeper",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "moonlit_drake"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702812.332619
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "forge_watcher",
+        "loser": "tide_courier",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "echo_bolt"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702813.2807577
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "iron_mason",
+        "loser": "pearl_guard",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mystical_space_typhoon"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702813.545239
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "moss_keeper",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "man_eater_bug"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "iron_mason",
+          "moss_keeper",
+          "forge_watcher"
+        ],
+        "time": 1787702813.817601
+      }
+    ],
+    "learning_state": {},
+    "effect_locked": false,
+    "team_effect": {},
+    "relationship": "neutral",
     "experience": {
       "duels": 0,
       "wins": 0,
       "losses": 0,
       "draws": 0
-    }
+    },
+    "formation_state": "complete",
+    "knowledge_state": {}
   }
 }

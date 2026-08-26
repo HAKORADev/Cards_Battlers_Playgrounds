@@ -21,6 +21,7 @@ effect-start/
 effect/
 flip-reveal/
 flip/
+happy/
 hit/
 idle/
 instant-lose/
@@ -31,7 +32,9 @@ near-win/
 pre-duel/
 return-to-hand/
 return/
+sad/
 set/
+shocked/
 special-summon/
 spin-dice/
 standby/
@@ -41,4 +44,6 @@ switch-position/
 tree.txt
 turn-end/
 turn-start/
+watching-in/
+watching-out/
 win/

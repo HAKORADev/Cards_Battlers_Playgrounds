@@ -60,7 +60,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "rival_deck"
+    ]
   },
   {
     "id": "trio_mysterio",
@@ -123,7 +126,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "trio_deck"
+    ]
   },
   {
     "id": "mystery_veil",
@@ -186,7 +192,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "trio_deck"
+    ]
   },
   {
     "id": "mystery_arc",
@@ -249,7 +258,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "trio_deck"
+    ]
   },
   {
     "id": "ember_sage",
@@ -311,7 +323,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "ember_deck"
+    ]
   },
   {
     "id": "tide_courier",
@@ -373,7 +388,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "tide_deck"
+    ]
   },
   {
     "id": "iron_mason",
@@ -435,7 +453,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "iron_deck"
+    ]
   },
   {
     "id": "moss_keeper",
@@ -497,7 +518,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "moss_deck"
+    ]
   },
   {
     "id": "forge_watcher",
@@ -559,7 +583,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "forge_deck"
+    ]
   },
   {
     "id": "aqua_scribe",
@@ -622,7 +649,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "aqua_deck"
+    ]
   },
   {
     "id": "pearl_guard",
@@ -684,7 +714,10 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "pearl_deck"
+    ]
   },
   {
     "id": "coral_scout",
@@ -746,6 +779,9 @@
       },
       "preferred_state": "stranger"
     },
-    "logic_graph": ""
+    "logic_graph": "",
+    "deck_slots": [
+      "coral_deck"
+    ]
   }
 ]

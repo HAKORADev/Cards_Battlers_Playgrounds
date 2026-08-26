@@ -3,47 +3,892 @@
   "id": "rival_echo",
   "category": "characters",
   "state": {
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
+    "idle_elapsed": 0.0,
+    "movement_progress": 0.0,
+    "enemies": [],
+    "rank": 1,
     "availability": "free",
     "current_place": "",
-    "learned_opponents": {
-      "mystery_arc": 3
+    "persona_state": {
+      "reputation": 7.400000000000004,
+      "trust": {},
+      "confidence": 10.0
     },
-    "memories": [],
-    "goals": [
+    "borrowed_cards": [],
+    "library_cards": [
+      "solar_burst",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "cinder_knight",
+      "aqua_sentinel",
+      "garden_sentinel",
+      "iron_oath",
+      "mirror_force",
+      "mirror_trap",
+      "trio_relic",
+      "trio_mysterio_card_02",
+      "trio_mysterio_card_05"
+    ],
+    "allies": [],
+    "learned_opponents": {
+      "mystery_arc": 3,
+      "trio_mysterio": 2,
+      "aqua_scribe": 35
+    },
+    "out_of_game_until": 0.0,
+    "experience": {
+      "duels": 40,
+      "wins": 13,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "mystery_arc": {
+          "observed_cards": [],
+          "last_result": "loss",
+          "turns": 1,
+          "updated": 1787666900.2376423
+        },
+        "trio_mysterio": {
+          "observed_cards": [],
+          "last_result": "loss",
+          "turns": 1,
+          "updated": 1787704341.4750683
+        },
+        "aqua_scribe": {
+          "observed_cards": [
+            "aurora_bridge",
+            "mirror_force",
+            "aqua_sentinel",
+            "thunder_kite",
+            "solar_burst",
+            "storm_lancer",
+            "archive_signal",
+            "copper_gryphon",
+            "dark_magician",
+            "mirror_trap",
+            "basalt_keeper",
+            "man_eater_bug",
+            "night_lure",
+            "sunlit_field",
+            "cinder_knight",
+            "glass_sphinx",
+            "clockwork_mite",
+            "briar_runner",
+            "echo_bolt",
+            "grave_bloom"
+          ],
+          "last_result": "loss",
+          "turns": 1,
+          "updated": 1787703792.3658183
+        }
+      },
+      "losss": 27
+    },
+    "mood_state": {
+      "current": "focused",
+      "intensity": 0.0
+    },
+    "learned_cards": {
+      "aurora_bridge": 785,
+      "mirror_force": 272,
+      "aqua_sentinel": 898,
+      "thunder_kite": 210,
+      "solar_burst": 273,
+      "storm_lancer": 216,
+      "archive_signal": 1280,
+      "copper_gryphon": 537,
+      "dark_magician": 88,
+      "mirror_trap": 301,
+      "basalt_keeper": 445,
+      "man_eater_bug": 258,
+      "night_lure": 352,
+      "sunlit_field": 654,
+      "cinder_knight": 211,
+      "glass_sphinx": 160,
+      "clockwork_mite": 156,
+      "briar_runner": 395,
+      "echo_bolt": 306,
+      "grave_bloom": 119,
+      "iron_fridge": 205,
+      "garden_sentinel": 149,
+      "dark_hole": 341,
+      "tide_mender": 228,
+      "skyglass_owl": 249,
+      "sky_archer": 318,
+      "sunforge_guard": 458,
+      "river_colossus": 280,
+      "moonlit_drake": 308,
+      "ember_drone": 93,
+      "quiet_alchemist": 230,
+      "repair_matrix": 259,
+      "ritual_convergence": 63,
+      "ritual_warden": 63,
+      "mystical_space_typhoon": 222,
+      "summoned_skull": 274,
+      "tide_oracle": 152,
+      "void_titan": 47
+    },
+    "relationship_history": [],
+    "destination": "",
+    "memories": [
       {
-        "id": "master_aqua",
-        "kind": "master_family",
-        "target": "aqua",
-        "progress": 0.0,
-        "priority": 1.0
+        "event": "duel_completed",
+        "payload": {
+          "winner": "trio_mysterio",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "distribution-trigger-test",
+          "mode": "current",
+          "place": "",
+          "finisher": "distribution-trigger-test",
+          "deck_ids": {},
+          "transferred_cards": [],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       },
       {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "iron_oath"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       },
       {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 1.0,
-        "priority": 0.7
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 7,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       },
       {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 9,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 15,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "repair_matrix"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 9,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "iron_oath"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "ember_drone"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 21,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 8,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sky_archer"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 14,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 16,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sky_archer"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 10,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 7,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 12,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 16,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 12,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "repair_matrix"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 15,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 15,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "garden_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 9,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "void_titan"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 25,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sky_archer"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 8,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "mirror_trap"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "mirror_force"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 19,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 7,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "echo_bolt"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 10,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "iron_oath"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 12,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "void_titan"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 17,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sky_archer"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "rival_echo",
+          "loser": "aqua_scribe",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sky_archer"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "test-win",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "test-win",
+          "deck_ids": {},
+          "transferred_cards": [
+            "iron_fridge"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "timed-instant-win",
+          "mode": "timed",
+          "place": "neon_playground",
+          "finisher": "timed-instant-win",
+          "deck_ids": {},
+          "transferred_cards": [
+            "iron_fridge"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "test-win",
+          "mode": "gamble",
+          "place": "neon_playground",
+          "finisher": "test-win",
+          "deck_ids": {},
+          "transferred_cards": [],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "test-win",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "test-win",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "timed-instant-win",
+          "mode": "timed",
+          "place": "neon_playground",
+          "finisher": "timed-instant-win",
+          "deck_ids": {},
+          "transferred_cards": [
+            "cinder_knight"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "aqua_scribe",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "test-win",
+          "mode": "gamble",
+          "place": "neon_playground",
+          "finisher": "test-win",
+          "deck_ids": {},
+          "transferred_cards": [],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_received",
+        "payload": {
+          "card": "trio_mysterio_card_02",
+          "giver": "trio_mysterio",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_received",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "giver": "mystery_arc",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_received",
+        "payload": {
+          "card": "trio_mysterio_card_01",
+          "giver": "trio_mysterio",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_received",
+        "payload": {
+          "card": "trio_mysterio_card_06",
+          "giver": "mystery_veil",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "trio_mysterio",
+          "loser": "rival_echo",
+          "result": "win",
+          "turns": 1,
+          "reason": "distribution-trigger-test",
+          "mode": "current",
+          "place": "",
+          "finisher": "distribution-trigger-test",
+          "deck_ids": {},
+          "transferred_cards": [],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_received",
+        "payload": {
+          "card": "trio_mysterio_card_02",
+          "giver": "trio_mysterio",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_received",
+        "payload": {
+          "card": "trio_mysterio_card_05",
+          "giver": "mystery_arc",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
       }
     ],
+    "idle_cue_count": 5,
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -72,7 +917,8 @@
         "zombie": 0.0,
         "thunder": 0.0,
         "winged_beast": 0.0,
-        "rock": 0.0
+        "rock": 0.0,
+        "pyro": 0.0
       },
       "state_weights": {
         "stranger": 1.0,
@@ -109,201 +955,125 @@
       },
       "subtype_weights": {}
     },
-    "cooldown_until": 0.0,
-    "movement_progress": 0.0,
-    "enemies": [],
-    "activity": "idle",
-    "mood_state": {
-      "current": "focused",
-      "intensity": 0.0
-    },
-    "learning_state": {
-      "observations": 0,
-      "updates": 3,
-      "last_update": 1787666900.237606
-    },
-    "world_status": "in_playground",
-    "library_cards": [
-      "sky_archer",
-      "solar_burst",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "cinder_knight",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "trio_relic",
-      "aqua_sentinel",
-      "iron_fridge",
-      "cinder_knight"
-    ],
-    "rank": 1,
-    "experience": {
-      "duels": 3,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "mystery_arc": {
-          "observed_cards": [],
-          "last_result": "loss",
-          "turns": 1,
-          "updated": 1787666900.2376423
-        }
+    "goals": [
+      {
+        "id": "master_aqua",
+        "kind": "master_family",
+        "target": "aqua",
+        "progress": 0.0,
+        "priority": 1.0
       },
-      "losss": 3
-    },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 1.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
     "history": [
       {
-        "opponent": "mystery_arc",
+        "opponent": "trio_mysterio",
         "result": "loss",
         "turns": 1,
-        "reason": "test-win",
+        "reason": "distribution-trigger-test",
         "mode": "current",
-        "place": "neon_playground",
-        "finisher": "test-win",
+        "place": "",
+        "finisher": "distribution-trigger-test",
         "deck_id": "",
         "cards": [],
-        "time": 1787666900.002711
+        "time": 1787704341.4750085
       },
       {
         "event": "duel_completed",
         "scope": "character",
-        "winner": "mystery_arc",
+        "winner": "trio_mysterio",
         "loser": "rival_echo",
         "result": "win",
         "turns": 1,
-        "reason": "test-win",
+        "reason": "distribution-trigger-test",
         "mode": "current",
-        "place": "neon_playground",
-        "finisher": "test-win",
-        "deck_ids": {},
-        "transferred_cards": [
-          "void_titan"
-        ],
-        "sim_time": 0.0,
-        "time": 1787666900.0188475
-      },
-      {
-        "opponent": "mystery_arc",
-        "result": "loss",
-        "turns": 1,
-        "reason": "timed-lowest-lp",
-        "mode": "timed",
-        "place": "neon_playground",
-        "finisher": "timed-lowest-lp",
-        "deck_id": "",
-        "cards": [],
-        "time": 1787666900.1212595
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "mystery_arc",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "timed-lowest-lp",
-        "mode": "timed",
-        "place": "neon_playground",
-        "finisher": "timed-lowest-lp",
-        "deck_ids": {},
-        "transferred_cards": [
-          "cinder_knight"
-        ],
-        "sim_time": 0.0,
-        "time": 1787666900.1398811
-      },
-      {
-        "opponent": "mystery_arc",
-        "result": "loss",
-        "turns": 1,
-        "reason": "test-win",
-        "mode": "gamble",
-        "place": "neon_playground",
-        "finisher": "test-win",
-        "deck_id": "",
-        "cards": [
-          "aqua_sentinel"
-        ],
-        "time": 1787666900.237604
-      },
-      {
-        "event": "duel_completed",
-        "scope": "character",
-        "winner": "mystery_arc",
-        "loser": "rival_echo",
-        "result": "win",
-        "turns": 1,
-        "reason": "test-win",
-        "mode": "gamble",
-        "place": "neon_playground",
-        "finisher": "test-win",
+        "place": "",
+        "finisher": "distribution-trigger-test",
         "deck_ids": {},
         "transferred_cards": [],
         "sim_time": 0.0,
-        "time": 1787666900.2512975
+        "time": 1787704341.5132096
+      },
+      {
+        "event": "trio_card_received",
+        "scope": "character",
+        "card": "trio_mysterio_card_02",
+        "giver": "trio_mysterio",
+        "team": "trio_team",
+        "trigger": "team_win",
+        "sim_time": 0.0,
+        "time": 1787704341.5134432
+      },
+      {
+        "event": "trio_card_received",
+        "scope": "character",
+        "card": "trio_mysterio_card_05",
+        "giver": "mystery_arc",
+        "team": "trio_team",
+        "trigger": "team_win",
+        "sim_time": 0.0,
+        "time": 1787704341.513571
+      },
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349455_9",
+        "to": "mystery_veil",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4567492
       }
     ],
-    "learned_cards": {},
-    "borrowed_cards": [],
+    "world_status": "in_playground",
+    "activity": "idle",
+    "cooldown_until": 0.0,
+    "learning_state": {
+      "observations": 105776,
+      "updates": 40,
+      "last_update": 1787704341.475011
+    },
+    "relationship": "stranger",
     "mood": "focused",
-    "out_of_game_until": 0.0,
-    "destination": "",
     "knowledge_state": {
       "cards": {
-        "void_titan": {
+        "trio_mysterio_card_02": {
           "sources": [
-            "traded"
+            "trio_mysterio"
           ],
           "sightings": 1,
           "owners": [
-            "mystery_arc"
+            "trio_mysterio"
           ],
           "contexts": [
             {
-              "duel": true,
-              "mode": "current"
+              "team": "trio_team",
+              "trigger": "team_win",
+              "distribution_sequence": 1
             }
           ]
         },
-        "cinder_knight": {
+        "trio_mysterio_card_05": {
           "sources": [
-            "traded"
+            "trio_mysterio"
           ],
           "sightings": 1,
           "owners": [
@@ -311,23 +1081,21 @@
           ],
           "contexts": [
             {
-              "duel": true,
-              "mode": "timed"
+              "team": "trio_team",
+              "trigger": "team_win",
+              "distribution_sequence": 3
             }
           ]
         }
       },
       "opponents": {
-        "mystery_arc": {
+        "trio_mysterio": {
           "cards": {},
           "effects": {},
           "sightings": 0
         }
       },
       "effects": {}
-    },
-    "relationship_history": [],
-    "allies": [],
-    "relationship": "stranger"
+    }
   }
 }

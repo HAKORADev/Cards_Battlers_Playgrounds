@@ -2,5 +2,16 @@
   "schema": 2,
   "category": "world_collection",
   "id": "ranks",
-  "value": {}
+  "value": {
+    "trio_mysterio": 3,
+    "rival_echo": 1,
+    "aqua_scribe": 10,
+    "ember_sage": 5,
+    "tide_courier": 2,
+    "forge_watcher": 4,
+    "pearl_guard": 3,
+    "iron_mason": 3,
+    "moss_keeper": 4,
+    "coral_scout": 2
+  }
 }

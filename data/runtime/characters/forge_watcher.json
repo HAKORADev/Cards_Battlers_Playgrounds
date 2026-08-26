@@ -3,45 +3,206 @@
   "id": "forge_watcher",
   "category": "characters",
   "state": {
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
+    "idle_elapsed": 0.0,
+    "movement_progress": 0.0,
+    "enemies": [],
+    "rank": 4,
     "availability": "free",
     "current_place": "",
-    "learned_opponents": {},
-    "memories": [],
-    "goals": [
+    "persona_state": {
+      "reputation": 0.8,
+      "trust": {},
+      "confidence": 1.6
+    },
+    "borrowed_cards": [],
+    "library_cards": [
+      "cinder_knight",
+      "storm_lancer",
+      "solar_burst",
+      "cinder_knight",
+      "aqua_sentinel",
+      "iron_fridge",
+      "sky_archer",
+      "void_titan",
+      "solar_burst",
+      "repair_matrix",
+      "mirror_trap",
+      "trio_relic",
+      "ember_drone",
+      "tide_mender",
+      "glass_sphinx",
+      "echo_bolt",
+      "sunlit_field",
+      "ember_chimera",
+      "ritual_warden",
+      "dark_hole",
+      "mystical_space_typhoon",
+      "summoned_skull",
+      "dark_magician",
+      "mirror_force",
+      "man_eater_bug",
+      "storm_lancer",
+      "tide_oracle",
+      "garden_sentinel",
+      "archive_signal",
+      "iron_oath",
+      "aurora_bridge",
+      "copper_gryphon",
+      "moonlit_drake",
+      "quiet_alchemist",
+      "grave_bloom",
+      "clockwork_mite",
+      "thunder_kite",
+      "river_colossus",
+      "sunforge_guard",
+      "ember_chimera",
+      "aqua_sentinel",
+      "echo_bolt"
+    ],
+    "allies": [],
+    "learned_opponents": {
+      "tide_courier": 4
+    },
+    "out_of_game_until": 0.0,
+    "experience": {
+      "duels": 4,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "tide_courier": {
+          "observed_cards": [
+            "solar_burst",
+            "cinder_knight",
+            "copper_gryphon",
+            "aqua_sentinel",
+            "sunforge_guard",
+            "archive_signal",
+            "aurora_bridge",
+            "sunlit_field",
+            "tide_oracle",
+            "man_eater_bug",
+            "iron_fridge",
+            "grave_bloom",
+            "mirror_force",
+            "tide_mender",
+            "repair_matrix",
+            "night_lure",
+            "ember_drone",
+            "moonlit_drake"
+          ],
+          "last_result": "win",
+          "turns": 9,
+          "updated": 1787702813.222174
+        }
+      },
+      "losss": 1
+    },
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
+    "learned_cards": {
+      "solar_burst": 42,
+      "cinder_knight": 42,
+      "copper_gryphon": 62,
+      "aqua_sentinel": 43,
+      "sunforge_guard": 6,
+      "archive_signal": 59,
+      "aurora_bridge": 103,
+      "sunlit_field": 59,
+      "tide_oracle": 65,
+      "man_eater_bug": 77,
+      "iron_fridge": 53,
+      "grave_bloom": 60,
+      "mirror_force": 76,
+      "tide_mender": 3,
+      "repair_matrix": 45,
+      "night_lure": 38,
+      "ember_drone": 26,
+      "moonlit_drake": 21
+    },
+    "relationship_history": [],
+    "destination": "",
+    "memories": [
       {
-        "id": "master_warrior",
-        "kind": "master_family",
-        "target": "warrior",
-        "progress": 0.0,
-        "priority": 1.0
+        "event": "duel_completed",
+        "payload": {
+          "winner": "tide_courier",
+          "loser": "forge_watcher",
+          "result": "win",
+          "turns": 7,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "night_lure"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       },
       {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
+        "event": "duel_completed",
+        "payload": {
+          "winner": "forge_watcher",
+          "loser": "tide_courier",
+          "result": "win",
+          "turns": 11,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "ember_chimera"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       },
       {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 1.0,
-        "priority": 0.7
+        "event": "duel_completed",
+        "payload": {
+          "winner": "forge_watcher",
+          "loser": "tide_courier",
+          "result": "win",
+          "turns": 10,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "aqua_sentinel"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       },
       {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
+        "event": "duel_completed",
+        "payload": {
+          "winner": "forge_watcher",
+          "loser": "tide_courier",
+          "result": "win",
+          "turns": 9,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "echo_bolt"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
       }
     ],
+    "idle_cue_count": 5,
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -50,7 +211,7 @@
       "place_preference": 5.0,
       "ally_bias": 4.0,
       "enemy_bias": 6.0,
-      "adaptation": 1.0,
+      "adaptation": 2.4499999999999997,
       "memory": 5.0,
       "inference": 5.0,
       "planning": 5.0,
@@ -73,7 +234,8 @@
         "zombie": 0.0,
         "thunder": 0.0,
         "winged_beast": 0.0,
-        "rock": 0.0
+        "rock": 0.0,
+        "pyro": 0.0
       },
       "card_kind_weights": {
         "normal": 0.0,
@@ -107,83 +269,60 @@
         "trap_threshold": 0.0
       }
     },
-    "cooldown_until": 0.0,
-    "movement_progress": 0.0,
-    "enemies": [],
-    "activity": "idle",
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
-    },
-    "learning_state": {
-      "observations": 0,
-      "updates": 0,
-      "last_update": 0.0
-    },
-    "world_status": "in_playground",
-    "library_cards": [
-      "cinder_knight",
-      "storm_lancer",
-      "solar_burst",
-      "cinder_knight",
-      "aqua_sentinel",
-      "iron_fridge",
-      "sky_archer",
-      "void_titan",
-      "solar_burst",
-      "repair_matrix",
-      "mirror_trap",
-      "trio_relic",
-      "ember_drone",
-      "tide_mender",
-      "glass_sphinx",
-      "echo_bolt",
-      "sunlit_field",
-      "ember_chimera",
-      "ritual_warden",
-      "night_lure",
-      "dark_hole",
-      "mystical_space_typhoon",
-      "summoned_skull",
-      "dark_magician",
-      "mirror_force",
-      "man_eater_bug",
-      "storm_lancer",
-      "tide_oracle",
-      "garden_sentinel",
-      "archive_signal",
-      "iron_oath",
-      "aurora_bridge",
-      "copper_gryphon",
-      "moonlit_drake",
-      "quiet_alchemist",
-      "grave_bloom",
-      "clockwork_mite",
-      "thunder_kite",
-      "river_colossus",
-      "sunforge_guard"
+    "goals": [
+      {
+        "id": "master_warrior",
+        "kind": "master_family",
+        "target": "warrior",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 4.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
     ],
-    "rank": 1,
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {}
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349447_3",
+        "to": "trio_mysterio",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4488916
+      }
+    ],
+    "world_status": "in_playground",
+    "activity": "idle",
+    "cooldown_until": 0.0,
+    "learning_state": {
+      "observations": 9737,
+      "updates": 4,
+      "last_update": 1787702813.22117
     },
-    "history": [],
-    "learned_cards": {},
-    "borrowed_cards": [],
+    "relationship": "stranger",
     "mood": "neutral",
-    "out_of_game_until": 0.0,
-    "destination": "",
     "knowledge_state": {
       "cards": {},
       "opponents": {},
       "effects": {}
-    },
-    "relationship_history": [],
-    "allies": [],
-    "relationship": "stranger"
+    }
   }
 }

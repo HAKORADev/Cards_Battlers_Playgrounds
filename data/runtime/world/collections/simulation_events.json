@@ -2,5 +2,754 @@
   "schema": 2,
   "category": "world_collection",
   "id": "simulation_events",
-  "value": []
+  "value": [
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "coral_scout",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "coral_scout",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349444_1",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "ember_sage",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "ember_sage",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349446_2",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "forge_watcher",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "forge_watcher",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349447_3",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "iron_mason",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "iron_mason",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349449_4",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "moss_keeper",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "moss_keeper",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349450_5",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "mystery_arc",
+      "target": "pearl_guard",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "mystery_arc",
+        "target_id": "pearl_guard",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349451_6",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "mystery_veil",
+      "target": "pearl_guard",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "mystery_veil",
+        "target_id": "pearl_guard",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349453_7",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "pearl_guard",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "pearl_guard",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349454_8",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "rival_echo",
+      "target": "mystery_veil",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "rival_echo",
+        "target_id": "mystery_veil",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349455_9",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "tide_courier",
+      "target": "trio_mysterio",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "tide_courier",
+        "target_id": "trio_mysterio",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349456_10",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "interaction_media",
+      "family": "request",
+      "event": "request_open",
+      "actor": "trio_mysterio",
+      "target": "pearl_guard",
+      "relation": "stranger",
+      "selection": {
+        "event": "request_open",
+        "actor_id": "trio_mysterio",
+        "target_id": "pearl_guard",
+        "relation": "stranger",
+        "source": "placeholder",
+        "variant": 0,
+        "image": "",
+        "audio": "",
+        "mode": "hang",
+        "placeholder": true,
+        "frames": [],
+        "video": "",
+        "duration": 0.0,
+        "animation_duration": 0.0,
+        "frame_rate": 60,
+        "sync": "hang",
+        "presentation": {},
+        "metadata": {}
+      },
+      "metadata": {
+        "request_id": "request_1787704349458_11",
+        "reason": "goal pursuit: master_family"
+      },
+      "sim_time": 29.9
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "trio_mysterio",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 1,
+      "sim_time": 30.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 1,
+      "sim_time": 59.9
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "trio_mysterio",
+      "cadence": 1,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 2,
+      "sim_time": 60.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "rival_echo",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_veil",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "mystery_arc",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "ember_sage",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "tide_courier",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "iron_mason",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "moss_keeper",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "forge_watcher",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 1,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 2,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "aqua_scribe",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 3,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 4,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "pearl_guard",
+      "cadence": 5,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 1,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 2,
+      "sim_time": 150.0
+    },
+    {
+      "type": "character_idle",
+      "state": "character_idle",
+      "character": "coral_scout",
+      "cadence": 3,
+      "sim_time": 150.0
+    }
+  ]
 }

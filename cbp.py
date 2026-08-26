@@ -69,6 +69,18 @@ DUEL_PHASES = ["DRAW", "STANDBY", "MAIN 1", "BATTLE", "MAIN 2", "END"]
 DUEL_PHASE_ABBREVIATIONS = {"DRAW": "DP", "STANDBY": "SP", "MAIN 1": "M1", "BATTLE": "BP", "MAIN 2": "M2", "END": "EP"}
 DUEL_MODES = ["current", "timed", "gamble"]
 DUEL_MODE_FORMATS = {"current": ["1v1", "1vTEAM", "TEAMv1", "TEAMvTEAM"], "timed": ["1v1"], "gamble": ["1v1"]}
+DECK_SLOT_COUNT = 10
+class IllegalDeckError(ValueError):
+    def __init__(self, side, character_id, deck_id, errors):
+        self.side = str(side)
+        self.character_id = str(character_id)
+        self.deck_id = str(deck_id)
+        self.errors = list(errors or [])
+        super().__init__(self.message())
+    def message(self):
+        label = "House" if self.side == "player" else "Opponent"
+        deck_label = self.deck_id or "no deck selected"
+        return f"{label} deck {deck_label} is not legal: " + "; ".join(self.errors or ["deck must be completed before a duel"])
 CHARACTER_RUNTIME_FIELDS = {"mood", "mood_state", "allies", "enemies", "history", "relationship_history", "library_cards", "borrowed_cards", "rank", "relationship", "availability", "current_place", "destination", "movement_progress", "activity", "cooldown_until", "out_of_game_until", "world_status", "behavior_weights", "learned_cards", "learned_opponents", "knowledge_state", "learning_state", "experience", "goals", "memories", "persona_state", "idle_elapsed", "idle_cue_count"}
 TEAM_RUNTIME_FIELDS = {"relationship", "team_effect", "rank", "history", "effect_locked", "behavior_weights", "knowledge_state", "learning_state", "experience", "formation_state", "formation_requests"}
 
@@ -859,6 +871,7 @@ class CharacterDef:
     learning_state: dict = field(default_factory=dict)
     experience: dict = field(default_factory=dict)
     logic_graph: str = ""
+    deck_slots: list = field(default_factory=list)
     out_of_game_until: float = 0.0
     world_status: str = "in_playground"
     goals: list = field(default_factory=list)
@@ -971,7 +984,6 @@ class MediaRegistry:
         self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
         self.variant_cache = {}
         self.duration_cache = {}
-        self.scan()
 
     def scan(self):
         self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
@@ -1420,9 +1432,12 @@ class ProcedureSpec:
     special: bool = False
     enabler: dict = field(default_factory=dict)
     source_zones: list = field(default_factory=list)
-
+    allowed_counts: list = field(default_factory=list)
+    minimum_materials: int = 0
+    maximum_materials: int = 0
     @classmethod
     def normal_tribute(cls, card, rules=None):
+
         stars = int(card.card.stars)
         policy = dict((rules or {}).get("summoning", {}).get("normal_tribute", {}) or {})
         selected = None
@@ -1433,7 +1448,8 @@ class ProcedureSpec:
         selected = selected or {"required_count": 0 if stars <= 4 else 1 if stars <= 6 else 2}
         special = bool(selected.get("special", False))
         count = int(selected.get("required_count", 0) or 0)
-        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count, [], special)
+        allowed_counts = [int(item) for item in list(selected.get("allowed_counts", [count]) or [count]) if int(item) >= 0]
+        return cls("tribute", {}, [], 0, ["monster"], False, "graveyard", {"zone": "hand"}, "normal", count, [], special, {}, ["hand", "monster"], allowed_counts, 0, 0)
 
     @classmethod
     def from_card(cls, card):
@@ -1455,7 +1471,10 @@ class ProcedureSpec:
         if isinstance(costs, dict): costs = [costs]
         source_zones = list(raw.get("source_zones", ["extra"] if kind == "fusion" else ["hand"]) or [])
         enabler = dict(raw.get("enabler") or {})
-        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)), enabler, source_zones)
+        allowed_counts = [int(item) for item in list(raw.get("allowed_counts", [required_count]) or [required_count]) if int(item) >= 0] if kind == "tribute" else []
+        minimum_materials = int(raw.get("min_materials", len(required) if kind == "fusion" and exact else 2 if kind == "fusion" else 0) or 0)
+        maximum_materials = int(raw.get("max_materials", len(required) if kind == "fusion" and exact else 4 if kind == "fusion" else 0) or 0)
+        return cls(kind, selector, required, minimum, locations, exact, destination, source_selector, source_method, required_count, list(costs), bool(raw.get("special", False)), enabler, source_zones, allowed_counts, minimum_materials, maximum_materials)
 
 
 class LogicRuntime:
@@ -1567,6 +1586,7 @@ class ContentStore:
         self.places = {}
         self.teams = {}
         self.logic = {}
+        self.last_card_errors = []
         stored_profile = read_json(SAVE, {})
         profile_defaults = {"active_user_id": "", "active_user_folder": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "setup_complete": False}
         self.save_data = {key: stored_profile.get(key, default) for key, default in profile_defaults.items()}
@@ -1753,6 +1773,71 @@ class ContentStore:
             if key not in result: result.append(key)
         return result[:limit]
 
+    def deck_slot_ids(self, character_id):
+        character = self.characters.get(character_id)
+        if not character: return []
+        configured = list(getattr(character, "deck_slots", []) or [])
+        if configured:
+            return [deck_id for deck_id in configured if deck_id in self.decks][:DECK_SLOT_COUNT]
+        candidates = []
+        for deck_id in [getattr(character, "deck_id", "")]:
+            if deck_id in self.decks and deck_id not in candidates: candidates.append(deck_id)
+        for deck_id, deck in self.decks.items():
+            if isinstance(deck, dict) and deck.get("owner_id") == character_id and deck_id not in candidates: candidates.append(deck_id)
+        return candidates[:DECK_SLOT_COUNT]
+    def normalize_deck_slots(self, character):
+        slots = self.deck_slot_ids(character.id)
+        character.deck_slots = slots
+        if character.deck_id not in slots and slots: character.deck_id = slots[0]
+        return slots
+    def set_deck_slots(self, character_id, deck_ids):
+        character = self.characters.get(character_id)
+        if not character: return []
+        owned = set(deck_id for deck_id, deck in self.decks.items() if isinstance(deck, dict) and deck.get("owner_id") == character_id)
+        owned.add(getattr(character, "deck_id", ""))
+        slots = [str(deck_id) for deck_id in list(deck_ids or []) if str(deck_id) in self.decks and str(deck_id) in owned]
+        character.deck_slots = list(dict.fromkeys(slots))[:DECK_SLOT_COUNT]
+        if character.deck_slots: character.deck_id = character.deck_slots[0]
+        self.save()
+        return list(character.deck_slots)
+    def deck_legality(self, deck_id):
+        deck = self.decks.get(deck_id)
+        if not deck: return ["deck does not exist"]
+        return DeckRules.validate(deck.get("main_cards", []), deck.get("fusion_cards", []), self.cards)
+    def choose_duel_deck(self, character_id, opponent_id=""):
+        character = self.characters.get(character_id)
+        options = self.deck_slot_ids(character_id)
+        if not character or not options: return ""
+        legal = [deck_id for deck_id in options if not self.deck_legality(deck_id)]
+        pool = legal or options
+        opponent = self.characters.get(opponent_id)
+        known = getattr(character, "learned_cards", {}) if character else {}
+        def score(deck_id):
+            deck = self.decks.get(deck_id, {})
+            cards = DeckRules.all_cards(deck)
+            families = sum(1 for card_id in cards if card_id in self.cards and self.cards[card_id].family.lower() in character.preferred_families)
+            kinds = sum(1 for card_id in cards if card_id in self.cards and self.cards[card_id].kind.lower() in character.preferred_card_kinds)
+            preferred = sum(1 for card_id in cards if card_id in character.preferred_cards or card_id in character.best_cards)
+            learned = sum(float(known.get(card_id, 0) or 0) for card_id in cards)
+            pressure = float(character.behavior_weights.get("adaptation", 1.0)) * learned
+            if opponent: pressure += float(character.behavior_weights.get("planning", 5.0)) * sum(1 for card_id in cards if card_id in opponent.learned_cards)
+            return families * 2.0 + kinds + preferred * 3.0 + pressure
+        return max(pool, key=lambda deck_id: (score(deck_id), deck_id))
+    def validate_duel_decks(self, player_id, opponent_id, player_deck_id="", opponent_deck_id=""):
+        result = {}
+        selections = [("player", player_id, player_deck_id or getattr(self.characters.get(player_id), "deck_id", "")), ("opponent", opponent_id, opponent_deck_id or getattr(self.characters.get(opponent_id), "deck_id", ""))]
+        for side, character_id, deck_id in selections:
+            errors = self.deck_legality(deck_id)
+            if errors: result[side] = {"character_id": character_id, "deck_id": deck_id, "errors": errors}
+        return result
+    def notify_illegal_duel_decks(self, validation, notifier=None):
+        messages = []
+        for side, detail in validation.items():
+            label = "House" if side == "player" else "Opponent"
+            messages.append(f"{label} deck needs changes: " + "; ".join(detail.get("errors", [])[:2]))
+        message = "Duel blocked. " + " | ".join(messages)
+        if notifier: notifier(message)
+        return message
     def normalize_number_map(self, values, defaults, minimum=0.0, maximum=10.0):
         result = dict(defaults)
         if isinstance(values, dict):
@@ -1793,6 +1878,7 @@ class ContentStore:
         character.experience.setdefault("losses", 0)
         character.experience.setdefault("draws", 0)
         character.experience.setdefault("techniques", {})
+        self.normalize_deck_slots(character)
         character.out_of_game_until = float(getattr(character, "out_of_game_until", 0.0) or 0.0)
         character.world_status = str(getattr(character, "world_status", "in_playground") or "in_playground")
         if character.world_status not in ["in_playground", "out_of_game"]: character.world_status = "in_playground"
@@ -2547,7 +2633,9 @@ class ContentStore:
         request_id = "request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
         normalized_reward = self.normalize_duel_reward(reward_policy, reward)
-        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": deck_id if deck_id in self.decks else "", "reward_policy": normalized_reward["mode"], "reward": normalized_reward, "duel_mode": duel_terms["mode"], "duel_terms": duel_terms, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "action": "open", "sim_time": now}]}
+        request_deck_id = deck_id if deck_id else self.choose_duel_deck(from_id, to_id)
+        request = {"id": request_id, "title": f"{from_id} requests a {reason}", "from": from_id, "to": to_id, "kind": kind, "reason": reason, "relationship_intent": relationship_intent, "intent": relationship_intent, "format": format_name, "preferred_place": preferred_place, "deck_id": request_deck_id if request_deck_id in self.decks else "", "reward_policy": normalized_reward["mode"],
+ "reward": normalized_reward, "duel_mode": duel_terms["mode"], "duel_terms": duel_terms, "status": "open", "created_sim_time": now, "expires_sim_time": now + max(1, float(expires_in)), "events": [{"status": "open", "actor": from_id, "action": "open", "sim_time": now}]}
         self.world.setdefault("requests", []).append(request)
         self.register_interaction("request", request)
         self.queue_interaction_media("request", "request_open", from_id, to_id, relationship_intent, "characters", from_id, {"request_id": request_id, "reason": reason})
@@ -2668,10 +2756,22 @@ class ContentStore:
                 dice = self.spin_dice_result(house_id, guest_id)
                 first_side = "player" if dice["first"] == house_id else "opponent"
                 result_cue = self.narrator_cue("result_launcher" if dice["value"] <= 3 else "result_requester", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id, "value": dice["value"]})
-            engine = DuelEngine(self, house_id, guest_id, place_id, True, first_side=first_side, duel_mode=duel_terms.get("mode", "current"), time_limit=duel_terms.get("time_limit", 0.0), duel_terms=prepared_terms)
+            house_deck_id = request.get("house_deck_id") or (self.deck_slot_ids(house_id)[0] if self.deck_slot_ids(house_id) else "")
+            guest_deck_id = request.get("deck_id") or (self.deck_slot_ids(guest_id)[0] if self.deck_slot_ids(guest_id) else "")
+            validation = self.validate_duel_decks(house_id, guest_id, house_deck_id, guest_deck_id)
+            if validation:
+                request["status"] = "denied"
+                request.setdefault("events", []).append({"status": "denied", "actor": "world", "action": "illegal_deck", "validation": validation, "sim_time": float(self.world.get("simulation_time", 0.0))})
+                self.release_place(place_id)
+                for character_id in [request.get("from"), request.get("to")]:
+                    character = self.characters.get(character_id)
+                    if character: character.availability, character.activity = "free", "idle"
+                continue
+            engine = DuelEngine(self, house_id, guest_id, place_id, True, first_side=first_side, duel_mode=duel_terms.get("mode", "current"), time_limit=duel_terms.get("time_limit", 0.0), duel_terms=prepared_terms, player_deck_id=house_deck_id, opponent_deck_id=guest_deck_id)
             engine.match_recorded = True
             battle_id = "sim_battle_" + str(int(time.time() * 1000))
-            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "actions": [], "turn": engine.turn, "first_side": first_side, "spin_dice": dice, "duel_mode": duel_terms.get("mode", "current"), "time_limit": duel_terms.get("time_limit", 0.0), "duel_terms": prepared_terms, "pre_duel": {"requester": guest_id, "acceptor": house_id, "decision": "accept" if accepts_first else "deny", "acceptance_score": acceptance_score, "narrator_states": [request_cue["state"], decision_cue["state"]] + ([] if accepts_first else [result_cue["state"]])}, "reward": dict(request.get("reward", {})), "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
+            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "actions": [], "turn": engine.turn, "first_side": first_side, "spin_dice": dice, "duel_mode": duel_terms.get("mode", "current"), "time_limit": duel_terms.get("time_limit", 0.0), "duel_terms": prepared_terms, "house_deck_id": house_deck_id, "guest_deck_id": guest_deck_id, "pre_duel":
+ {"requester": guest_id, "acceptor": house_id, "decision": "accept" if accepts_first else "deny", "acceptance_score": acceptance_score, "narrator_states": [request_cue["state"], decision_cue["state"]] + ([] if accepts_first else [result_cue["state"]])}, "reward": dict(request.get("reward", {})), "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
             self.world_sessions[battle_id] = engine
             self.world.setdefault("active_battles", []).append(battle)
             self.world.setdefault("simulation_events", []).append({"type": "battle_activated", "battle": battle["id"], "request": request["id"], "sim_time": float(self.world.get("simulation_time", 0.0))})
@@ -2686,7 +2786,19 @@ class ContentStore:
         duel_mode = battle.get("duel_mode", "current")
         time_limit = float(battle.get("time_limit", 0.0) or 0.0)
         duel_terms = battle.get("duel_terms") if isinstance(battle.get("duel_terms"), dict) else None
-        session = DuelEngine(self, house_id, guest_id, battle["place"], True, first_side=first_side, duel_mode=duel_mode, time_limit=time_limit, duel_terms=duel_terms)
+        try:
+            session = DuelEngine(self, house_id, guest_id, battle["place"], True, first_side=first_side, duel_mode=duel_mode, time_limit=time_limit, duel_terms=duel_terms, player_deck_id=battle.get("house_deck_id", ""), opponent_deck_id=battle.get("guest_deck_id", ""))
+        except IllegalDeckError as error:
+            battle["status"] = "blocked"
+            battle["phase"] = "blocked"
+            battle["blocked_reason"] = error.message()
+            self.release_place(battle.get("place", ""))
+            for character_id in [house_id, guest_id]:
+                character = self.characters.get(character_id)
+                if character: character.availability, character.activity = "free", "idle"
+            self.world.setdefault("simulation_events", []).append({"type": "battle_blocked", "battle": battle.get("id", ""), "reason": error.message(), "sim_time": float(self.world.get("simulation_time", 0.0))})
+            self.save()
+            return None
         session.match_recorded = True
         checkpoint = battle.get("engine_checkpoint")
         if checkpoint and not session.restore_state_checkpoint(checkpoint): return None
@@ -3475,7 +3587,12 @@ class ContentStore:
         if not str(description or "").strip(): errors.append("description is required")
         if kind in monster_kinds and int(stars) < 1: errors.append("monster cards require at least one star")
         if kind not in monster_kinds and (int(stars) != 0 or int(atk) != 0 or int(defense) != 0): errors.append("non-monster cards cannot carry monster stats")
-        if kind == "fusion" and (summon_method != "fusion" or not materials or not summon_procedure or summon_procedure.get("kind") != "fusion" or not summon_procedure.get("enabler")): errors.append("fusion cards require a canonical Fusion procedure, materials, and authored enabler")
+        if kind == "fusion" and (summon_method != "fusion" or not materials and not (summon_procedure or {}).get("material_selector") or not summon_procedure or summon_procedure.get("kind") != "fusion" or not summon_procedure.get("enabler")): errors.append("fusion cards require a canonical Fusion procedure, materials, and authored enabler")
+        if kind == "fusion" and materials and not 2 <= len(materials) <= 4: errors.append("Fusion cards require two to four authored materials.")
+        if kind == "fusion" and summon_procedure:
+            minimum_materials = int(summon_procedure.get("min_materials", len(materials) if summon_procedure.get("exact") else 2) or 0)
+            maximum_materials = int(summon_procedure.get("max_materials", len(materials) if summon_procedure.get("exact") else 4) or 0)
+            if minimum_materials < 2 or maximum_materials > 4 or minimum_materials > maximum_materials: errors.append("Fusion material bounds must be within two to four.")
         if kind == "ritual" and (summon_method != "ritual" or int(ritual_cost) < 1 or not summon_procedure or summon_procedure.get("kind") != "ritual" or not summon_procedure.get("enabler")): errors.append("ritual cards require a canonical Ritual procedure, exact Level cost, and authored enabler")
         if kind == "legendary" and (int(stars) != 11 or summon_method != "legendary" or not summon_procedure or summon_procedure.get("kind") != "legendary" or not summon_procedure.get("enabler")): errors.append("Legendary cards require 11 stars, a canonical Legendary procedure, and authored enabler")
         if kind == "legendary" and not str(legendary_type or "").strip(): errors.append("Legendary cards require a legendary_type")
@@ -3487,14 +3604,18 @@ class ContentStore:
         return list(dict.fromkeys(errors))
 
     def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path="", effects=None, summon_procedure=None, legendary_type="", non_removable=False):
-        card_id = "card_" + str(int(time.time() * 1000))
-        frame = "yellow" if kind == "normal" else "orange" if kind == "effect" else "sky" if kind in ["spell", "field"] else "pink" if kind == "trap" else "violet" if kind == "fusion" else "blue" if kind == "ritual" else "red"
         resolved_method = summon_method if summon_method != "normal" else kind if kind in ["fusion", "ritual"] else "legendary" if kind == "legendary" else "normal"
         procedure = dict(summon_procedure or {})
-        if not procedure and kind == "fusion": procedure = {"kind": "fusion", "required_card_ids": list(materials or []), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": True, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
+        if not procedure and kind == "fusion": procedure = {"kind": "fusion", "required_card_ids": list(materials or []), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": bool(materials), "min_materials": len(materials) if materials else 2, "max_materials": len(materials) if materials else 4, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
         if not procedure and kind == "ritual": procedure = {"kind": "ritual", "min_stars": int(ritual_cost), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": False, "material_destination": "graveyard", "source_selector": {"zone": "hand", "card_kind": "ritual"}, "source_method": "ritual", "enabler": {"card_kinds": ["spell", "effect"]}}
         if not procedure and kind == "legendary": procedure = {"kind": "legendary", "source_zones": ["hand", "graveyard"], "source_selector": {"zone": ["hand", "graveyard"], "card_kind": "legendary"}, "source_method": "legendary_special", "special": True, "enabler": {"card_kinds": ["spell", "effect"]}}
-        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, legendary_type=str(legendary_type or (family if kind == "legendary" else "")), non_removable=bool(non_removable))
+        resolved_legendary_type = str(legendary_type or (family if kind == "legendary" else ""))
+        errors = self.validate_card_definition(kind, stars, atk, defense, family, description, targets, target_count, timing, materials, ritual_cost, resolved_method, effects, procedure, resolved_legendary_type)
+        self.last_card_errors = list(errors)
+        if errors: return None
+        card_id = "card_" + str(int(time.time() * 1000))
+        frame = "yellow" if kind == "normal" else "orange" if kind == "effect" else "sky" if kind in ["spell", "field"] else "pink" if kind == "trap" else "violet" if kind == "fusion" else "blue" if kind == "ritual" else "red"
+        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, legendary_type=resolved_legendary_type, non_removable=bool(non_removable))
         card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card")
         card.art_folder = card.media_folder
         source = Path(str(art_path)).expanduser() if art_path else None
@@ -3821,6 +3942,7 @@ class ContentStore:
         changed = False
         registries = [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]
         for category, registry in registries:
+            paths = self.entity_tree(category)
             for entity in registry.values():
                 folder = getattr(entity, "media_folder", "")
                 root = DATA / folder if folder else None
@@ -3828,22 +3950,31 @@ class ContentStore:
                     folder = self.scaffold_entity(category, entity.id, entity.name)
                     entity.media_folder = folder
                     changed = True
-                else:
-                    paths = self.entity_tree(category)
-                    for item in paths:
-                        item_path = root / item
+                    continue
+                missing = not (root / "manifest.json").exists()
+                for item in paths:
+                    item_path = root / item
+                    if not item_path.exists():
                         item_path.mkdir(parents=True, exist_ok=True)
-                        if item.startswith("animations/") or item.endswith("/animations"):
-                            for variant in range(1, 11): (item_path / str(variant)).mkdir(exist_ok=True)
-                    self.write_tree_contract(root, paths, ["manifest.json"])
-                    manifest = read_json(root / "manifest.json", {})
-                    manifest.update({"schema": 4, "id": entity.id, "name": entity.name, "category": category, "folders": sorted(set(manifest.get("folders", []) + paths)), "asset_contract": "gdd_nested_v2"})
-                    if category == "cards": manifest.update({"frame_contract": "engine_owned", "art_contract": "user_owned_optional"})
+                        missing = True
+                    if item.startswith("animations/") or item.endswith("/animations"):
+                        for variant in range(1, 11):
+                            variant_path = item_path / str(variant)
+                            if not variant_path.exists():
+                                variant_path.mkdir(exist_ok=True)
+                                missing = True
+                manifest = read_json(root / "manifest.json", {})
+                expected = {"schema": 4, "id": entity.id, "name": entity.name, "category": category, "folders": sorted(set(manifest.get("folders", []) + paths)), "asset_contract": "gdd_nested_v2"}
+                if category == "cards": expected.update({"frame_contract": "engine_owned", "art_contract": "user_owned_optional"})
+                manifest_changed = any(manifest.get(key) != value for key, value in expected.items())
+                if manifest_changed:
+                    manifest.update(expected)
                     write_json(root / "manifest.json", manifest)
+                if missing:
                     self.write_tree_contract(root, paths, ["manifest.json"])
-                    if category == "cards" and not getattr(entity, "art_folder", ""):
-                        entity.art_folder = entity.media_folder
-                        changed = True
+                if category == "cards" and not getattr(entity, "art_folder", ""):
+                    entity.art_folder = entity.media_folder
+                    changed = True
         if changed:
             self.save()
 
@@ -3955,10 +4086,10 @@ class ContentStore:
         cards = main + fusion
         counts = {}
         for card_id in cards: counts[card_id] = counts.get(card_id, 0) + 1
-        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", ""), "owner_id": deck.get("owner_id", ""), "main_cards": main, "fusion_cards": fusion, "counts": counts, "errors": errors, "legal": not errors}
+        return {"id": deck_id, "name": deck.get("name", deck_id), "description": deck.get("description", ""), "portrait": deck.get("portrait", ""), "owner_id": deck.get("owner_id", ""), "main_cards": main, "fusion_cards": fusion, "counts": counts, "errors": errors, "legal": not errors, "deck_slots": self.deck_slot_ids(deck.get("owner_id", ""))}
 
     def create_deck(self, name, owner_id="", main_cards=None, fusion_cards=None, description="", portrait="", preferred_families=None, preferred_card_kinds=None, best_cards=None):
-        if len(self.decks) >= 10: return None
+        if owner_id and len([deck_id for deck_id in self.deck_slot_ids(owner_id) if self.decks.get(deck_id, {}).get("owner_id") == owner_id]) >= DECK_SLOT_COUNT: return None
         deck_id = "deck_" + str(int(time.time() * 1000))
         display_name = str(name or "New Deck").strip() or "New Deck"
         preferred_families = self.normalize_profile_list(preferred_families, limit=20)
@@ -3968,6 +4099,7 @@ class ContentStore:
         if len(main_values) < DeckRules.minimum: main_values = self.starter_deck_cards(preferred_families, preferred_card_kinds, best_cards)
         folder = self.scaffold_entity("decks", deck_id, display_name)
         self.decks[deck_id] = {"schema": 2, "name": display_name, "description": str(description or ""), "portrait": "", "owner_id": owner_id if owner_id in self.characters else "", "main_cards": DeckRules.normalized(main_values, self.cards), "fusion_cards": DeckRules.normalized_fusion(fusion_values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
+        if owner_id in self.characters: self.normalize_deck_slots(self.characters[owner_id])
         self.save()
         return deck_id
 
@@ -3995,13 +4127,16 @@ class ContentStore:
 
     def duplicate_deck(self, deck_id, name=""):
         source = self.decks.get(deck_id)
-        if not source or len(self.decks) >= 10: return None
+        if not source: return None
         return self.create_deck(name or str(source.get("name", deck_id)) + " Copy", source.get("owner_id", ""), list(source.get("main_cards", [])), list(source.get("fusion_cards", [])), source.get("description", ""), source.get("portrait", ""), source.get("preferred_families", []), source.get("preferred_card_kinds", []), source.get("best_cards", []))
 
     def delete_deck(self, deck_id, force=False):
         if deck_id not in self.decks: return False
         if not force and any(character.deck_id == deck_id for character in self.characters.values()): return False
         self.decks.pop(deck_id, None)
+        for character in self.characters.values():
+            character.deck_slots = [item for item in getattr(character, "deck_slots", []) if item != deck_id]
+            if character.deck_id == deck_id: self.normalize_deck_slots(character)
         self.save()
         return True
 
@@ -4484,9 +4619,13 @@ class Notification:
 
 
 class Duelist:
-    def __init__(self, character, store):
+    def __init__(self, character, store, deck_id=""):
         self.character = character
         self.name = character.name
+        selected_deck_id = str(deck_id or character.deck_id or "")
+        deck_errors = store.deck_legality(selected_deck_id)
+        if deck_errors: raise IllegalDeckError("player" if character.id == store.role_config().get("player_character") else "opponent", character.id, selected_deck_id, deck_errors)
+        self.deck_id = selected_deck_id
         self.hp = 8000
         self.deck = []
         self.hand = []
@@ -4495,7 +4634,7 @@ class Duelist:
         self.graveyard = []
         self.banished = []
         self.extra = []
-        deck = store.decks.get(character.deck_id, {})
+        deck = store.decks.get(selected_deck_id, {})
         main_ids = DeckRules.normalized(deck.get("main_cards", []), store.cards)
         fusion_ids = DeckRules.normalized_fusion(deck.get("fusion_cards", []), store.cards)
         loan_cards = [record.get("card_id", "") for record in store.world.setdefault("borrows", []) if record.get("state") == "active" and record.get("borrower") == character.id and record.get("card_id") in store.cards]
@@ -4634,14 +4773,21 @@ class SelectorRuntime:
 class DuelEngine:
     phases = DUEL_PHASES
 
-    def __init__(self, store, player_id=None, opponent_id=None, place_id=None, cpu=False, team_effect=None, opponent_team_effect=None, first_side=None, duel_mode="current", time_limit=180.0, duel_terms=None, reward_policy=None):
+    def __init__(self, store, player_id=None, opponent_id=None, place_id=None, cpu=False, team_effect=None, opponent_team_effect=None, first_side=None, duel_mode="current", time_limit=180.0, duel_terms=None, reward_policy=None, player_deck_id="", opponent_deck_id=""):
         self.store = store
         roles = store.role_config()
         player_id = player_id or roles["player_character"]
         opponent_id = opponent_id or roles["default_opponent_character"]
         place_id = place_id or roles["default_place"]
-        self.player = Duelist(store.characters[player_id], store)
-        self.opponent = Duelist(store.characters[opponent_id], store)
+        validation = store.validate_duel_decks(player_id, opponent_id, player_deck_id, opponent_deck_id)
+        if validation:
+            side = "player" if "player" in validation else "opponent"
+            detail = validation[side]
+            raise IllegalDeckError(side, detail.get("character_id", ""), detail.get("deck_id", ""), detail.get("errors", []))
+        self.player_deck_id = str(player_deck_id or store.characters[player_id].deck_id)
+        self.opponent_deck_id = str(opponent_deck_id or store.characters[opponent_id].deck_id)
+        self.player = Duelist(store.characters[player_id], store, self.player_deck_id)
+        self.opponent = Duelist(store.characters[opponent_id], store, self.opponent_deck_id)
         self.place = store.places[place_id]
         self.first_side = first_side if first_side in ["player", "opponent"] else "opponent" if cpu else "player"
         self.active = self.player if self.first_side == "player" else self.opponent
@@ -5238,6 +5384,7 @@ class DuelEngine:
         for zone in procedure.locations:
             for item in SelectorRuntime(self, actor, card).zone_items(actor, zone):
                 if item is card or item in candidates: continue
+                if procedure.kind == "tribute" and bool(getattr(item.card, "non_removable", False)): continue
                 if not SelectorRuntime(self, actor, card).matches(item, selector): continue
                 candidates.append(item)
         return candidates
@@ -5252,11 +5399,12 @@ class DuelEngine:
             selected_ids = sorted(item.card.id for item in selected)
             required_ids = sorted(procedure.required_card_ids)
             if procedure.exact and selected_ids != required_ids: return False, "The exact fusion material set is not available."
-            if not procedure.exact and not selected: return False, "Fusion requires at least one material."
+            if not procedure.exact and not procedure.minimum_materials <= len(selected) <= procedure.maximum_materials: return False, f"Fusion requires {procedure.minimum_materials} to {procedure.maximum_materials} materials."
         if procedure.kind == "ritual" and sum(item.card.stars for item in selected) != procedure.min_stars:
             return False, f"Ritual summoning requires exactly {procedure.min_stars} material stars."
-        if procedure.kind == "tribute" and len(selected) != procedure.required_count:
-            return False, f"This normal summon requires exactly {procedure.required_count} tribute(s)."
+        if procedure.kind == "tribute" and len(selected) not in (procedure.allowed_counts or [procedure.required_count]):
+            counts = "/".join(str(item) for item in (procedure.allowed_counts or [procedure.required_count]))
+            return False, f"This normal summon requires {counts} tribute(s)."
         return True, ""
 
     def pay_procedure_materials(self, materials, actor, destination="graveyard"):
@@ -5322,12 +5470,12 @@ class DuelEngine:
         if not pending: return False, "No summon procedure is pending."
         card, actor, procedure = pending["card"], pending["actor"], pending["procedure"]
         candidates = self.procedure_material_candidates(card, actor, procedure)
-        required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else procedure.required_count
+        required = len(procedure.required_card_ids) if procedure.kind == "fusion" and procedure.exact else procedure.minimum_materials if procedure.kind == "fusion" else max(procedure.allowed_counts or [procedure.required_count]) if procedure.kind == "tribute" else procedure.required_count
         if procedure.kind == "fusion" and len(candidates) < required: return self.abort_procedure("There are not enough legal fusion materials.")
         if procedure.kind == "ritual" and sum(item.card.stars for item in candidates) < procedure.min_stars: return self.abort_procedure("There are not enough legal ritual material stars.")
         if procedure.kind == "tribute" and len(candidates) < procedure.required_count: return self.abort_procedure("There are not enough legal tribute candidates.")
         pending.update({"candidates": candidates, "selected": [], "required": required, "snapshot": [self.entity_id(item) for item in candidates]})
-        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
+        payload = {"kind": "procedure_materials", "procedure": procedure.kind, "card": card.card.id, "candidate_ids": [self.entity_id(item) for item in candidates], "required": required, "allowed_counts": list(procedure.allowed_counts), "min_stars": procedure.min_stars, "locations": list(procedure.locations), "exact": procedure.exact, "material_destination": procedure.material_destination, "selected_ids": [], "selected_stars": 0}
         self.notify("choose_cards", f"Choose materials for {card.card.name}.", ["ok"], payload)
         return True, "pending_procedure"
 
@@ -5390,8 +5538,9 @@ class DuelEngine:
         if material in selected:
             selected.remove(material)
         else:
-            if pending["procedure"].kind in ["fusion", "tribute"] and pending["required"] and len(selected) >= pending["required"]:
-                return False, "The required number of fusion materials is already selected."
+            maximum = max(pending["procedure"].allowed_counts or [pending["required"]]) if pending["procedure"].kind == "tribute" else pending["procedure"].maximum_materials if pending["procedure"].kind == "fusion" and pending["procedure"].maximum_materials else pending["required"]
+            if pending["procedure"].kind in ["fusion", "tribute"] and maximum and len(selected) >= maximum:
+                return False, "The maximum legal procedure materials are already selected."
             selected.append(material)
         notification = self.pending_notification("choose_cards")
         if notification:
@@ -5415,6 +5564,8 @@ class DuelEngine:
         selected = pending["selected"]
         stars = sum(item.card.stars for item in selected)
         if pending["procedure"].kind == "ritual": return f"{len(selected)} material(s), {stars}/{pending['procedure'].min_stars} stars"
+        if pending["procedure"].kind == "tribute" and len(pending["procedure"].allowed_counts) > 1: return f"{len(selected)} material(s), allowed " + "/".join(str(item) for item in pending["procedure"].allowed_counts)
+        if pending["procedure"].kind == "fusion" and not pending["procedure"].exact: return f"{len(selected)} material(s), allowed {pending['procedure'].minimum_materials}-{pending['procedure'].maximum_materials}"
         return f"{len(selected)}/{pending['required']} material(s)"
 
     def resolve_pending_procedure(self, materials=None):
@@ -5976,7 +6127,7 @@ class DuelEngine:
         return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
 
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name)
@@ -6030,6 +6181,8 @@ class DuelEngine:
     def restore_full_state(self, payload):
         if not isinstance(payload, dict) or payload.get("schema") != "cbp.state.v1": return False
         if payload.get("player", {}).get("id") != self.player.character.id or payload.get("opponent", {}).get("id") != self.opponent.character.id: return False
+        if payload.get("player_deck_id") and payload.get("player_deck_id") != self.player_deck_id: return False
+        if payload.get("opponent_deck_id") and payload.get("opponent_deck_id") != self.opponent_deck_id: return False
         try:
             self._restore_side(self.player, payload["player"])
             self._restore_side(self.opponent, payload["opponent"])
@@ -6508,9 +6661,12 @@ class DuelEngine:
     def execute_effect_spec(self, card, spec, actor, default_target, start_index=0):
         selector = spec.selector or self.card_selector(card, actor)
         if selector:
-            if isinstance(default_target, list): selected = list(default_target)
-            elif isinstance(default_target, CardInstance): selected = [default_target]
-            else: selected = SelectorRuntime(self, actor, card).select(selector)
+            selected = SelectorRuntime(self, actor, card).select(selector)
+            if isinstance(default_target, list):
+                filtered = [item for item in default_target if item in selected]
+                if filtered: selected = filtered
+            elif isinstance(default_target, CardInstance) and default_target in selected:
+                selected = [default_target]
         elif spec.targets:
             selected = []
             for target_group in spec.targets:
@@ -6577,7 +6733,7 @@ class DuelEngine:
                             else: summon_result = self.summon(summon_card, actor)
                             if not summon_result[0] or summon_result[1] in ["pending_procedure", "pending_cost"]: return False
                     else:
-                        summon_result = self.special_summon({"side": "both", "zone": "any", "card_id": [item.card.id for item in summon_source], "count": summon_count}, actor, summon_method, card, spec.effect_id, summon_count)
+                        summon_result = self.special_summon(candidate_selector, actor, summon_method, card, spec.effect_id, summon_count, summon_source[:int(summon_count or 1)])
                         if summon_result[1] == "pending": return False
                 continue
             amount = action.get("amount", 0)
@@ -7351,7 +7507,16 @@ class TeamDuelEngine:
         opponent = opponent_roster[(self.round - 1) % len(opponent_roster)]
         player_effect = self.player_team.team_effect.get("selected") if self.player_team.effect_locked and self.player_team.team_effect else None
         opponent_effect = self.opponent_team.team_effect.get("selected") if self.opponent_team.effect_locked and self.opponent_team.team_effect else None
-        self.current = DuelEngine(self.store, player.id, opponent.id, self.place_id, self.starter != "player", player_effect, opponent_effect, first_side="player" if self.starter == "player" else "opponent", reward_policy={"mode": "none"})
+        try:
+            self.current = DuelEngine(self.store, player.id, opponent.id, self.place_id, self.starter != "player", player_effect, opponent_effect, first_side="player" if self.starter == "player" else "opponent", reward_policy={"mode": "none"})
+        except IllegalDeckError as error:
+            self.current = None
+            self.finished = True
+            self.log("Duel blocked: " + error.message())
+            if self.place_reserved:
+                self.store.release_place(self.place_id)
+                self.place_reserved = False
+            return
         self.log(f"{self.format_name} round {self.round}: {player.name} vs {opponent.name}.")
         if player_effect: self.log(f"{self.player_team.name} effect: {player_effect.get('kind')}.")
         if opponent_effect: self.log(f"{self.opponent_team.name} effect: {opponent_effect.get('kind')}.")
@@ -7878,9 +8043,36 @@ class PreDuelScene(Scene):
         self.narrator_state = ""
         self.interaction_sequence = 0
         self.elapsed = 0.0
-
+        self.player_deck_ids = self.app.store.deck_slot_ids(self.acceptor_id)
+        self.opponent_deck_ids = self.app.store.deck_slot_ids(self.requester_id)
+        self.player_deck_index = 0
+        self.opponent_deck_index = 0
+        self.player_deck_id = self.player_deck_ids[0] if self.player_deck_ids else ""
+        self.opponent_deck_id = self.opponent_deck_ids[0] if self.opponent_deck_ids else ""
+    def selected_deck_id(self, side):
+        values = self.player_deck_ids if side == "player" else self.opponent_deck_ids
+        index = self.player_deck_index if side == "player" else self.opponent_deck_index
+        return values[index] if values and index < len(values) else ""
+    def cycle_deck(self, side):
+        if self.decision != "request_first": return
+        values = self.player_deck_ids if side == "player" else self.opponent_deck_ids
+        if not values: return
+        if side == "player": self.player_deck_index = (self.player_deck_index + 1) % len(values)
+        else: self.opponent_deck_index = (self.opponent_deck_index + 1) % len(values)
+        self.player_deck_id = self.selected_deck_id("player")
+        self.opponent_deck_id = self.selected_deck_id("opponent")
+        self.enter()
+    def deck_label(self, side):
+        deck_id = self.selected_deck_id(side)
+        deck = self.app.store.decks.get(deck_id, {})
+        count = len(deck.get("main_cards", [])) if isinstance(deck, dict) else 0
+        legal = not self.app.store.deck_legality(deck_id)
+        status = "LEGAL" if legal else "EDIT"
+        name = str(deck.get("name", deck_id or "NONE")) if isinstance(deck, dict) else deck_id or "NONE"
+        return f"{name} {count}/80 {status}"
     def enter(self):
-        self.buttons = [Button((90, 496, 180, 44), "ACCEPT FIRST", lambda: self.accept_first(), COLORS["cyan"]), Button((290, 496, 180, 44), "SPIN DICE", lambda: self.deny_first(), COLORS["gold"]), Button((490, 496, 120, 44), "BACK", lambda: self.cancel(), COLORS["muted"]), Button((270, 448, 260, 30), "MODE: " + self.duel_mode.upper(), lambda: self.cycle_mode(), COLORS["orange"])]
+
+        self.buttons = [Button((70, 382, 320, 28), "HOUSE DECK: " + self.deck_label("player"), lambda: self.cycle_deck("player"), COLORS["cyan"]), Button((400, 382, 330, 28), "OPPONENT DECK: " + self.deck_label("opponent"), lambda: self.cycle_deck("opponent"), COLORS["red"]), Button((90, 496, 180, 44), "ACCEPT FIRST", lambda: self.accept_first(), COLORS["cyan"]), Button((290, 496, 180, 44), "SPIN DICE", lambda: self.deny_first(), COLORS["gold"]), Button((490, 496, 120, 44), "BACK", lambda: self.cancel(), COLORS["muted"]), Button((270, 448, 260, 30), "MODE: " + self.duel_mode.upper(), lambda: self.cycle_mode(), COLORS["orange"])]
         self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", "pre-duel")
         self.narrate("request_first")
 
@@ -7898,9 +8090,21 @@ class PreDuelScene(Scene):
         if self.narrator_audio and self.app.store.save_data.get("vocals", True): self.app.assets.play_reaction_audio(self.narrator_audio, True, 0.8, "narrator")
         return cue
 
+    def validate_selected_decks(self):
+        self.player_deck_id = self.selected_deck_id("player")
+        self.opponent_deck_id = self.selected_deck_id("opponent")
+        return self.app.store.validate_duel_decks(self.acceptor_id, self.requester_id, self.player_deck_id, self.opponent_deck_id)
+    def restore_after_illegal_decks(self, validation):
+        self.app.store.notify_illegal_duel_decks(validation, self.app.notify)
+        self.choice = ""
+        self.dice_value = None
+        self.dice_owner = ""
+        self.dice_rolling = False
+        self.decision = "request_first"
+        self.enter()
     def record_decision(self, mode):
         self.interaction_sequence += 1
-        event = {"type": "first_play_decision", "sequence": self.interaction_sequence, "mode": mode, "requester": self.requester_id, "acceptor": self.acceptor_id, "launcher": self.dice_launcher_id, "first": self.choice, "value": self.dice_value, "sim_time": float(self.app.store.world.get("simulation_time", 0.0)), "time": time.time()}
+        event = {"type": "first_play_decision", "sequence": self.interaction_sequence, "mode": mode, "requester": self.requester_id, "acceptor": self.acceptor_id, "launcher": self.dice_launcher_id, "first": self.choice, "value": self.dice_value, "house_deck_id": self.selected_deck_id("player"), "guest_deck_id": self.selected_deck_id("opponent"), "sim_time": float(self.app.store.world.get("simulation_time", 0.0)), "time": time.time()}
         self.app.store.world.setdefault("simulation_events", []).append(event)
         self.app.store.save()
         return event
@@ -7913,6 +8117,10 @@ class PreDuelScene(Scene):
 
     def accept_first(self):
         if self.decision != "request_first": return
+        validation = self.validate_selected_decks()
+        if validation:
+            self.restore_after_illegal_decks(validation)
+            return
         self.choice = "opponent"
         self.decision = "accepted"
         self.narrate("ready")
@@ -7951,6 +8159,12 @@ class PreDuelScene(Scene):
 
     def launch(self):
         if self.decision not in ["accepted", "ready", "result"]: return
+        self.player_deck_id = self.selected_deck_id("player")
+        self.opponent_deck_id = self.selected_deck_id("opponent")
+        validation = self.validate_selected_decks()
+        if validation:
+            self.restore_after_illegal_decks(validation)
+            return
         place_id = self.place_id
         place = self.app.store.places[place_id]
         terms = self.app.store.normalize_duel_terms(self.format_name, self.duel_mode, self.time_limit, 1 if self.duel_mode == "gamble" else 0)
@@ -7958,7 +8172,7 @@ class PreDuelScene(Scene):
             self.app.notify(place.name + " is full. This duel must wait or choose another place.")
             return
         starter = self.choice or "player"
-        if self.format_name == "1v1": self.app.push(DuelScene(self.app, self.opponent_id, starter, place_id, True, None, None, self.duel_mode, self.time_limit, terms))
+        if self.format_name == "1v1": self.app.push(DuelScene(self.app, self.opponent_id, starter, place_id, True, None, None, self.duel_mode, self.time_limit, terms, self.player_deck_id, self.opponent_deck_id))
         else: self.app.push(TeamDuelScene(self.app, self.format_name, self.opponent_id, starter, True))
 
     def update(self, dt):
@@ -8019,6 +8233,9 @@ class PreDuelScene(Scene):
             draw_text(surface, f"ACCEPTOR: {player_team.name}", (506, 138), self.app.assets.font(10, True), COLORS["cyan"], "topright")
             self.draw_team_card(surface, player_team, (86, 159), COLORS["cyan"])
             self.draw_team_card(surface, opponent_team, (506, 159), COLORS["red"])
+        draw_text(surface, "HOUSE DECK: " + self.deck_label("player"), (400, 292), self.app.assets.font(11, True), COLORS["cyan"], "center")
+        draw_text(surface, "OPPONENT DECK: " + self.deck_label("opponent"), (400, 309), self.app.assets.font(11, True), COLORS["red"], "center")
+        draw_text(surface, "Change deck slots before accepting or spinning; an incomplete Main Deck blocks the duel.", (400, 326), self.app.assets.font(9), COLORS["muted"], "center")
         draw_text(surface, "VS", (400, 270), self.app.assets.font(32, True), COLORS["gold"], "center")
         requester_name, acceptor_name = self.side_labels()
         if self.decision == "request_first":
@@ -8079,7 +8296,7 @@ class PreDuelScene(Scene):
 
 
 class DuelScene(Scene):
-    def __init__(self, app, opponent_id=None, starter="player", place_id=None, reserved=False, spectator_battle=None, spectator_engine=None, duel_mode="current", time_limit=180.0, duel_terms=None):
+    def __init__(self, app, opponent_id=None, starter="player", place_id=None, reserved=False, spectator_battle=None, spectator_engine=None, duel_mode="current", time_limit=180.0, duel_terms=None, player_deck_id="", opponent_deck_id=""):
         super().__init__(app)
         roles = app.store.role_config()
         place_id = place_id or roles["default_place"]
@@ -8091,9 +8308,9 @@ class DuelScene(Scene):
         elif self.spectator:
             house_id = self.watched_battle.get("house") or self.watched_battle.get("accepted_by") or self.watched_battle.get("to") or self.watched_battle.get("from")
             guest_id = self.watched_battle.get("guest") or (self.watched_battle.get("to") if house_id == self.watched_battle.get("from") else self.watched_battle.get("from"))
-            self.engine = app.store._world_session(self.watched_battle) or DuelEngine(app.store, house_id, guest_id, place_id, True)
+            self.engine = app.store._world_session(self.watched_battle) or DuelEngine(app.store, house_id, guest_id, place_id, True, player_deck_id=self.watched_battle.get("house_deck_id", ""), opponent_deck_id=self.watched_battle.get("guest_deck_id", ""))
         else:
-            self.engine = DuelEngine(app.store, roles["player_character"], opponent_id, place_id, starter == "opponent", first_side=starter, duel_mode=duel_mode, time_limit=time_limit, duel_terms=duel_terms)
+            self.engine = DuelEngine(app.store, roles["player_character"], opponent_id, place_id, starter == "opponent", first_side=starter, duel_mode=duel_mode, time_limit=time_limit, duel_terms=duel_terms, player_deck_id=player_deck_id, opponent_deck_id=opponent_deck_id)
         self.layout = DuelLayout()
         self.place_id = place_id
         if self.spectator:
@@ -9279,12 +9496,12 @@ class DeckScene(Scene):
                 if rect.collidepoint(event.pos): self.app.push(DeckEditorScene(self.app, deck_id)); return
 
     def create_preset(self):
-        if len(self.app.store.decks) >= 10: self.app.notify("The ten preset-deck limit has been reached."); return
-        name = "Preset Deck " + str(len(self.app.store.decks) + 1)
         owner_id = self.app.store.role_config().get("player_character", "")
+        if len(self.app.store.deck_slot_ids(owner_id)) >= DECK_SLOT_COUNT: self.app.notify("All ten deck slots are occupied. Edit or delete a slot before creating another."); return
+        name = "Preset Deck " + str(len(self.app.store.deck_slot_ids(owner_id)) + 1)
         deck_id = self.app.store.create_deck(name, owner_id, preferred_families=["warrior"])
         if not deck_id:
-            self.app.notify("Preset deck could not be created under the ten-deck limit.")
+            self.app.notify("Preset deck could not be created under the ten-slot limit.")
             return
         self.app.notify("Preset deck created with a legal 40-card main deck and editable metadata.")
         self.enter()
@@ -9292,7 +9509,8 @@ class DeckScene(Scene):
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "DECK WORKSHOP", (34, 28), self.app.assets.font(28, True), COLORS["gold"])
-        draw_text(surface, "Create, inspect, and modify up to ten named decks with the shared legality rules.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+        owner_id = self.app.store.role_config().get("player_character", "")
+        draw_text(surface, "Ten deck slots per character; every duel requires a legal 40–80 card Main Deck.", (36, 65), self.app.assets.font(13), COLORS["muted"])
         self.draw_panel(surface, (36, 112, 728, 370), "DECKS", COLORS["gold"])
         self.deck_rects = []
         for index, (deck_id, deck) in enumerate(self.app.store.decks.items()):
@@ -9302,7 +9520,11 @@ class DeckScene(Scene):
             self.deck_rects.append((rect, deck_id))
             rounded(surface, rect, (16, 28, 58), COLORS["gold"], 6, 1)
             draw_text(surface, deck.get("name", deck_id), (78, y + 13), self.app.assets.font(14, True), COLORS["cream"])
-            draw_text(surface, f"{len(deck.get('cards', []))} cards | {DeckRules.summary(deck.get('cards', []), self.app.store.cards)} | click to edit", (340, y + 13), self.app.assets.font(10), COLORS["muted"])
+            main_count = len(deck.get("main_cards", []))
+            fusion_count = len(deck.get("fusion_cards", []))
+            summary = DeckRules.summary(deck.get("main_cards", []), deck.get("fusion_cards", []), self.app.store.cards)
+            owner_marker = "SLOT" if deck.get("owner_id") == owner_id else "SHARED"
+            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | {summary} | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -9459,7 +9681,7 @@ class CardMakerScene(Scene):
         self.buttons = [Button((420, 150, 150, 34), "TYPE: " + self.kind.upper(), lambda: self.cycle_kind(), COLORS["violet"]), Button((590, 150, 150, 34), "FAMILY: " + self.family.upper(), lambda: self.cycle_family(), COLORS["cyan"]), Button((420, 200, 150, 34), "LOGIC: " + (self.logic_graph or "NONE").upper(), lambda: self.cycle_logic(), COLORS["gold"]), Button((590, 200, 150, 34), "TARGET: " + self.targets[0].upper(), lambda: self.cycle_target(), COLORS["green"]), Button((420, 245, 150, 34), "EFFECTS: " + str(len(self.effects)), lambda: self.open_effects(), COLORS["orange"]), Button((80, 340, 110, 34), "STAR +", lambda: self.change("stars", 1)), Button((200, 340, 110, 34), "ATK +", lambda: self.change("atk", 100)), Button((320, 340, 110, 34), "DEF +", lambda: self.change("defense", 100)), Button((440, 340, 150, 34), "TIMING", lambda: self.cycle_timing()), Button((80, 410, 180, 34), "SUMMON MODE", lambda: self.cycle_summon()), Button((280, 410, 180, 34), "TARGET COUNT", lambda: self.cycle_target_count()), Button((80, 470, 240, 38), "SAVE MODIFIED" if self.card_id else "CREATE CARD", lambda: self.save_card(), COLORS["green"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def procedure_for_kind(self):
-        if self.kind == "fusion": return {"kind": "fusion", "required_card_ids": list(self.materials), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": True, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
+        if self.kind == "fusion": return {"kind": "fusion", "required_card_ids": list(self.materials), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": bool(self.materials), "min_materials": len(self.materials) if self.materials else 2, "max_materials": len(self.materials) if self.materials else 4, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
         if self.kind == "ritual": return {"kind": "ritual", "min_stars": int(self.ritual_cost), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": False, "material_destination": "graveyard", "source_selector": {"zone": "hand", "card_kind": "ritual"}, "source_method": "ritual", "enabler": {"card_kinds": ["spell", "effect"]}}
         if self.kind == "legendary": return {"kind": "legendary", "source_zones": ["hand", "graveyard"], "source_selector": {"zone": ["hand", "graveyard"], "card_kind": "legendary"}, "source_method": "legendary_special", "special": True, "enabler": {"card_kinds": ["spell", "effect"]}}
         return {}
@@ -9643,7 +9865,7 @@ class CardEffectsScene(Scene):
         cost_count = max(1, self.integer(self.cost_count.value, 1))
         if self.cost_kind in ["discard", "tribute"]: costs = [{"kind": self.cost_kind, "count": cost_count, "select": {"side": "self", "zone": "hand" if self.cost_kind == "discard" else "monster", "count": cost_count}}]
         elif self.cost_kind == "pay_hp": costs = [{"kind": "pay_hp", "amount": max(0, amount)}]
-        return {"id": effect_id, "trigger": trigger, "window": {"phase": self.phase, "event": trigger}, "when": [self.condition.value.strip()] if self.condition.value.strip() else [], "cost": costs, "select": selector, "targets": targets, "actions": [{"name": action, "amount": amount, "target": target}], "optional": self.optional, "once": self.once, "speed": self.speed, "notify": {"kind": "yes_no", "text": "Activate this effect?", "options": ["yes", "no"]} if self.optional else {}}
+        return {"id": effect_id, "trigger": trigger, "window": {"phase": self.phase, "event": trigger}, "conditions": [self.condition.value.strip()] if self.condition.value.strip() else [], "cost": costs, "selector": selector, "targets": targets, "actions": [{"name": action, "amount": amount, "target": target}], "optional": self.optional, "once": self.once, "speed": self.speed, "notify": {"kind": "yes_no", "text": "Activate this effect?", "options": ["yes", "no"]} if self.optional else {}}
 
     def save_effect(self):
         raw = self.effect_payload()
@@ -10232,6 +10454,7 @@ class TeamDuelScene(Scene):
         elif format_name == "TEAMvTEAM":
             opponent_team = app.store.teams.get(self.target_id, opponent_team)
         self.engine = TeamDuelEngine(app.store, player_team=player_team, opponent_team=opponent_team, format_name=format_name, starter=starter, reserved=reserved)
+        if self.engine.finished and not self.engine.current and self.engine.events: app.notify(self.engine.events[-1])
         self.timer = 0.0
         self.buttons = [Button((650, 530, 110, 38), "BACK", lambda: self.app.pop())]
 

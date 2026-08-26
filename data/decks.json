@@ -116,7 +116,9 @@
       "solar_burst",
       "sunlit_field",
       "sky_archer",
-      "ritual_warden"
+      "ritual_warden",
+      "fusion_catalyst",
+      "ritual_convergence"
     ],
     "fusion_cards": [
       "ember_chimera",
@@ -456,7 +458,9 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "fusion_catalyst",
+      "ritual_convergence"
     ],
     "fusion_cards": [
       "ember_chimera",
@@ -517,7 +521,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "ritual_convergence"
     ],
     "fusion_cards": [
       "ember_chimera"
@@ -577,7 +582,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "ritual_convergence"
     ],
     "fusion_cards": [
       "ember_chimera"
@@ -637,7 +643,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "ritual_convergence"
     ],
     "fusion_cards": [
       "ember_chimera"
@@ -697,7 +704,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "fusion_catalyst"
     ],
     "fusion_cards": [
       "ember_chimera"
@@ -757,7 +765,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "fusion_catalyst"
     ],
     "fusion_cards": [
       "ember_chimera"
@@ -817,7 +826,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "ritual_convergence"
     ],
     "fusion_cards": [
       "ember_chimera"
@@ -877,7 +887,8 @@
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "fusion_catalyst"
     ],
     "fusion_cards": [
       "ember_chimera"

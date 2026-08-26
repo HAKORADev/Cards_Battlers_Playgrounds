@@ -87,10 +87,12 @@
     },
     "rules": {
       "path": "data/rules.json",
-      "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8-9:3, 10+:authored-special-only",
+      "normal_tribute_tiers": "1-4:0, 5-6:1, 7:2, 8:2-or-3, 9:3, 10+:authored-special-only",
       "fusion_source": "extra",
       "ritual_source": "hand",
-      "fusion_and_ritual_are_distinct": true
+      "fusion_and_ritual_are_distinct": true,
+      "fusion_material_bounds": [2, 4],
+      "level_8_tribute_counts": [2, 3]
     },
     "watching": {
       "house_player": "the participant recorded in accepted_by/house_player when the request is accepted",
@@ -155,6 +157,7 @@
         "learning_policy",
         "state_rules",
         "deck_id",
+        "deck_slots",
         "media_folder",
         "logic_graph"
       ],
@@ -690,7 +693,10 @@
         "card_kinds": "optional allowed enabler card kinds",
         "effect_ids": "optional exact authored enabler effect IDs"
       },
-      "required_count": "exact material count for authored tribute procedures; normal tribute tiers are loaded from data/rules.json",
+      "required_count": "base material count for authored tribute procedures; normal tribute tiers are loaded from data/rules.json",
+      "allowed_counts": "authored allowed Tribute counts, including Level 8 [2,3]",
+      "min_materials": "minimum Fusion materials, bounded to 2..4",
+      "max_materials": "maximum Fusion materials, bounded to 2..4",
       "costs": "ordered reusable cost objects applied before material selection"
     }
   },

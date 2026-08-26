@@ -2,5 +2,30 @@
   "schema": 2,
   "category": "world_collection",
   "id": "card_discoveries",
-  "value": []
+  "value": [
+    {
+      "viewer": "rival_echo",
+      "card": "trio_mysterio_card_02",
+      "source": "trio_mysterio",
+      "owner": "trio_mysterio",
+      "context": {
+        "team": "trio_team",
+        "trigger": "team_win",
+        "distribution_sequence": 1
+      },
+      "sim_time": 0.0
+    },
+    {
+      "viewer": "rival_echo",
+      "card": "trio_mysterio_card_05",
+      "source": "trio_mysterio",
+      "owner": "mystery_arc",
+      "context": {
+        "team": "trio_team",
+        "trigger": "team_win",
+        "distribution_sequence": 3
+      },
+      "sim_time": 0.0
+    }
+  ]
 }

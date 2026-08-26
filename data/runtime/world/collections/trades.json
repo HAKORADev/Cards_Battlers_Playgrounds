@@ -2,5 +2,155 @@
   "schema": 2,
   "category": "world_collection",
   "id": "trades",
-  "value": []
+  "value": [
+    {
+      "id": "trade_1787704349459_1",
+      "creator": "aqua_scribe",
+      "recipient": "coral_scout",
+      "offered_cards": [
+        "archive_signal"
+      ],
+      "requested_cards": [
+        "tide_mender"
+      ],
+      "requested_family": "",
+      "requested_kind": "",
+      "intent": "card_trade",
+      "relationship": "stranger",
+      "state": "canceled",
+      "parent_id": "",
+      "chain_depth": 0,
+      "created": 1787704349.459834,
+      "created_sim_time": 29.9,
+      "expires": 10829.9,
+      "expires_sim_time": 10829.9,
+      "history": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 29.9,
+          "time": 1787704349.4598348
+        },
+        {
+          "actor": "coral_scout",
+          "action": "canceled",
+          "status": "canceled",
+          "sim_time": 59.9,
+          "time": 1787704349.4799385
+        }
+      ],
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 29.9
+        },
+        {
+          "status": "canceled",
+          "actor": "coral_scout",
+          "action": "canceled",
+          "sim_time": 59.9
+        }
+      ],
+      "ownership_transferred": false,
+      "next_decision_sim_time": 89.9
+    },
+    {
+      "id": "trade_1787704349480_2",
+      "creator": "aqua_scribe",
+      "recipient": "coral_scout",
+      "offered_cards": [
+        "archive_signal"
+      ],
+      "requested_cards": [
+        "tide_mender"
+      ],
+      "requested_family": "",
+      "requested_kind": "",
+      "intent": "card_trade",
+      "relationship": "stranger",
+      "state": "canceled",
+      "parent_id": "",
+      "chain_depth": 0,
+      "created": 1787704349.480269,
+      "created_sim_time": 59.9,
+      "expires": 10859.9,
+      "expires_sim_time": 10859.9,
+      "history": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 59.9,
+          "time": 1787704349.48027
+        },
+        {
+          "actor": "coral_scout",
+          "action": "canceled",
+          "status": "canceled",
+          "sim_time": 150.0,
+          "time": 1787704349.4976246
+        }
+      ],
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 59.9
+        },
+        {
+          "status": "canceled",
+          "actor": "coral_scout",
+          "action": "canceled",
+          "sim_time": 150.0
+        }
+      ],
+      "ownership_transferred": false,
+      "next_decision_sim_time": 180.0
+    },
+    {
+      "id": "trade_1787704349497_3",
+      "creator": "aqua_scribe",
+      "recipient": "coral_scout",
+      "offered_cards": [
+        "archive_signal"
+      ],
+      "requested_cards": [
+        "tide_mender"
+      ],
+      "requested_family": "",
+      "requested_kind": "",
+      "intent": "card_trade",
+      "relationship": "stranger",
+      "state": "open",
+      "parent_id": "",
+      "chain_depth": 0,
+      "created": 1787704349.4979656,
+      "created_sim_time": 150.0,
+      "expires": 10950.0,
+      "expires_sim_time": 10950.0,
+      "history": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 150.0,
+          "time": 1787704349.4979663
+        }
+      ],
+      "events": [
+        {
+          "actor": "aqua_scribe",
+          "action": "opened",
+          "status": "open",
+          "sim_time": 150.0
+        }
+      ],
+      "ownership_transferred": false,
+      "next_decision_sim_time": 165.0
+    }
+  ]
 }

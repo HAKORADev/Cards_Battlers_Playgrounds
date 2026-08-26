@@ -3,8 +3,6 @@
   "id": "aqua_archives",
   "category": "teams",
   "state": {
-    "history": [],
-    "team_effect": {},
     "behavior_weights": {
       "coordination": 5.0,
       "risk": 5.0,
@@ -12,18 +10,1121 @@
       "switching": 5.0,
       "adaptation": 5.0
     },
-    "formation_state": "complete",
-    "effect_locked": false,
-    "formation_requests": [],
-    "relationship": "neutral",
-    "knowledge_state": {},
-    "learning_state": {},
     "rank": 1,
+    "formation_requests": [],
+    "history": [
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_oath"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702760.5822856
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702760.8182452
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702761.0990822
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702761.3602114
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "repair_matrix"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702761.7057269
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_oath"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702761.9321647
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "ember_drone"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702762.1933324
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 21,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702762.6337879
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702762.8238223
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 14,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702763.1504002
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 16,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702763.5182202
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702763.770648
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702764.027546
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702764.2405322
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702764.5188308
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 16,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702764.8945637
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "repair_matrix"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702765.1665902
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702765.4961853
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 15,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "garden_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702765.8160367
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702766.0477407
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 25,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702766.581694
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mirror_trap"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702766.8049989
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mirror_force"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702767.061849
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 19,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702767.466218
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "echo_bolt"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702767.680825
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "ember_sage",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 9,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702807.763235
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "pearl_guard",
+        "loser": "iron_mason",
+        "result": "win",
+        "turns": 17,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "copper_gryphon"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702808.6719544
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "moss_keeper",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 13,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702809.370155
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_oath"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702809.878525
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "ember_sage",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_fridge"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702810.0966759
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "pearl_guard",
+        "loser": "iron_mason",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "tide_oracle"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702810.7238495
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "moss_keeper",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sunlit_field"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702811.0260458
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 12,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702811.383032
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "ember_sage",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 7,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "void_titan"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702811.5905657
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "iron_mason",
+        "loser": "pearl_guard",
+        "result": "win",
+        "turns": 8,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mirror_force"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702812.0932944
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "coral_scout",
+        "loser": "moss_keeper",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "moonlit_drake"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702812.3326242
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 17,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702812.7325916
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "ember_sage",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 14,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "tide_mender"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702813.0201077
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "iron_mason",
+        "loser": "pearl_guard",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "mystical_space_typhoon"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702813.545245
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "moss_keeper",
+        "loser": "coral_scout",
+        "result": "win",
+        "turns": 10,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "man_eater_bug"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702813.8176064
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "rival_echo",
+        "loser": "aqua_scribe",
+        "result": "win",
+        "turns": 11,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "sky_archer"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702814.1089313
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "ember_sage",
+        "result": "win",
+        "turns": 1,
+        "reason": "health",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "health",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787702880.3798046
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_fridge"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787703405.39941
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-instant-win",
+        "mode": "timed",
+        "place": "neon_playground",
+        "finisher": "timed-instant-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "iron_fridge"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787703405.5861125
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "gamble",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787703405.7533202
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "current",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "aqua_sentinel"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787703792.0647495
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "timed-instant-win",
+        "mode": "timed",
+        "place": "neon_playground",
+        "finisher": "timed-instant-win",
+        "deck_ids": {},
+        "transferred_cards": [
+          "cinder_knight"
+        ],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787703792.2577748
+      },
+      {
+        "event": "duel_completed",
+        "scope": "team",
+        "winner": "aqua_scribe",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "test-win",
+        "mode": "gamble",
+        "place": "neon_playground",
+        "finisher": "test-win",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "aqua_scribe",
+          "pearl_guard",
+          "coral_scout"
+        ],
+        "time": 1787703792.4482882
+      }
+    ],
+    "learning_state": {},
+    "effect_locked": false,
+    "team_effect": {},
+    "relationship": "neutral",
     "experience": {
       "duels": 0,
       "wins": 0,
       "losses": 0,
       "draws": 0
-    }
+    },
+    "formation_state": "complete",
+    "knowledge_state": {}
   }
 }

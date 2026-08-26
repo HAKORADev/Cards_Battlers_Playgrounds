@@ -2,5 +2,237 @@
   "schema": 2,
   "category": "world_collection",
   "id": "histories",
-  "value": []
+  "value": [
+    {
+      "scope": "duel",
+      "entity_id": "trio_mysterio",
+      "event": "duel_completed",
+      "payload": {
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.5131688
+    },
+    {
+      "scope": "character",
+      "entity_id": "trio_mysterio",
+      "event": "duel_completed",
+      "payload": {
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.5131772
+    },
+    {
+      "scope": "character",
+      "entity_id": "rival_echo",
+      "event": "duel_completed",
+      "payload": {
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.5132096
+    },
+    {
+      "scope": "team",
+      "entity_id": "the_duelers",
+      "event": "duel_completed",
+      "payload": {
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "rival_echo",
+          "ember_sage",
+          "tide_courier"
+        ]
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.513243
+    },
+    {
+      "scope": "team",
+      "entity_id": "trio_team",
+      "event": "duel_completed",
+      "payload": {
+        "winner": "trio_mysterio",
+        "loser": "rival_echo",
+        "result": "win",
+        "turns": 1,
+        "reason": "distribution-trigger-test",
+        "mode": "current",
+        "place": "",
+        "finisher": "distribution-trigger-test",
+        "deck_ids": {},
+        "transferred_cards": [],
+        "sim_time": 0.0,
+        "members": [
+          "trio_mysterio",
+          "mystery_veil",
+          "mystery_arc"
+        ]
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.5132513
+    },
+    {
+      "scope": "character",
+      "entity_id": "rival_echo",
+      "event": "trio_card_received",
+      "payload": {
+        "card": "trio_mysterio_card_02",
+        "giver": "trio_mysterio",
+        "team": "trio_team",
+        "trigger": "team_win"
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.5134432
+    },
+    {
+      "scope": "character",
+      "entity_id": "trio_mysterio",
+      "event": "trio_card_given",
+      "payload": {
+        "card": "trio_mysterio_card_02",
+        "recipient": "rival_echo",
+        "team": "trio_team",
+        "trigger": "team_win"
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.5134537
+    },
+    {
+      "scope": "character",
+      "entity_id": "rival_echo",
+      "event": "trio_card_received",
+      "payload": {
+        "card": "trio_mysterio_card_05",
+        "giver": "mystery_arc",
+        "team": "trio_team",
+        "trigger": "team_win"
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.513571
+    },
+    {
+      "scope": "character",
+      "entity_id": "mystery_arc",
+      "event": "trio_card_given",
+      "payload": {
+        "card": "trio_mysterio_card_05",
+        "recipient": "rival_echo",
+        "team": "trio_team",
+        "trigger": "team_win"
+      },
+      "sim_time": 0.0,
+      "time": 1787704341.513597
+    },
+    {
+      "scope": "character",
+      "entity_id": "aqua_scribe",
+      "event": "trade_opened",
+      "payload": {
+        "trade_id": "trade_1787704349459_1",
+        "recipient": "coral_scout",
+        "relationship": "stranger",
+        "state": "open"
+      },
+      "sim_time": 29.9,
+      "time": 1787704349.4598548
+    },
+    {
+      "scope": "character",
+      "entity_id": "trio_mysterio",
+      "event": "meaningful_activity",
+      "payload": {
+        "state": "active"
+      },
+      "sim_time": 30.0,
+      "time": 1787704349.4785066
+    },
+    {
+      "scope": "character",
+      "entity_id": "coral_scout",
+      "event": "trade_canceled",
+      "payload": {
+        "trade_id": "trade_1787704349459_1"
+      },
+      "sim_time": 59.9,
+      "time": 1787704349.4799414
+    },
+    {
+      "scope": "character",
+      "entity_id": "aqua_scribe",
+      "event": "trade_opened",
+      "payload": {
+        "trade_id": "trade_1787704349480_2",
+        "recipient": "coral_scout",
+        "relationship": "stranger",
+        "state": "open"
+      },
+      "sim_time": 59.9,
+      "time": 1787704349.4802847
+    },
+    {
+      "scope": "character",
+      "entity_id": "coral_scout",
+      "event": "trade_canceled",
+      "payload": {
+        "trade_id": "trade_1787704349480_2"
+      },
+      "sim_time": 150.0,
+      "time": 1787704349.497628
+    },
+    {
+      "scope": "character",
+      "entity_id": "aqua_scribe",
+      "event": "trade_opened",
+      "payload": {
+        "trade_id": "trade_1787704349497_3",
+        "recipient": "coral_scout",
+        "relationship": "stranger",
+        "state": "open"
+      },
+      "sim_time": 150.0,
+      "time": 1787704349.4979806
+    }
+  ]
 }

@@ -3,124 +3,18 @@
   "id": "moss_keeper",
   "category": "characters",
   "state": {
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
-    "availability": "free",
-    "current_place": "",
-    "learned_opponents": {},
-    "memories": [],
-    "goals": [
-      {
-        "id": "master_plant",
-        "kind": "master_family",
-        "target": "plant",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 1.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 1.0,
-      "memory": 5.0,
-      "inference": 5.0,
-      "planning": 5.0,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 0.0,
-        "machine": 0.0,
-        "fiend": 0.0,
-        "spell": 0.0,
-        "trap": 0.0,
-        "god_of_cards": 0.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "spellcaster": 0.0,
-        "insect": 0.0,
-        "plant": 2.0,
-        "beast": 0.0,
-        "dragon": 0.0,
-        "zombie": 0.0,
-        "thunder": 0.0,
-        "winged_beast": 0.0,
-        "rock": 0.0
-      },
-      "card_kind_weights": {
-        "normal": 0.0,
-        "effect": 0.0,
-        "spell": 0.0,
-        "field": 0.0,
-        "trap": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "legendary": 0.0
-      },
-      "subtype_weights": {},
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      },
-      "duel": {
-        "summon_bias": 1.0,
-        "set_bias": 1.0,
-        "activation_bias": 1.0,
-        "removal_bias": 1.0,
-        "defense_bias": 1.0,
-        "attack_bias": 1.0,
-        "trap_threshold": 0.0
-      }
-    },
-    "cooldown_until": 0.0,
+    "idle_elapsed": 0.0,
     "movement_progress": 0.0,
     "enemies": [],
-    "activity": "idle",
-    "mood_state": {
-      "current": "neutral",
-      "intensity": 0.0
+    "rank": 4,
+    "availability": "free",
+    "current_place": "",
+    "persona_state": {
+      "reputation": 0.8,
+      "trust": {},
+      "confidence": 1.6
     },
-    "learning_state": {
-      "observations": 0,
-      "updates": 0,
-      "last_update": 0.0
-    },
-    "world_status": "in_playground",
+    "borrowed_cards": [],
     "library_cards": [
       "garden_sentinel",
       "tide_oracle",
@@ -155,35 +49,284 @@
       "iron_oath",
       "aurora_bridge",
       "copper_gryphon",
-      "moonlit_drake",
       "quiet_alchemist",
       "grave_bloom",
       "clockwork_mite",
       "thunder_kite",
       "river_colossus",
-      "sunforge_guard"
+      "sunforge_guard",
+      "sky_archer",
+      "sunlit_field",
+      "man_eater_bug"
     ],
-    "rank": 1,
+    "allies": [],
+    "learned_opponents": {
+      "coral_scout": 4
+    },
+    "out_of_game_until": 0.0,
     "experience": {
-      "duels": 0,
-      "wins": 0,
+      "duels": 4,
+      "wins": 3,
       "losses": 0,
       "draws": 0,
-      "techniques": {}
+      "techniques": {
+        "coral_scout": {
+          "observed_cards": [
+            "sunlit_field",
+            "night_lure",
+            "mirror_force",
+            "tide_oracle",
+            "iron_fridge",
+            "ember_drone",
+            "clockwork_mite",
+            "moonlit_drake",
+            "quiet_alchemist",
+            "dark_hole",
+            "man_eater_bug",
+            "grave_bloom",
+            "aqua_sentinel",
+            "archive_signal",
+            "sky_archer",
+            "repair_matrix",
+            "sunforge_guard",
+            "cinder_knight",
+            "storm_lancer",
+            "mystical_space_typhoon"
+          ],
+          "last_result": "win",
+          "turns": 10,
+          "updated": 1787702813.7561815
+        }
+      },
+      "losss": 1
     },
-    "history": [],
-    "learned_cards": {},
-    "borrowed_cards": [],
-    "mood": "neutral",
-    "out_of_game_until": 0.0,
+    "mood_state": {
+      "current": "neutral",
+      "intensity": 0.0
+    },
+    "learned_cards": {
+      "sunlit_field": 72,
+      "night_lure": 65,
+      "mirror_force": 102,
+      "tide_oracle": 65,
+      "iron_fridge": 66,
+      "ember_drone": 78,
+      "clockwork_mite": 73,
+      "moonlit_drake": 71,
+      "quiet_alchemist": 59,
+      "dark_hole": 91,
+      "man_eater_bug": 40,
+      "grave_bloom": 16,
+      "aqua_sentinel": 52,
+      "archive_signal": 52,
+      "sky_archer": 40,
+      "repair_matrix": 72,
+      "sunforge_guard": 28,
+      "cinder_knight": 16,
+      "storm_lancer": 4,
+      "mystical_space_typhoon": 45
+    },
+    "relationship_history": [],
     "destination": "",
+    "memories": [
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "moss_keeper",
+          "loser": "coral_scout",
+          "result": "win",
+          "turns": 13,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sky_archer"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "moss_keeper",
+          "loser": "coral_scout",
+          "result": "win",
+          "turns": 12,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "sunlit_field"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "coral_scout",
+          "loser": "moss_keeper",
+          "result": "win",
+          "turns": 10,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "moonlit_drake"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "duel_completed",
+        "payload": {
+          "winner": "moss_keeper",
+          "loser": "coral_scout",
+          "result": "win",
+          "turns": 10,
+          "reason": "health",
+          "mode": "current",
+          "place": "neon_playground",
+          "finisher": "health",
+          "deck_ids": {},
+          "transferred_cards": [
+            "man_eater_bug"
+          ],
+          "sim_time": 0.0
+        },
+        "sim_time": 0.0
+      }
+    ],
+    "idle_cue_count": 5,
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 2.4499999999999997,
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 0.0,
+        "machine": 0.0,
+        "fiend": 0.0,
+        "spell": 0.0,
+        "trap": 0.0,
+        "god_of_cards": 0.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 2.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0,
+        "pyro": 0.0
+      },
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {},
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      }
+    },
+    "goals": [
+      {
+        "id": "master_plant",
+        "kind": "master_family",
+        "target": "plant",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 4.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349450_5",
+        "to": "trio_mysterio",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4516387
+      }
+    ],
+    "world_status": "in_playground",
+    "activity": "idle",
+    "cooldown_until": 0.0,
+    "learning_state": {
+      "observations": 11860,
+      "updates": 4,
+      "last_update": 1787702813.7551234
+    },
+    "relationship": "stranger",
+    "mood": "neutral",
     "knowledge_state": {
       "cards": {},
       "opponents": {},
       "effects": {}
-    },
-    "relationship_history": [],
-    "allies": [],
-    "relationship": "stranger"
+    }
   }
 }
