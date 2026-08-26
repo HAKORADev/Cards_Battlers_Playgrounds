@@ -213,6 +213,42 @@ def draw_vertical_label(surface, text, rect, font, color):
     for index, character in enumerate(characters): draw_text(surface, character, (rect.centerx, start_y + index * (line_height + gap)), font, color, "center")
 
 
+def draw_scroller(surface, assets, rect, orientation, value, maximum):
+    rect = pygame.Rect(rect)
+    horizontal = orientation == "horizontal"
+    arrow_extent = max(16, min(rect.height if horizontal else rect.width, 28))
+    track = rect.copy()
+    if horizontal: track.x += arrow_extent; track.width = max(1, track.width - arrow_extent * 2)
+    else: track.y += arrow_extent; track.height = max(1, track.height - arrow_extent * 2)
+    base = assets.image("ui/scroller/rectangle", track.size)
+    if base:
+        if horizontal: base = pygame.transform.rotate(base, 90)
+        ui_blit(surface, base, track.topleft)
+    fraction = 0.0 if maximum <= 0 else clamp(float(value) / float(maximum), 0.0, 1.0)
+    thumb_ratio = 0.34 if maximum > 0 else 1.0
+    if horizontal:
+        thumb_width = max(arrow_extent, int(track.width * thumb_ratio))
+        thumb_x = track.x + int(max(0, track.width - thumb_width) * fraction)
+        thumb = assets.image("ui/scroller/rectangle", (thumb_width, track.height))
+        if thumb:
+            thumb = pygame.transform.rotate(thumb, 90)
+            ui_blit(surface, thumb, (thumb_x, track.y))
+        arrow_names = [("left-triangle", pygame.Rect(rect.x, rect.y, arrow_extent, rect.height), value > 0), ("right-triangle", pygame.Rect(rect.right - arrow_extent, rect.y, arrow_extent, rect.height), value < maximum)]
+    else:
+        thumb_height = max(arrow_extent, int(track.height * thumb_ratio))
+        thumb_y = track.y + int(max(0, track.height - thumb_height) * fraction)
+        thumb = assets.image("ui/scroller/rectangle", (track.width, thumb_height))
+        if thumb: ui_blit(surface, thumb, (track.x, thumb_y))
+        arrow_names = [("up-triangle", pygame.Rect(rect.x, rect.y, rect.width, arrow_extent), value > 0), ("down-triangle", pygame.Rect(rect.x, rect.bottom - arrow_extent, rect.width, arrow_extent), value < maximum)]
+    for name, arrow_rect, enabled in arrow_names:
+        arrow = assets.image("ui/scroller/" + name, arrow_rect.size)
+        if arrow and not enabled:
+            arrow = arrow.copy()
+            arrow.set_alpha(70)
+        if arrow: ui_blit(surface, arrow, arrow_rect.topleft)
+    return arrow_names, track
+
+
 def button_audio_kind(label):
     return "out" if str(label).strip().upper() in {"BACK", "EXIT", "EXIT WATCH", "CANCEL", "NO", "CLOSE", "RETURN", "PREV", "QUIT"} else "in"
 
@@ -8730,6 +8766,7 @@ class DuelScene(Scene):
         self.card_list_popup = None
         self.card_list_rects = []
         self.card_list_scroll_rects = []
+        self.card_list_scroller_rect = None
         self.card_list_offset = 0
         self.card_info_overlay = None
         self.player_deck_rect = self.layout.side_well_rect("player", "deck")
@@ -8863,7 +8900,14 @@ class DuelScene(Scene):
                         self.shift_card_list(amount)
                         self.app.assets.play_button_sound("in", self.app.store.save_data.get("sfx", True))
                         return
-            return
+                if self.card_list_scroller_rect and self.card_list_scroller_rect.collidepoint(event.pos):
+                    cards = list(self.card_list_popup.get("cards", []))
+                    maximum = max(0, len(cards) - 7)
+                    if maximum:
+                        ratio = clamp((event.pos[0] - self.card_list_scroller_rect.x) / max(1, self.card_list_scroller_rect.width), 0.0, 1.0)
+                        self.card_list_offset = int(round(ratio * maximum))
+                        self.app.assets.play_button_sound("in", self.app.store.save_data.get("sfx", True))
+                return
         if event.button == 1:
             for side in ["opponent", "player"]:
                 fusion_rect = self.layout.side_well_rect(side, "extra")
@@ -9514,6 +9558,7 @@ class DuelScene(Scene):
     def draw_card_list_popup(self, surface):
         self.card_list_rects = []
         self.card_list_scroll_rects = []
+        self.card_list_scroller_rect = None
         if not self.card_list_popup: return
         panel = self.layout.card_list_popup_rect()
         rounded(surface, panel, (45, 42, 49), (255, 255, 255), 12, 2)
@@ -9526,15 +9571,12 @@ class DuelScene(Scene):
             rect = pygame.Rect(start_x + index * gap, panel.y + 32, card_width, card_height)
             self.card_list_rects.append((rect, item, True))
             render_engine_card(surface, rect, item.card, self.app.assets, self.app.store.media, True, False, item.variant, True)
-        if self.card_list_offset > 0:
-            rect = pygame.Rect(panel.x + 7, panel.y + 68, 24, 28)
-            self.card_list_scroll_rects.append((rect, -1))
-            draw_asset_button(surface, self.app.assets, rect, "<", self.app.assets.font(10, True))
-        if self.card_list_offset + len(visible) < len(cards):
-            rect = pygame.Rect(panel.right - 31, panel.y + 68, 24, 28)
-            self.card_list_scroll_rects.append((rect, 1))
-            draw_asset_button(surface, self.app.assets, rect, ">", self.app.assets.font(10, True))
-        if cards: draw_text(surface, f"{self.card_list_offset + 1}-{self.card_list_offset + len(visible)} / {len(cards)}   ←/→ or wheel", (panel.centerx, panel.bottom - 14), self.app.assets.font(7, True), COLORS["gold"], "center")
+        if cards:
+            scroller = pygame.Rect(panel.x + 12, panel.bottom - 46, panel.width - 24, 28)
+            self.card_list_scroller_rect = scroller
+            arrow_rects, track = draw_scroller(surface, self.app.assets, scroller, "horizontal", self.card_list_offset, max(0, len(cards) - 7))
+            self.card_list_scroll_rects.extend([(arrow_rects[0][1], -1), (arrow_rects[1][1], 1)])
+            draw_text(surface, f"{self.card_list_offset + 1}-{self.card_list_offset + len(visible)} / {len(cards)}   ←/→ or wheel", (panel.centerx, panel.bottom - 9), self.app.assets.font(7, True), COLORS["gold"], "center")
 
     def draw_interactions(self, surface):
         self.interaction_rects = []
