@@ -1,0 +1,772 @@
+{
+  "schema": 1,
+  "profile": "duel/white",
+  "source_font": "DejaVuSansMono-Bold.ttf",
+  "reference_size": 128,
+  "glyph_count": 109,
+  "glyphs": {
+    "a-small": {
+      "char": "a",
+      "file": "a-small.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1428
+    },
+    "b-small": {
+      "char": "b",
+      "file": "b-small.png",
+      "width": 98,
+      "height": 119,
+      "bytes": 1402
+    },
+    "c-small": {
+      "char": "c",
+      "file": "c-small.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1234
+    },
+    "d-small": {
+      "char": "d",
+      "file": "d-small.png",
+      "width": 98,
+      "height": 119,
+      "bytes": 1407
+    },
+    "e-small": {
+      "char": "e",
+      "file": "e-small.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1405
+    },
+    "f-small": {
+      "char": "f",
+      "file": "f-small.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 531
+    },
+    "g-small": {
+      "char": "g",
+      "file": "g-small.png",
+      "width": 98,
+      "height": 119,
+      "bytes": 1836
+    },
+    "h-small": {
+      "char": "h",
+      "file": "h-small.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 740
+    },
+    "i-small": {
+      "char": "i",
+      "file": "i-small.png",
+      "width": 98,
+      "height": 124,
+      "bytes": 278
+    },
+    "j-small": {
+      "char": "j",
+      "file": "j-small.png",
+      "width": 98,
+      "height": 151,
+      "bytes": 617
+    },
+    "k-small": {
+      "char": "k",
+      "file": "k-small.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1183
+    },
+    "l-small": {
+      "char": "l",
+      "file": "l-small.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 580
+    },
+    "m-small": {
+      "char": "m",
+      "file": "m-small.png",
+      "width": 98,
+      "height": 92,
+      "bytes": 836
+    },
+    "n-small": {
+      "char": "n",
+      "file": "n-small.png",
+      "width": 98,
+      "height": 92,
+      "bytes": 698
+    },
+    "o-small": {
+      "char": "o",
+      "file": "o-small.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1424
+    },
+    "p-small": {
+      "char": "p",
+      "file": "p-small.png",
+      "width": 98,
+      "height": 119,
+      "bytes": 1401
+    },
+    "q-small": {
+      "char": "q",
+      "file": "q-small.png",
+      "width": 98,
+      "height": 119,
+      "bytes": 1441
+    },
+    "r-small": {
+      "char": "r",
+      "file": "r-small.png",
+      "width": 98,
+      "height": 92,
+      "bytes": 625
+    },
+    "s-small": {
+      "char": "s",
+      "file": "s-small.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1417
+    },
+    "t-small": {
+      "char": "t",
+      "file": "t-small.png",
+      "width": 98,
+      "height": 110,
+      "bytes": 527
+    },
+    "u-small": {
+      "char": "u",
+      "file": "u-small.png",
+      "width": 98,
+      "height": 92,
+      "bytes": 695
+    },
+    "v-small": {
+      "char": "v",
+      "file": "v-small.png",
+      "width": 98,
+      "height": 90,
+      "bytes": 1248
+    },
+    "w-small": {
+      "char": "w",
+      "file": "w-small.png",
+      "width": 98,
+      "height": 90,
+      "bytes": 1360
+    },
+    "x-small": {
+      "char": "x",
+      "file": "x-small.png",
+      "width": 98,
+      "height": 90,
+      "bytes": 1278
+    },
+    "y-small": {
+      "char": "y",
+      "file": "y-small.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1703
+    },
+    "z-small": {
+      "char": "z",
+      "file": "z-small.png",
+      "width": 98,
+      "height": 90,
+      "bytes": 671
+    },
+    "a-capital": {
+      "char": "A",
+      "file": "a-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1399
+    },
+    "b-capital": {
+      "char": "B",
+      "file": "b-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1332
+    },
+    "c-capital": {
+      "char": "C",
+      "file": "c-capital.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1457
+    },
+    "d-capital": {
+      "char": "D",
+      "file": "d-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1199
+    },
+    "e-capital": {
+      "char": "E",
+      "file": "e-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 287
+    },
+    "f-capital": {
+      "char": "F",
+      "file": "f-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 280
+    },
+    "g-capital": {
+      "char": "G",
+      "file": "g-capital.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1454
+    },
+    "h-capital": {
+      "char": "H",
+      "file": "h-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 264
+    },
+    "i-capital": {
+      "char": "I",
+      "file": "i-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 258
+    },
+    "j-capital": {
+      "char": "J",
+      "file": "j-capital.png",
+      "width": 98,
+      "height": 115,
+      "bytes": 774
+    },
+    "k-capital": {
+      "char": "K",
+      "file": "k-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1392
+    },
+    "l-capital": {
+      "char": "L",
+      "file": "l-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 248
+    },
+    "m-capital": {
+      "char": "M",
+      "file": "m-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 860
+    },
+    "n-capital": {
+      "char": "N",
+      "file": "n-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 897
+    },
+    "o-capital": {
+      "char": "O",
+      "file": "o-capital.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1743
+    },
+    "p-capital": {
+      "char": "P",
+      "file": "p-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 912
+    },
+    "q-capital": {
+      "char": "Q",
+      "file": "q-capital.png",
+      "width": 98,
+      "height": 133,
+      "bytes": 1904
+    },
+    "r-capital": {
+      "char": "R",
+      "file": "r-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1251
+    },
+    "s-capital": {
+      "char": "S",
+      "file": "s-capital.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1723
+    },
+    "t-capital": {
+      "char": "T",
+      "file": "t-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 252
+    },
+    "u-capital": {
+      "char": "U",
+      "file": "u-capital.png",
+      "width": 98,
+      "height": 115,
+      "bytes": 883
+    },
+    "v-capital": {
+      "char": "V",
+      "file": "v-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1328
+    },
+    "w-capital": {
+      "char": "W",
+      "file": "w-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1428
+    },
+    "x-capital": {
+      "char": "X",
+      "file": "x-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1756
+    },
+    "y-capital": {
+      "char": "Y",
+      "file": "y-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1248
+    },
+    "z-capital": {
+      "char": "Z",
+      "file": "z-capital.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 780
+    },
+    "0": {
+      "char": "0",
+      "file": "0.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1914
+    },
+    "1": {
+      "char": "1",
+      "file": "1.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 432
+    },
+    "2": {
+      "char": "2",
+      "file": "2.png",
+      "width": 98,
+      "height": 115,
+      "bytes": 1212
+    },
+    "3": {
+      "char": "3",
+      "file": "3.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1640
+    },
+    "4": {
+      "char": "4",
+      "file": "4.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 933
+    },
+    "5": {
+      "char": "5",
+      "file": "5.png",
+      "width": 98,
+      "height": 115,
+      "bytes": 1213
+    },
+    "6": {
+      "char": "6",
+      "file": "6.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1822
+    },
+    "7": {
+      "char": "7",
+      "file": "7.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 1053
+    },
+    "8": {
+      "char": "8",
+      "file": "8.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 2058
+    },
+    "9": {
+      "char": "9",
+      "file": "9.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 1845
+    },
+    "space": {
+      "char": " ",
+      "file": "space.png",
+      "width": 98,
+      "height": 22,
+      "bytes": 88
+    },
+    "plus": {
+      "char": "+",
+      "file": "plus.png",
+      "width": 98,
+      "height": 95,
+      "bytes": 235
+    },
+    "minus": {
+      "char": "-",
+      "file": "minus.png",
+      "width": 98,
+      "height": 66,
+      "bytes": 153
+    },
+    "asterisk": {
+      "char": "*",
+      "file": "asterisk.png",
+      "width": 98,
+      "height": 115,
+      "bytes": 1051
+    },
+    "slash": {
+      "char": "/",
+      "file": "slash.png",
+      "width": 98,
+      "height": 125,
+      "bytes": 1344
+    },
+    "backslash": {
+      "char": "\\",
+      "file": "backslash.png",
+      "width": 98,
+      "height": 125,
+      "bytes": 1303
+    },
+    "equals": {
+      "char": "=",
+      "file": "equals.png",
+      "width": 98,
+      "height": 82,
+      "bytes": 176
+    },
+    "less-than": {
+      "char": "<",
+      "file": "less-than.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1246
+    },
+    "greater-than": {
+      "char": ">",
+      "file": "greater-than.png",
+      "width": 98,
+      "height": 94,
+      "bytes": 1224
+    },
+    "exclamation": {
+      "char": "!",
+      "file": "exclamation.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 301
+    },
+    "question": {
+      "char": "?",
+      "file": "question.png",
+      "width": 98,
+      "height": 115,
+      "bytes": 1071
+    },
+    "period": {
+      "char": ".",
+      "file": "period.png",
+      "width": 98,
+      "height": 43,
+      "bytes": 149
+    },
+    "comma": {
+      "char": ",",
+      "file": "comma.png",
+      "width": 98,
+      "height": 61,
+      "bytes": 453
+    },
+    "colon": {
+      "char": ":",
+      "file": "colon.png",
+      "width": 98,
+      "height": 86,
+      "bytes": 196
+    },
+    "semicolon": {
+      "char": ";",
+      "file": "semicolon.png",
+      "width": 98,
+      "height": 104,
+      "bytes": 504
+    },
+    "apostrophe": {
+      "char": "'",
+      "file": "apostrophe.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 173
+    },
+    "quote": {
+      "char": "\"",
+      "file": "quote.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 177
+    },
+    "parenthesis-open": {
+      "char": "(",
+      "file": "parenthesis-open.png",
+      "width": 98,
+      "height": 134,
+      "bytes": 1215
+    },
+    "parenthesis-close": {
+      "char": ")",
+      "file": "parenthesis-close.png",
+      "width": 98,
+      "height": 134,
+      "bytes": 1188
+    },
+    "bracket-open": {
+      "char": "[",
+      "file": "bracket-open.png",
+      "width": 98,
+      "height": 134,
+      "bytes": 283
+    },
+    "bracket-close": {
+      "char": "]",
+      "file": "bracket-close.png",
+      "width": 98,
+      "height": 134,
+      "bytes": 299
+    },
+    "brace-open": {
+      "char": "{",
+      "file": "brace-open.png",
+      "width": 98,
+      "height": 138,
+      "bytes": 1248
+    },
+    "brace-close": {
+      "char": "}",
+      "file": "brace-close.png",
+      "width": 98,
+      "height": 138,
+      "bytes": 1282
+    },
+    "vertical-bar": {
+      "char": "|",
+      "file": "vertical-bar.png",
+      "width": 98,
+      "height": 148,
+      "bytes": 277
+    },
+    "underscore": {
+      "char": "_",
+      "file": "underscore.png",
+      "width": 98,
+      "height": 50,
+      "bytes": 134
+    },
+    "percent": {
+      "char": "%",
+      "file": "percent.png",
+      "width": 98,
+      "height": 110,
+      "bytes": 1886
+    },
+    "ampersand": {
+      "char": "&",
+      "file": "ampersand.png",
+      "width": 98,
+      "height": 117,
+      "bytes": 2065
+    },
+    "at": {
+      "char": "@",
+      "file": "at.png",
+      "width": 98,
+      "height": 127,
+      "bytes": 2519
+    },
+    "hash": {
+      "char": "#",
+      "file": "hash.png",
+      "width": 98,
+      "height": 111,
+      "bytes": 1141
+    },
+    "dollar": {
+      "char": "$",
+      "file": "dollar.png",
+      "width": 98,
+      "height": 136,
+      "bytes": 1634
+    },
+    "caret": {
+      "char": "^",
+      "file": "caret.png",
+      "width": 98,
+      "height": 113,
+      "bytes": 799
+    },
+    "tilde": {
+      "char": "~",
+      "file": "tilde.png",
+      "width": 98,
+      "height": 72,
+      "bytes": 682
+    },
+    "star": {
+      "char": "★",
+      "file": "star.png",
+      "width": 98,
+      "height": 88,
+      "bytes": 1162
+    },
+    "bullet": {
+      "char": "•",
+      "file": "bullet.png",
+      "width": 98,
+      "height": 90,
+      "bytes": 805
+    },
+    "left-arrow": {
+      "char": "←",
+      "file": "left-arrow.png",
+      "width": 98,
+      "height": 78,
+      "bytes": 361
+    },
+    "right-arrow": {
+      "char": "→",
+      "file": "right-arrow.png",
+      "width": 98,
+      "height": 78,
+      "bytes": 353
+    },
+    "up-arrow": {
+      "char": "↑",
+      "file": "up-arrow.png",
+      "width": 98,
+      "height": 89,
+      "bytes": 536
+    },
+    "down-arrow": {
+      "char": "↓",
+      "file": "down-arrow.png",
+      "width": 98,
+      "height": 89,
+      "bytes": 491
+    },
+    "vertical-scroll": {
+      "char": "↕",
+      "file": "vertical-scroll.png",
+      "width": 98,
+      "height": 89,
+      "bytes": 787
+    },
+    "horizontal-scroll": {
+      "char": "↔",
+      "file": "horizontal-scroll.png",
+      "width": 98,
+      "height": 78,
+      "bytes": 571
+    },
+    "ellipsis": {
+      "char": "…",
+      "file": "ellipsis.png",
+      "width": 98,
+      "height": 43,
+      "bytes": 152
+    },
+    "em-dash": {
+      "char": "—",
+      "file": "em-dash.png",
+      "width": 98,
+      "height": 63,
+      "bytes": 142
+    },
+    "en-dash": {
+      "char": "–",
+      "file": "en-dash.png",
+      "width": 98,
+      "height": 63,
+      "bytes": 142
+    },
+    "scroll-rectangle": {
+      "char": "▣",
+      "file": "scroll-rectangle.png",
+      "width": 148,
+      "height": 148,
+      "bytes": 335
+    },
+    "normal-circle": {
+      "char": "○",
+      "file": "normal-circle.png",
+      "width": 148,
+      "height": 148,
+      "bytes": 826
+    },
+    "red-circle": {
+      "char": "●",
+      "file": "red-circle.png",
+      "width": 98,
+      "height": 98,
+      "bytes": 1298
+    },
+    "blue-circle": {
+      "char": "●",
+      "file": "blue-circle.png",
+      "width": 98,
+      "height": 98,
+      "bytes": 1298
+    }
+  }
+}

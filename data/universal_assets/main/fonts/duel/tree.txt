@@ -1,0 +1,4 @@
+blue/
+red/
+tree.txt
+white/

@@ -206,6 +206,80 @@ def button_audio_kind(label):
     return "out" if str(label).strip().upper() in {"BACK", "EXIT", "EXIT WATCH", "CANCEL", "NO", "CLOSE", "RETURN", "PREV", "QUIT"} else "in"
 
 
+class BitmapFont:
+    def __init__(self, assets, profile, size, bold=False):
+        self.assets = assets
+        self.profile = profile
+        self.size_value = max(1, int(size))
+        self.bold = bool(bold)
+        self.index = assets.font_indexes.get(profile, {})
+        self.by_char = {str(value.get("char", "")): str(value.get("file", "")) for value in self.index.values() if isinstance(value, dict) and value.get("file")}
+        self.cache = {}
+
+    def _filename(self, character):
+        filename = self.by_char.get(character)
+        if filename: return filename
+        return self.by_char.get("?") or "question.png"
+
+    def _source(self, character):
+        filename = self._filename(character)
+        key = Path(filename).with_suffix("").as_posix()
+        return self.assets.image(f"fonts/{self.profile}/{key}")
+
+    def _tinted(self, image, color, size):
+        key = (id(image), tuple(color), tuple(size))
+        cached = self.cache.get(key)
+        if cached is not None: return cached
+        glyph = scaled_image(image, size)
+        white = glyph.copy()
+        white.fill((255, 255, 255), special_flags=pygame.BLEND_RGB_ADD)
+        tinted = pygame.Surface(size, pygame.SRCALPHA)
+        tinted.fill(tuple(color[:3]) + (255,))
+        tinted.blit(white, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        if len(self.cache) >= 512: self.cache.clear()
+        self.cache[key] = tinted
+        return tinted
+
+    def size(self, text):
+        text = str(text)
+        scale = self.size_value / 128.0
+        width = 0
+        height = self.size_value
+        for character in text:
+            if character == "\\n":
+                height += self.size_value
+                continue
+            image = self._source(character)
+            width += max(1, int(round((image.get_width() if image else self.size_value * 0.55) * scale)))
+        return (max(1, width), max(1, height))
+
+    def get_height(self):
+        return self.size_value
+
+    def render(self, text, antialias=True, color=None):
+        text = str(text)
+        color = tuple(color[:3]) if color else (18, 16, 20)
+        line_height = self.size_value
+        lines = text.split("\\n")
+        width = max(self.size(line)[0] for line in lines) if lines else self.size_value
+        surface = pygame.Surface((max(1, width), max(1, line_height * max(1, len(lines)))), pygame.SRCALPHA)
+        scale = self.size_value / 128.0
+        y = 0
+        for line in lines:
+            x = 0
+            for character in line:
+                image = self._source(character)
+                if image is None:
+                    x += max(1, int(self.size_value * 0.55))
+                    continue
+                glyph_size = (max(1, int(round(image.get_width() * scale))), max(1, int(round(image.get_height() * scale))))
+                glyph = self._tinted(image, color, glyph_size)
+                surface.blit(glyph, (x, y + max(0, line_height - glyph_size[1]) // 2))
+                x += glyph_size[0]
+            y += line_height
+        return surface
+
+
 def scaled_text(font, text, color, size):
     key = (id(font), str(text), tuple(color), tuple(size))
     image = TEXT_SCALE_CACHE.get(key)
@@ -442,20 +516,20 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
                 for star_index in range(star_count):
                     star_point = render_point(surface, (start_x + star_index * (star_size + star_gap), row_y - star_size // 2))
                     surface.blit(star_image, star_point)
-            else: draw_text(surface, "★" * star_count, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
-        else: draw_text(surface, f"★{star_count}", (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
+            else: draw_text(surface, "★" * star_count, (layout_rect.centerx, row_y), assets.card_font(row_size, True), COLORS["ink"], "center")
+        else: draw_text(surface, f"★{star_count}", (layout_rect.centerx, row_y), assets.card_font(row_size, True), COLORS["ink"], "center")
     else:
         row_label = "TRAP CARD" if card.kind == "trap" else "SPELL CARD"
-        draw_text(surface, row_label, (layout_rect.centerx, row_y), assets.font(row_size, True), COLORS["ink"], "center")
+        draw_text(surface, row_label, (layout_rect.centerx, row_y), assets.card_font(row_size, True), COLORS["ink"], "center")
     layout_art_rect = card_art_window(layout_rect)
     subtype = card.family.upper()[:16]
-    draw_text(surface, subtype, (layout_rect.centerx, layout_art_rect.bottom + int(layout_rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
+    draw_text(surface, subtype, (layout_rect.centerx, layout_art_rect.bottom + int(layout_rect.height * 0.075)), assets.card_font(body_size, True), COLORS["ink"], "center")
     if not compact and not field_mode:
-        lines = wrap(assets.font(body_size), str(card.description or "")[:CARD_BODY_DESCRIPTION_LIMIT], max(30, layout_rect.width - 12))[:3]
+        lines = wrap(assets.card_font(body_size), str(card.description or "")[:CARD_BODY_DESCRIPTION_LIMIT], max(30, layout_rect.width - 12))[:3]
         for index, line in enumerate(lines):
-            draw_text(surface, line, (layout_rect.x + 6, layout_art_rect.bottom + int(layout_rect.height * 0.12) + index * (body_size + 1)), assets.font(body_size), COLORS["ink"])
+            draw_text(surface, line, (layout_rect.x + 6, layout_art_rect.bottom + int(layout_rect.height * 0.12) + index * (body_size + 1)), assets.card_font(body_size), COLORS["ink"])
     stat = f"ATK {card.atk}  DEF {card.defense}" if monster_kind else card.kind.upper()
-    if not field_mode: draw_text(surface, stat, (layout_rect.centerx, layout_rect.bottom - int(layout_rect.height * 0.075)), assets.font(body_size, True), COLORS["ink"], "center")
+    if not field_mode: draw_text(surface, stat, (layout_rect.centerx, layout_rect.bottom - int(layout_rect.height * 0.075)), assets.card_font(body_size, True), COLORS["ink"], "center")
 
 
 class AssetBank:
@@ -463,6 +537,7 @@ class AssetBank:
         self.images = {}
         self.sounds = {}
         self.fonts = {}
+        self.font_indexes = {}
         self.role_images = {}
         self.sized_images = {}
         self.menu_layers = {}
@@ -479,6 +554,7 @@ class AssetBank:
         self.splash_names = []
         self.external_manifest = self.load_external_manifest()
         self.load_images()
+        self.load_font_indexes()
         self.load_dice_faces()
         self.load_card_templates()
         self.load_sounds()
@@ -576,6 +652,19 @@ class AssetBank:
             return self.sized_images[key]
         return image
 
+    def load_font_indexes(self):
+        self.font_indexes = {}
+        root = UNIVERSAL_MAIN / "fonts"
+        if not root.exists(): return
+        for path in root.glob("*/*/index.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                profile = str(path.parent.relative_to(root)).replace(os.sep, "/")
+                glyphs = data.get("glyphs", {}) if isinstance(data, dict) else {}
+                self.font_indexes[profile] = glyphs if isinstance(glyphs, dict) else {}
+            except (OSError, ValueError):
+                continue
+
     def load_dice_faces(self):
         self.dice_faces = {}
         for base in self.asset_roots():
@@ -658,18 +747,24 @@ class AssetBank:
                         pass
 
     def font(self, size, bold=False):
-        key = (size, bold)
-        if key not in self.fonts:
-            family = "Noto Serif Display" if bold and size >= 20 else "DejaVu Sans"
-            try: self.fonts[key] = pygame.font.SysFont(family, size, bold=bold)
-            except pygame.error: self.fonts[key] = pygame.font.Font(None, max(1, int(size)))
+        key = ("game", int(size), bool(bold))
+        if key not in self.fonts: self.fonts[key] = BitmapFont(self, "game/black", size, bold)
         return self.fonts[key]
 
     def display_font(self, size, bold=True):
-        key = ("display", size, bold)
-        if key not in self.fonts:
-            try: self.fonts[key] = pygame.font.SysFont("Noto Serif Display", size, bold=bold)
-            except pygame.error: self.fonts[key] = pygame.font.Font(None, max(1, int(size)))
+        key = ("cards", int(size), bool(bold))
+        if key not in self.fonts: self.fonts[key] = BitmapFont(self, "cards/black", size, bold)
+        return self.fonts[key]
+
+    def card_font(self, size, bold=False):
+        key = ("cards-body", int(size), bool(bold))
+        if key not in self.fonts: self.fonts[key] = BitmapFont(self, "cards/black", size, bold)
+        return self.fonts[key]
+
+    def duel_font(self, size, color="white", bold=True):
+        profile_color = color if color in {"white", "red", "blue"} else "white"
+        key = ("duel", profile_color, int(size), bool(bold))
+        if key not in self.fonts: self.fonts[key] = BitmapFont(self, f"duel/{profile_color}", size, bold)
         return self.fonts[key]
 
     def fallback_sine(self, key="required"):
@@ -9262,11 +9357,11 @@ class DuelScene(Scene):
             portrait = self.app.assets.character_portrait(participant.character, pfp.size)
             if portrait: ui_blit(surface, portrait, pfp.topleft)
             draw_text(surface, "LP", (plaque.x + 64, plaque.y + 15), self.app.assets.font(7, True), COLORS["gold"], "topleft")
-            draw_text(surface, f"{current:04d}", (plaque.right - 10, plaque.y + 22), self.app.assets.font(19, True), COLORS["white"], "topright")
+            draw_text(surface, f"{current:04d}", (plaque.right - 10, plaque.y + 22), self.app.assets.duel_font(19, "white", True), COLORS["white"], "topright")
             if self.hp_delta_until[side] > self.time and self.hp_delta[side]:
                 delta = self.hp_delta[side]
                 color = COLORS["blue"] if delta > 0 else COLORS["red"]
-                draw_text(surface, f"{delta:+d}", (plaque.right - 12, plaque.bottom - 7), self.app.assets.font(9, True), color, "bottomright")
+                draw_text(surface, f"{delta:+d}", (plaque.right - 12, plaque.bottom - 7), self.app.assets.duel_font(9, "blue" if delta > 0 else "red", True), color, "bottomright")
         if self.engine.duel_mode == "timed" and not self.engine.finished:
             remaining = max(0.0, self.engine.time_limit - self.engine.duel_elapsed)
             color = COLORS["red"] if remaining <= 30.0 else COLORS["orange"]
@@ -9444,7 +9539,7 @@ class DuelScene(Scene):
         return pygame.Rect(rect.x + dx, rect.y + dy, rect.width, rect.height)
 
     def draw_pile_label(self, surface, label, count, rect, rotation):
-        font = self.app.assets.font(6, True)
+        font = self.app.assets.duel_font(6, "white", True)
         text = font.render(f"{label[:6]} {count}", True, COLORS["white"])
         label_y = min(rect.bottom + 5, H - 9)
         target = text.get_rect(center=(rect.centerx, label_y))
@@ -9457,7 +9552,7 @@ class DuelScene(Scene):
         end = (rect.centerx + direction * 13, rect.centery)
         ui_draw_line(surface, (255, 255, 255, 180), start, end, 2)
         ui_draw_polygon(surface, (255, 255, 255, 210), [end, (end[0] - direction * 7, end[1] - 5), (end[0] - direction * 7, end[1] + 5)])
-        draw_text(surface, str(count), (rect.centerx, rect.bottom + 5 if not opponent else rect.y - 5), self.app.assets.font(8, True), COLORS["white"], "center")
+        draw_text(surface, str(count), (rect.centerx, rect.bottom + 5 if not opponent else rect.y - 5), self.app.assets.duel_font(8, "white", True), COLORS["white"], "center")
 
     def draw_pile(self, surface, label, cards, rect, face_down, rotation=0, show_label=True):
         rect = pygame.Rect(rect)
@@ -9502,14 +9597,13 @@ class DuelScene(Scene):
         return rect
 
     def draw_card_stats(self, surface, card, rect, owner):
-        font = self.app.assets.font(6, True)
         attack = self.engine.effective_atk(card, owner)
         attack_color = COLORS["blue"] if attack > card.card.atk else COLORS["red"] if attack < card.card.atk else COLORS["white"]
-        attack_text = font.render(str(attack), True, attack_color)
-        divider = font.render(" / ", True, COLORS["white"])
+        attack_text = self.app.assets.duel_font(6, "blue" if attack > card.card.atk else "red" if attack < card.card.atk else "white", True).render(str(attack), True, attack_color)
+        divider = self.app.assets.duel_font(6, "white", True).render(" / ", True, COLORS["white"])
         defense = card.defense
         defense_color = COLORS["blue"] if defense > card.card.defense else COLORS["red"] if defense < card.card.defense else COLORS["white"]
-        defense_text = font.render(str(defense), True, defense_color)
+        defense_text = self.app.assets.duel_font(6, "blue" if defense > card.card.defense else "red" if defense < card.card.defense else "white", True).render(str(defense), True, defense_color)
         width = attack_text.get_width() + divider.get_width() + defense_text.get_width()
         x = rect.centerx - width // 2
         y = rect.bottom + 2
@@ -9692,17 +9786,17 @@ class CardInfoOverlay:
         ui_blit(surface, veil, (0, 0))
         rounded(surface, self.panel, (236, 225, 188), (124, 101, 64), 14, 3)
         title = self.card.name if self.card and self.known else "CARD INFORMATION"
-        draw_text(surface, title, (self.panel.centerx, self.panel.y + 24), self.app.assets.font(20, True), COLORS["ink"], "midtop")
+        draw_text(surface, title, (self.panel.centerx, self.panel.y + 24), self.app.assets.card_font(20, True), COLORS["ink"], "midtop")
         if self.card and self.known:
             render_engine_card(surface, (82, 110, 238, 330), self.card, self.app.assets, self.app.store.media, True, False, self.card.art_variant, False)
         else:
             blit_aspect(surface, self.app.assets.image("placeholder/card_back"), pygame.Rect(82, 110, 238, 330))
         rounded(surface, (340, 110, 370, 370), (249, 242, 215), (124, 101, 64), 8, 1)
-        draw_text(surface, "FULL DESCRIPTION / CARD DATA", (354, 130), self.app.assets.font(11, True), COLORS["ink"])
+        draw_text(surface, "FULL DESCRIPTION / CARD DATA", (354, 130), self.app.assets.card_font(11, True), COLORS["ink"])
         old_clip = surface.get_clip()
         surface.set_clip(render_rect(surface, self.content))
         start_y = self.content.y - self.scroll
-        font = self.app.assets.font(14)
+        font = self.app.assets.card_font(14)
         for index, line in enumerate(self.lines): draw_text(surface, line, (self.content.x, start_y + index * self.line_height), font, COLORS["ink"])
         surface.set_clip(old_clip)
         track = pygame.Rect(self.content.right - 12, self.content.y, 8, self.content.height)

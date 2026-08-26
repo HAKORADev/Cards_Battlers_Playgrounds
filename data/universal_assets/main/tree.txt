@@ -4,6 +4,7 @@ cursor/
 dice/
 duel/
 font/
+fonts/
 menu/
 tree.txt
 ui/
