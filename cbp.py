@@ -4209,14 +4209,7 @@ class ContentStore:
         card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, legendary_type=resolved_legendary_type, non_removable=bool(non_removable))
         card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card")
         card.art_folder = card.media_folder
-        source = Path(str(art_path)).expanduser() if art_path else None
-        if source and source.exists() and source.is_file() and source.suffix.lower() in MediaRegistry.image_extensions:
-            target = DATA / card.media_folder / "art" / "variants" / ("1" + source.suffix.lower())
-            shutil.copy2(source, target)
-            manifest_path = DATA / card.media_folder / "manifest.json"
-            manifest = read_json(manifest_path, {})
-            manifest["art"] = {"owner": "user", "variants": [1], "source_name": source.name}
-            write_json(manifest_path, manifest)
+        self.import_card_art(art_path, card.media_folder)
         self.cards[card_id] = card
         self.save()
         return card
@@ -4722,6 +4715,20 @@ class ContentStore:
         shutil.copy2(source, target)
         return str(target.relative_to(DATA))
 
+    def import_card_art(self, value, media_folder):
+        source = Path(str(value or "")).expanduser()
+        if not source.exists(): source = DATA / str(value or "")
+        if not source.exists() or not source.is_file() or source.suffix.lower() not in MediaRegistry.image_extensions: return ""
+        target_root = DATA / media_folder / "art" / "variants"
+        target_root.mkdir(parents=True, exist_ok=True)
+        target = target_root / ("1" + source.suffix.lower())
+        shutil.copy2(source, target)
+        manifest_path = DATA / media_folder / "manifest.json"
+        manifest = read_json(manifest_path, {})
+        manifest["art"] = {"owner": "user", "variants": [1], "source_name": source.name}
+        write_json(manifest_path, manifest)
+        return str(target.relative_to(DATA))
+
     def ensure_entity_scaffolds(self):
         changed = False
         registries = [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]
@@ -4854,6 +4861,7 @@ class ContentStore:
         errors = self.validate_card_definition(merged["kind"], int(merged["stars"]), int(merged["atk"]), int(merged["defense"]), merged["family"], merged["description"], merged["targets"], int(merged["target_count"]), merged["timing"], merged["materials"], int(merged["ritual_cost"]), merged["summon_method"], merged["effects"], merged.get("summon_procedure", {}), merged.get("legendary_type", ""))
         if errors: return None
         for key, value in merged.items(): setattr(card, key, value)
+        if values.get("art_path"): self.import_card_art(values.get("art_path"), card.media_folder)
         card.subtypes = self.normalize_profile_list(getattr(card, "subtypes", []), limit=2)
         card.frame = "yellow" if card.kind == "normal" else "orange" if card.kind == "effect" else "sky" if card.kind in ["spell", "field"] else "pink" if card.kind == "trap" else "violet" if card.kind == "fusion" else "blue" if card.kind == "ritual" else "red"
         card.legendary = card.kind == "legendary"
@@ -4883,6 +4891,7 @@ class ContentStore:
         if len(main_values) < DeckRules.minimum: main_values = self.starter_deck_cards(preferred_families, preferred_card_kinds, best_cards)
         folder = self.scaffold_entity("decks", deck_id, display_name)
         self.decks[deck_id] = {"schema": 2, "name": display_name, "description": str(description or ""), "portrait": "", "owner_id": owner_id if owner_id in self.characters else "", "main_cards": DeckRules.normalized(main_values, self.cards), "fusion_cards": DeckRules.normalized_fusion(fusion_values, self.cards), "best_cards": [item for item in self.normalize_profile_list(best_cards, set(self.cards), 20)], "preferred_families": preferred_families, "preferred_card_kinds": preferred_card_kinds, "media_folder": folder}
+        self.import_entity_image(portrait, folder)
         if owner_id in self.characters: self.normalize_deck_slots(self.characters[owner_id])
         self.save()
         return deck_id
@@ -5098,10 +5107,40 @@ class ContentStore:
                         archive_names.add(archive_name)
         return filename
 
+    def validate_cbp_manifest(self, manifest, available_files=None):
+        if not isinstance(manifest, dict) or int(manifest.get("schema", 0) or 0) != 4: raise ValueError("Unsupported CBP package schema.")
+        categories = {"cards", "characters", "decks", "places", "teams", "logic"}
+        includes = manifest.get("includes")
+        if not isinstance(includes, dict): raise ValueError("CBP manifest includes must be an object.")
+        for category, ids in includes.items():
+            if category not in categories or not isinstance(ids, list) or any(not isinstance(item, str) or not item or Path(item).name != item for item in ids): raise ValueError("CBP manifest contains invalid category identifiers.")
+        required = manifest.get("required_categories", [])
+        if not isinstance(required, list) or any(item not in categories for item in required): raise ValueError("CBP manifest contains invalid required categories.")
+        if sorted(item for item, ids in includes.items() if ids) != sorted(set(required)): raise ValueError("CBP manifest required categories do not match included records.")
+        media = manifest.get("entity_media", [])
+        if not isinstance(media, list): raise ValueError("CBP manifest entity_media must be a list.")
+        for item in media:
+            if not isinstance(item, dict) or item.get("category") not in categories or not isinstance(item.get("id"), str) or item.get("id") not in set(includes.get(item.get("category"), [])): raise ValueError("CBP manifest contains invalid media ownership.")
+            media_path = Path(str(item.get("path", "")))
+            if not media_path.parts or any(part in ["", ".", ".."] for part in media_path.parts) or media_path.is_absolute(): raise ValueError("CBP manifest contains an unsafe media path.")
+        if available_files is not None:
+            names = set(available_files)
+            if "manifest.json" not in names: raise ValueError("CBP package has no manifest.")
+            for category, ids in includes.items():
+                if not ids: continue
+                if category == "decks" and "decks.json" not in names: raise ValueError("CBP package is missing decks.json.")
+                if category != "logic" and category != "decks" and category + ".json" not in names: raise ValueError("CBP package is missing a registry file.")
+                if category == "logic" and any("logic/" + item + ".json" not in names for item in ids): raise ValueError("CBP package is missing a logic graph.")
+            for name in names:
+                if any(part in ["", ".", ".."] for part in Path(name).parts) or Path(name).is_absolute(): raise ValueError("CBP package contains an unsafe archive path.")
+        return True
+
     def inspect_cbp(self, path):
         with zipfile.ZipFile(path) as archive:
+            available_files = sorted(archive.namelist())
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
-            manifest["available_files"] = sorted(archive.namelist())
+            self.validate_cbp_manifest(manifest, available_files)
+            manifest["available_files"] = available_files
             return manifest
 
     def package_preview(self, path):
@@ -5119,6 +5158,7 @@ class ContentStore:
         with zipfile.ZipFile(path) as archive:
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
             available = set(archive.namelist())
+            self.validate_cbp_manifest(manifest, available)
             requested = set(manifest.get("required_categories", [])) if include is None else set(include)
             requested &= {"cards", "characters", "decks", "places", "teams", "logic"}
             if include_experience is None: include_experience = bool(manifest.get("experience_included", False))
@@ -5189,6 +5229,7 @@ class ContentStore:
                         for key, value in state.items():
                             if hasattr(target, key): setattr(target, key, value)
             media_roots = [Path(item.get("path", "")) for item in manifest.get("entity_media", []) if item.get("category") in requested]
+            allowed_media_roots = [root for root in media_roots if root.parts and root.parts[0] in ["cards", "characters", "teams", "places", "decks"]]
             skip_media_roots = []
             if conflict == "skip":
                 conflicting_ids = {category: set(values) for category, values in preview["conflicts"].items()}
@@ -5201,6 +5242,7 @@ class ContentStore:
                 if any(part in ["", ".", ".."] for part in relative.parts): continue
                 category = relative.parts[0] if relative.parts else ""
                 if category not in ["cards", "characters", "teams", "places", "decks"] or category not in requested: continue
+                if not any(relative.parts[:len(root.parts)] == root.parts for root in allowed_media_roots if root.parts): continue
                 if any(relative.parts[:len(root.parts)] == root.parts for root in skip_media_roots if root.parts): continue
                 target = DATA / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -11164,7 +11206,7 @@ class DeckEditorScene(Scene):
         deck = self.app.store.decks.get(self.deck_id, {})
         self.name = TextInput((40, 76, 250, 32), deck.get("name", self.deck_id))
         self.description = TextInput((40, 114, 330, 28), deck.get("description", ""))
-        self.portrait = TextInput((400, 76, 170, 32), "")
+        self.portrait = TextInput((400, 76, 170, 32), deck.get("portrait", ""))
         self.query = TextInput((580, 76, 180, 32), "")
         self.card_buttons = []
         self.page = 0
@@ -11365,7 +11407,7 @@ class CardMakerScene(Scene):
         graph = self.logic_graph
         self.materials = [value.strip() for value in self.materials_text.value.split(",") if value.strip()]
         self.summon_procedure = self.procedure_for_kind() if self.kind in ["fusion", "ritual", "legendary"] else {}
-        values = {"name": self.name.value, "kind": self.kind, "stars": 11 if self.kind == "legendary" else self.stars if self.kind in ["normal", "effect", "fusion", "ritual"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "subtypes": [item.strip().lower() for item in self.subtypes.value.split(",") if item.strip()][:2], "description": self.description.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": 7 if self.kind == "ritual" else self.ritual_cost, "summon_method": self.summon_method, "summon_procedure": self.summon_procedure, "legendary_type": self.legendary_type or (self.family if self.kind == "legendary" else ""), "non_removable": self.non_removable, "effects": self.effects}
+        values = {"name": self.name.value, "kind": self.kind, "stars": 11 if self.kind == "legendary" else self.stars if self.kind in ["normal", "effect", "fusion", "ritual"] else 0, "atk": self.atk if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "defense": self.defense if self.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else 0, "family": self.family, "subtypes": [item.strip().lower() for item in self.subtypes.value.split(",") if item.strip()][:2], "description": self.description.value, "art_path": self.art_path.value, "logic_graph": graph, "targets": self.targets, "target_count": self.target_count, "timing": self.timing, "field_effect": {"family": self.family, "atk": 300} if self.kind == "field" else {}, "materials": self.materials, "ritual_cost": 7 if self.kind == "ritual" else self.ritual_cost, "summon_method": self.summon_method, "summon_procedure": self.summon_procedure, "legendary_type": self.legendary_type or (self.family if self.kind == "legendary" else ""), "non_removable": self.non_removable, "effects": self.effects}
         errors = self.app.store.validate_card_definition(values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], values["targets"], values["target_count"], values["timing"], values["materials"], values["ritual_cost"], values["summon_method"], values["effects"], values["summon_procedure"], values["legendary_type"])
         if errors: self.app.notify("Card rejected: " + "; ".join(errors[:2])); return
         if self.card_id:
