@@ -2216,7 +2216,7 @@ class ContentStore:
             preferred = sum(1 for card_id in cards if card_id in character.preferred_cards or card_id in character.best_cards)
             learned = sum(float(known.get(card_id, 0) or 0) for card_id in cards)
             pressure = float(character.behavior_weights.get("adaptation", 1.0)) * learned
-            if opponent: pressure += float(character.behavior_weights.get("planning", 5.0)) * sum(1 for card_id in cards if card_id in opponent.learned_cards)
+            if opponent: pressure += float(character.behavior_weights.get("planning", 5.0)) * sum(float(opponent.learned_cards.get(card_id, 0) or 0) for card_id in cards)
             level = self.deck_level(deck_id)
             level_fit = 44.0 - abs(level - target_level) * 28.0
             level_pressure = level * (5.0 if difficulty == "extreme" else 2.0 if difficulty == "hard" else 0.5)
@@ -2273,6 +2273,8 @@ class ContentStore:
         character.learning_state.setdefault("observations", 0)
         character.learning_state.setdefault("updates", 0)
         character.learning_state.setdefault("last_update", 0.0)
+        character.learning_state.setdefault("last_memory_decay_sim_time", 0.0)
+        character.learning_state.setdefault("decay_passes", 0)
         character.experience = dict(getattr(character, "experience", {}) or {})
         character.experience.setdefault("duels", 0)
         character.experience.setdefault("wins", 0)
@@ -3496,6 +3498,35 @@ class ContentStore:
                 character.idle_cue_count = int(getattr(character, "idle_cue_count", 0)) + 1
                 self.world.setdefault("simulation_events", []).append({"type": "character_idle", "state": "character_idle", "character": character.id, "cadence": character.idle_cue_count, "sim_time": float(self.world.get("simulation_time", 0.0))})
 
+    def advance_learning_memory(self, seconds):
+        seconds = max(0.0, float(seconds or 0.0))
+        if seconds <= 0.0: return
+        simulation_time = float(self.world.get("simulation_time", 0.0))
+        for character in self.characters.values():
+            policy = getattr(character, "learning_policy", {}) or {}
+            retention = max(0.25, float(policy.get("retention", 5.0) or 5.0))
+            decay = max(0.0, float(policy.get("decay", 1.0) or 0.0))
+            factor = 1.0 if decay <= 0.0 else math.pow(0.5, seconds / (86400.0 * retention * decay))
+            state = character.learning_state
+            previous = float(state.get("last_memory_decay_sim_time", simulation_time - seconds) or simulation_time - seconds)
+            elapsed = max(0.0, simulation_time - previous)
+            if elapsed <= 0.0: continue
+            factor = 1.0 if decay <= 0.0 else math.pow(0.5, elapsed / (86400.0 * retention * decay))
+            character.learned_cards = {card_id: int(round(float(value) * factor)) for card_id, value in character.learned_cards.items() if int(round(float(value) * factor)) > 0}
+            character.learned_opponents = {opponent_id: int(round(float(value) * factor)) for opponent_id, value in character.learned_opponents.items() if int(round(float(value) * factor)) > 0}
+            cards = character.knowledge_state.setdefault("cards", {})
+            for card_id, record in list(cards.items()):
+                if not isinstance(record, dict): continue
+                record["confidence"] = round(max(0.0, float(record.get("confidence", 0.0) or 0.0) * factor), 6)
+                record["last_decay_sim_time"] = simulation_time
+            opponents = character.knowledge_state.setdefault("opponents", {})
+            for opponent_id, record in list(opponents.items()):
+                if not isinstance(record, dict): continue
+                record["confidence"] = round(max(0.0, float(record.get("confidence", 0.0) or 0.0) * factor), 6)
+                record["last_decay_sim_time"] = simulation_time
+            state["last_memory_decay_sim_time"] = simulation_time
+            state["decay_passes"] = int(state.get("decay_passes", 0) or 0) + 1
+
     def advance_world(self, seconds=None):
         if seconds is None:
             current_wall_time = time.time()
@@ -3509,6 +3540,7 @@ class ContentStore:
         self.world_tick_active = True
         try:
             self.world["simulation_time"] = float(self.world.get("simulation_time", 0.0)) + seconds
+            self.advance_learning_memory(seconds)
             self.advance_character_idle(seconds)
             self._advance_movement(seconds)
             self._advance_out_of_game()
