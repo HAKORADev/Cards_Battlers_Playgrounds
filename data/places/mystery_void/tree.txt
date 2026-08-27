@@ -1,5 +1,3 @@
-animations/
-audio/
 background/
 field/
 ground/

@@ -1,3 +1,4 @@
+championship_tier_4.json
 effect-1.json
 effect-10.json
 effect-2.json
@@ -8,5 +9,4 @@ effect-6.json
 effect-7.json
 effect-8.json
 effect-9.json
-neon_playground.json
 tree.txt

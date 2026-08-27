@@ -4653,8 +4653,11 @@ class ContentStore:
         self.save()
         return True
 
+    def media_event_names(self):
+        return ["idle", "about", "pre-duel", "spin-dice", "draw", "search", "recover", "mill", "reveal", "return-to-deck", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"]
+
     def entity_tree(self, category):
-        events = ["idle", "about", "pre-duel", "spin-dice", "draw", "search", "recover", "mill", "reveal", "return-to-deck", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"]
+        events = self.media_event_names()
         trees = {
             "cards": ["logic", "art", "art/variants", "art/metadata"],
             "characters": ["logic", "weights", "pfp", "pfp/variants", "badges", "badges/levels", "cards", "cards/best-class"],
@@ -4717,10 +4720,10 @@ class ContentStore:
             elif "cards" in parts and parts[-1] == "best-class":
                 legal.update(item + "/" for item in sorted(card_slugs))
             elif "cards" in parts and parts[-1] in card_slugs:
-                legal.update(event + "/" for event in ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"])
+                legal.update(event + "/" for event in self.media_event_names())
                 legal.update(relation + "/" for relation in ["stranger", "ally", "enemy", "opponent"])
             elif "cards" in parts and parts[-1] in {"stranger", "ally", "enemy", "opponent"}:
-                legal.update(event + "/" for event in ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"])
+                legal.update(event + "/" for event in self.media_event_names())
             if "animations" in parts:
                 if parts[-1] == "animations":
                     legal.update(f"{index}/" for index in range(1, 11))
@@ -4775,44 +4778,11 @@ class ContentStore:
         return str(target.relative_to(DATA))
 
     def ensure_entity_scaffolds(self):
-        changed = False
-        registries = [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]
-        for category, registry in registries:
-            paths = self.entity_tree(category)
+        for category, registry in [("cards", self.cards), ("characters", self.characters), ("teams", self.teams), ("places", self.places)]:
             for entity in registry.values():
-                folder = getattr(entity, "media_folder", "")
-                root = DATA / folder if folder else None
-                if not root or not root.exists():
-                    folder = self.scaffold_entity(category, entity.id, entity.name)
-                    entity.media_folder = folder
-                    changed = True
-                    continue
-                missing = not (root / "manifest.json").exists()
-                for item in paths:
-                    item_path = root / item
-                    if not item_path.exists():
-                        item_path.mkdir(parents=True, exist_ok=True)
-                        missing = True
-                    if item.startswith("animations/") or item.endswith("/animations"):
-                        for variant in range(1, 11):
-                            variant_path = item_path / str(variant)
-                            if not variant_path.exists():
-                                variant_path.mkdir(exist_ok=True)
-                                missing = True
-                manifest = read_json(root / "manifest.json", {})
-                expected = {"schema": 4, "id": entity.id, "name": entity.name, "category": category, "folders": sorted(set(manifest.get("folders", []) + paths)), "asset_contract": "gdd_nested_v2"}
-                if category == "cards": expected.update({"frame_contract": "engine_owned", "art_contract": "user_owned_optional"})
-                manifest_changed = any(manifest.get(key) != value for key, value in expected.items())
-                if manifest_changed:
-                    manifest.update(expected)
-                    write_json(root / "manifest.json", manifest)
-                if missing:
-                    self.write_tree_contract(root, paths, ["manifest.json"])
                 if category == "cards" and not getattr(entity, "art_folder", ""):
-                    entity.art_folder = entity.media_folder
-                    changed = True
-        if changed:
-            self.save()
+                    entity.art_folder = getattr(entity, "media_folder", "")
+        return True
 
     def create_place(self, name, capacity=3, background="", day_night=True):
         place_id = "place_" + str(int(time.time() * 1000))
@@ -5753,6 +5723,9 @@ class DuelEngine:
         self.opponent.draw(5)
         self.apply_team_start_effect(self.player, self.team_effect)
         self.apply_team_start_effect(self.opponent, self.opponent_team_effect)
+        self.place_effect = self.selected_place_effect()
+        self.place_effect_team_id = self.place_effect_team_from_world()
+        self.apply_place_start_effect()
         self.log("The duel begins. The accepting side enters first.")
 
     def side_key(self, side):
@@ -6092,6 +6065,30 @@ class DuelEngine:
             drawn = side.draw(amount)
             self.log(f"{side.name}'s team effect draws {len(drawn)} card(s).")
 
+    def place_effect_team_from_world(self):
+        state = self.store.world.get("place_effects", {}).get(self.place.id, {})
+        return str(state.get("team_id", "") or "") if isinstance(state, dict) else ""
+
+    def place_effect_members(self):
+        team = self.store.teams.get(self.place_effect_team_id)
+        return set(team.members) if team else set()
+
+    def selected_place_effect(self):
+        state = self.store.world.get("place_effects", {}).get(self.place.id, {})
+        selected = state.get("selected", {}) if isinstance(state, dict) else {}
+        return dict(selected) if isinstance(selected, dict) else {}
+
+    def apply_place_start_effect(self):
+        effect = self.place_effect
+        if effect.get("kind") != "place_heal": return
+        members = self.place_effect_members()
+        amount = max(0, int(effect.get("amount", 0) or 0))
+        for side in [self.player, self.opponent]:
+            if effect.get("target", "team_members") == "team_members" and side.character.id not in members: continue
+            side.hp = min(8000, side.hp + amount)
+            self.log(f"{side.name}'s place effect restores {amount} health.")
+        self.emit_event("place_effect", self.player, target=self.opponent, metadata={"kind": effect.get("kind", ""), "amount": amount, "place_id": self.place.id})
+
     def normalize_continuous_duration(self, modifier):
         duration = modifier.get("duration", modifier.get("expires", "permanent"))
         duration = str(duration or "permanent").lower().replace("-", "_").replace(" ", "_")
@@ -6248,6 +6245,18 @@ class DuelEngine:
             spec = EffectSpec.from_dict(effect, "place_" + self.place.id)
             modifier = spec.modifier or (effect if isinstance(effect, dict) and effect.get("stat") else {})
             if modifier: records.append({"source": self.place, "modifier": modifier})
+        selected = self.place_effect
+        members = self.place_effect_members()
+        if selected.get("kind") == "place_family_boost":
+            for side in [self.player, self.opponent]:
+                if selected.get("target", "team_members") == "team_members" and side.character.id not in members: continue
+                records.append({"source": self.place, "modifier": {"scope": "field", "selector": {"side": "self", "zone": "monster", "family": selected.get("family", "any")}, "stat": "attack", "operation": "add", "amount": int(selected.get("atk", 0) or 0), "owner": side.name, "layer": 4}})
+        elif selected.get("kind") == "place_opponent_debuff":
+            amount = -abs(int(selected.get("amount", 0) or 0))
+            for side in [self.player, self.opponent]:
+                if selected.get("target", "opponents") == "opponents" and side.character.id in members: continue
+                for stat in ["attack", "defense"]:
+                    records.append({"source": self.place, "modifier": {"scope": "field", "selector": {"side": "self", "zone": "monster"}, "stat": stat, "operation": "add", "amount": amount, "owner": side.name, "layer": 4}})
         for side, effect in [(self.player, self.team_effect), (self.opponent, self.opponent_team_effect)]:
             selected = effect.get("selected", effect) if isinstance(effect, dict) else {}
             if selected.get("kind") == "family_boost":
@@ -7190,7 +7199,7 @@ class DuelEngine:
         return {"window": window, "priority": self.side_key(self.chain_priority) if self.chain_priority else "", "passes": list(self.chain_passes), "active_link_id": self.active_chain_link_id, "links": [{"link_id": link.link_id, "index": link.index, "source": self.checkpoint_chain_ref(link.source), "actor": self.checkpoint_chain_ref(link.actor), "target": self.checkpoint_chain_ref(link.target), "trigger": link.trigger, "effect_id": link.effect_id, "speed": link.speed, "status": link.status, "negated": link.negated, "context": dict(link.context)} for link in self.chain_links]}
 
     def full_state_payload(self):
-        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "control_changes": self.checkpoint_control_changes(), "continuous_effects": self.checkpoint_continuous_effects(), "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
+        return {"schema": "cbp.state.v1", "turn": self.turn, "phase_index": self.phase_index, "first_side": self.first_side, "duel_mode": self.duel_mode, "player_deck_id": self.player_deck_id, "opponent_deck_id": self.opponent_deck_id, "time_limit": self.time_limit, "duel_elapsed": self.duel_elapsed, "time_expired": self.time_expired, "gamble_state": dict(self.gamble_state), "gamble_selection_pending": self.gamble_selection_pending, "outcome_narrator": dict(self.outcome_narrator), "watchers": sorted(self.watcher_ids), "active": self.side_key(self.active), "finished": self.finished, "winner": self.side_key(self.winner) if self.winner else "", "reason": self.reason, "cpu": self.cpu, "player": self.checkpoint_side(self.player), "opponent": self.checkpoint_side(self.opponent), "field_card": self.checkpoint_card(self.field_card) if self.field_card else None, "field_card_owner": self.side_key(self.field_card_owner) if self.field_card_owner else "", "effect_sequence": self.effect_sequence, "notification_sequence": self.notification_sequence, "rule_event_sequence": self.rule_event_sequence, "trigger_group_sequence": self.trigger_group_sequence, "chain_sequence": self.chain_sequence, "continuous_sequence": self.continuous_sequence, "summon_permissions": self.summon_permissions, "team_effect": self.team_effect, "opponent_team_effect": self.opponent_team_effect, "place_effect": {"team_id": self.place_effect_team_id, "selected": dict(self.place_effect)}, "control_changes": self.checkpoint_control_changes(), "continuous_effects": self.checkpoint_continuous_effects(), "knowledge": self.export_knowledge(), "notifications": [item.__dict__.copy() for item in self.notifications], "notification_history": list(self.notification_history), "observation_sequence": self.observation_sequence, "observation_log": list(self.observation_log), "event_history": list(self.event_history), "chain_history": list(self.chain_history), "completed_chains": list(self.completed_chains), "last_chain_result": dict(self.last_chain_result or {}), "resolution_history": list(self.resolution_history), "chain": self.checkpoint_chain(), "pending": self.pending_payload()}
 
     def _restore_card(self, payload, owner):
         card = CardInstance(self.store.cards[payload["card_id"]], owner.name, payload.get("instance_id", ""))
@@ -7315,6 +7324,9 @@ class DuelEngine:
             self.effect_sequence = int(payload.get("effect_sequence", 0)); self.notification_sequence = int(payload.get("notification_sequence", 0)); self.rule_event_sequence = int(payload.get("rule_event_sequence", 0)); self.trigger_group_sequence = int(payload.get("trigger_group_sequence", 0)); self.chain_sequence = int(payload.get("chain_sequence", 0)); self.continuous_sequence = int(payload.get("continuous_sequence", 0)); self.observation_sequence = int(payload.get("observation_sequence", 0))
             self.summon_permissions = json.loads(json.dumps(payload.get("summon_permissions", self.summon_permissions)))
             self.team_effect = dict(payload.get("team_effect", {})); self.opponent_team_effect = dict(payload.get("opponent_team_effect", {}))
+            place_effect = payload.get("place_effect", {}) if isinstance(payload.get("place_effect", {}), dict) else {}
+            self.place_effect_team_id = str(place_effect.get("team_id", self.place_effect_team_id) or "")
+            self.place_effect = dict(place_effect.get("selected", self.place_effect) or {})
             self.restore_control_changes(payload.get("control_changes", []))
             self.import_knowledge(payload.get("knowledge", {}))
             self.notifications = [Notification(**item) for item in payload.get("notifications", [])]
@@ -9443,9 +9455,22 @@ class PreDuelScene(Scene):
         return cue
 
     def validate_selected_decks(self):
-        self.player_deck_id = self.selected_deck_id("player")
-        self.opponent_deck_id = self.selected_deck_id("opponent")
-        return self.app.store.validate_duel_decks(self.acceptor_id, self.requester_id, self.player_deck_id, self.opponent_deck_id)
+        if self.format_name == "1v1":
+            self.player_deck_id = self.selected_deck_id("player")
+            self.opponent_deck_id = self.selected_deck_id("opponent")
+            return self.app.store.validate_duel_decks(self.acceptor_id, self.requester_id, self.player_deck_id, self.opponent_deck_id)
+        player_team, opponent_team = self.team_sides()
+        player_roster = [self.app.store.characters[item] for item in player_team.members if item in self.app.store.characters]
+        opponent_roster = [self.app.store.characters[item] for item in opponent_team.members if item in self.app.store.characters]
+        if not player_roster or not opponent_roster: return {"team": {"errors": ["both teams need at least one character"]}}
+        for index in range(max(len(player_roster), len(opponent_roster))):
+            player = player_roster[index % len(player_roster)]
+            opponent = opponent_roster[index % len(opponent_roster)]
+            validation = self.app.store.validate_duel_decks(player.id, opponent.id, getattr(player, "deck_id", ""), getattr(opponent, "deck_id", ""))
+            if validation: return validation
+        self.player_deck_id = getattr(player_roster[0], "deck_id", "")
+        self.opponent_deck_id = getattr(opponent_roster[0], "deck_id", "")
+        return {}
     def restore_after_illegal_decks(self, validation):
         self.app.store.notify_illegal_duel_decks(validation, self.app.notify)
         self.choice = ""

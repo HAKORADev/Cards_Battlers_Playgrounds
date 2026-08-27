@@ -27,12 +27,17 @@ idle/
 instant-lose/
 instant-win/
 lose/
+mill/
 near-lose/
 near-win/
 opponent/
 pre-duel/
+recover/
+return-to-deck/
 return-to-hand/
 return/
+reveal/
+search/
 set/
 special-summon/
 spin-dice/
