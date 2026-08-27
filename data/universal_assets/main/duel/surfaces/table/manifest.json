@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "asset_contract": "universal_duel_table_v1",
+  "canvas_size": [
+    608,
+    472
+  ],
+  "scene_size": [
+    800,
+    600
+  ],
+  "table_scene_rect": [
+    96,
+    64,
+    608,
+    472
+  ],
+  "field_scene_rect": [
+    200,
+    100,
+    400,
+    400
+  ],
+  "duel_frame_scene_rect": [
+    124,
+    89,
+    552,
+    422
+  ],
+  "field_anchor": [
+    104,
+    36,
+    400,
+    400
+  ],
+  "duel_frame_anchor": [
+    28,
+    25,
+    552,
+    422
+  ],
+  "layers": [
+    {
+      "name": "base",
+      "file": "base.png",
+      "blend": "normal"
+    },
+    {
+      "name": "shadow",
+      "file": "shadow.png",
+      "blend": "normal"
+    },
+    {
+      "name": "rim",
+      "file": "rim.png",
+      "blend": "normal"
+    },
+    {
+      "name": "glow",
+      "file": "glow.png",
+      "blend": "normal"
+    }
+  ],
+  "height_map": "height.png"
+}

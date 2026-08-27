@@ -469,14 +469,14 @@ def card_frame_color(card):
 @dataclass
 class DuelLayout:
     viewport: tuple = (800, 600)
-    table: pygame.Rect = field(default_factory=lambda: pygame.Rect(96, 18, 608, 564))
-    duel_frame: pygame.Rect = field(default_factory=lambda: pygame.Rect(148, 45, 504, 480))
-    field: pygame.Rect = field(default_factory=lambda: pygame.Rect(202, 92, 400, 400))
-    center_y: int = 292
-    left_rail_x: int = 154
-    right_rail_x: int = 650
-    hand_center_x: int = 402
-    phase_x: int = 99
+    table: pygame.Rect = field(default_factory=lambda: pygame.Rect(96, 64, 608, 472))
+    duel_frame: pygame.Rect = field(default_factory=lambda: pygame.Rect(124, 89, 552, 422))
+    field: pygame.Rect = field(default_factory=lambda: pygame.Rect(200, 100, 400, 400))
+    center_y: int = 300
+    left_rail_x: int = 140
+    right_rail_x: int = 612
+    hand_center_x: int = 400
+    phase_x: int = 90
     opponent_hand_y: int = 6
     player_hand_y: int = 486
     monster_card_size: tuple = (60, 78)
@@ -515,7 +515,7 @@ class DuelLayout:
         pfp = self.pfp_rect(side)
         return pygame.Rect(8, pfp.y - 4, 172, 54)
     def phase_rect(self, index):
-        return pygame.Rect(self.phase_x, 116 + index * 35, 48, 30)
+        return pygame.Rect(self.phase_x, 118 + index * 35, 48, 30)
     def question_rect(self):
         return pygame.Rect(314, 238, 316, 126)
     def question_action_rect(self, name):
@@ -1076,9 +1076,23 @@ class AssetBank:
 
     def place_table_height_path(self, place_id):
         root = DATA / "places" / str(place_id) / "table"
-        filename = str(self.place_table_manifest(place_id).get("height_map", "height.png") or "height.png")
+        manifest = self.place_table_manifest(place_id)
+        filename = str(manifest.get("height_map", "height.png") or "height.png")
         path = root / filename
-        return path if path.exists() else None
+        if path.exists(): return path
+        universal = UNIVERSAL_MAIN / "duel" / "surfaces" / "table" / "height.png"
+        return universal if universal.exists() else None
+
+    def universal_table_layers(self, size=None, scope="scene"):
+        root = UNIVERSAL_MAIN / "duel" / "surfaces" / "table"
+        if not root.exists(): return []
+        manifest = read_json(root / "manifest.json", {}) if (root / "manifest.json").exists() else {}
+        layers = []
+        for item in list(manifest.get("layers", []) or []):
+            filename = str(item.get("file", "") if isinstance(item, dict) else item).strip()
+            image = self.media_image(root / filename, size, scope)
+            if image is not None: layers.append(image)
+        return layers
 
     def place_table_layers(self, place_id, size=None, scope="scene"):
         root = DATA / "places" / str(place_id) / "table"
@@ -2180,7 +2194,7 @@ class PlayLightSystem:
         scale_y = size[1] / float(SCENE_H) if size[1] == RENDER_H else 1.0
         offset_x = RENDER_VIEW_X if size[0] == RENDER_W else 0
         offset_y = RENDER_VIEW_Y if size[1] == RENDER_H else 0
-        table = pygame.Rect(table_rect) if table_rect else pygame.Rect(96, 18, 608, 564)
+        table = pygame.Rect(table_rect) if table_rect else pygame.Rect(96, 64, 608, 472)
         table_px = pygame.Rect(int(offset_x + table.x * scale_x), int(offset_y + table.y * scale_y), int(table.width * scale_x), int(table.height * scale_y))
         light_x = 0.78 if not profile["night"] else 0.25
         light_y = 0.16
@@ -11584,7 +11598,7 @@ class DuelScene(Scene):
             place = self.app.store.places.get(self.place_id)
             image = self.app.assets.image(place.background, (W, H)) if place and place.background else None
             if image: ui_blit(surface, image, (0, 0))
-        table_layers = self.app.assets.place_table_layers(self.place_id, self.layout.table.size, self.media_scope)
+        table_layers = self.app.assets.place_table_layers(self.place_id, self.layout.table.size, self.media_scope) or self.app.assets.universal_table_layers(self.layout.table.size, self.media_scope)
         if not table_layers: table_layers = [self.app.assets.role_image("table_frame", self.layout.table.size, True)]
         frame = self.app.assets.role_image("duel_frame", self.layout.duel_frame.size, True)
         field_surface = self.app.assets.place_visual(self.place_id, "field", night, self.time, self.layout.field.size, self.media_scope) or self.app.assets.role_image("field_surface", self.layout.field.size, True)
