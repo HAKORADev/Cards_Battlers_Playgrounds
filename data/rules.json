@@ -44,6 +44,21 @@
     "listener": "scene-center",
     "scope": "reaction-and-watcher-audio"
   },
+  "loading_screen": {
+    "after_splash_count": 3,
+    "visual_root": "universal_assets/main/loading/visuals",
+    "audio_root": "universal_assets/main/loading/audio",
+    "maximum_variants": 10,
+    "supports_images": ["png", "jpg", "jpeg", "webp", "bmp"],
+    "supports_video": ["mp4", "webm", "mov", "avi", "mkv", "gif"],
+    "supports_audio": ["wav", "ogg", "mp3", "flac", "m4a"],
+    "cross_media_video_audio": true,
+    "fade_in_seconds": 0.35,
+    "fade_out_seconds": 0.38,
+    "visual_cycle_seconds": 1.4,
+    "missing_image": "critical-white-surface",
+    "missing_audio": "silent"
+  },
   "legendary": {
     "registry_type": "legendary",
     "required_stars": 11,

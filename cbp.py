@@ -856,10 +856,10 @@ class AssetBank:
             for path in sorted(base.rglob("*.png")):
                 relative = path.relative_to(base).with_suffix("")
                 name = prefix + str(relative).replace(os.sep, "/")
+                if name.startswith("menu/splash/"): self.splash_names.append(name)
                 if name in self.images: continue
                 try: self.images[name] = pygame.image.load(str(path)).convert_alpha()
                 except pygame.error: continue
-                if name.startswith("menu/splash/"): self.splash_names.append(name)
         self.splash_names = sorted(set(self.splash_names))
 
     def menu_layer(self, name, size=None):
@@ -895,6 +895,38 @@ class AssetBank:
                         break
                     except pygame.error:
                         pass
+
+    def loading_visual_paths(self):
+        root = UNIVERSAL_MAIN / "loading" / "visuals"
+        grouped = {}
+        for path in root.glob("*"):
+            index = self._numeric_media_index(path)
+            if not path.is_file() or path.suffix.lower() not in (MediaRegistry.image_extensions | MediaRegistry.video_extensions) or index is None: continue
+            priority = 0 if path.suffix.lower() in MediaRegistry.video_extensions else 1
+            previous = grouped.get(index)
+            if previous is None or priority < previous[0] or (priority == previous[0] and path.suffix.lower() < previous[1].suffix.lower()): grouped[index] = (priority, path)
+        return [grouped[index][1] for index in sorted(grouped)[:10]]
+
+    def loading_audio_paths(self):
+        root = UNIVERSAL_MAIN / "loading" / "audio"
+        grouped = {}
+        for path in root.glob("*"):
+            index = self._numeric_media_index(path)
+            if not path.is_file() or path.suffix.lower() not in MediaRegistry.audio_extensions or index is None: continue
+            previous = grouped.get(index)
+            if previous is None or path.suffix.lower() < previous.suffix.lower(): grouped[index] = path
+        return [grouped[index] for index in sorted(grouped)[:10]]
+
+    def play_loading_audio(self, path, enabled=True, volume=0.28):
+        if not enabled or not path or not Path(path).exists() or not pygame.mixer.get_init(): return False
+        sound = self.media_sound(path, "loading")
+        if sound is None: return False
+        try:
+            pygame.mixer.stop()
+            channel = sound.play()
+            if channel: channel.set_volume(clamp(float(volume), 0.0, 1.0))
+            return bool(channel)
+        except pygame.error: return False
 
     def font(self, size, bold=False):
         key = ("game", int(size), bool(bold))
@@ -1048,11 +1080,18 @@ class AssetBank:
 
     def media_sound(self, path, scope="scene"):
         if not path or not Path(path).exists(): return None
+        path = Path(path)
         key = str(path)
         sound = self.media_sounds.get(key)
         if sound is None:
-            try: sound = pygame.mixer.Sound(key)
-            except pygame.error: return None
+            try:
+                if path.suffix.lower() in MediaRegistry.video_extensions:
+                    result = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(path), "-vn", "-f", "wav", "pipe:1"], capture_output=True, timeout=5)
+                    if result.returncode != 0 or not result.stdout: return None
+                    sound = pygame.mixer.Sound(buffer=result.stdout)
+                else:
+                    sound = pygame.mixer.Sound(str(path))
+            except (pygame.error, OSError, subprocess.SubprocessError): return None
             if len(self.media_sounds) >= 128: self.media_sounds.pop(next(iter(self.media_sounds)))
             self.media_sounds[key] = sound
         if scope: self.media_scopes.setdefault(scope, set()).add(key)
@@ -9883,22 +9922,23 @@ class FirstRunScene(Scene):
 class SplashScene(Scene):
     def __init__(self, app):
         super().__init__(app)
-        self.elapsed = 0
-        self.splash_name = "splash"
+        self.elapsed = 0.0
+        self.splash_names = []
 
     def enter(self):
-        names = self.app.assets.splash_names or ["splash"]
-        self.splash_name = names[int(time.time()) % len(names)]
+        names = list(self.app.assets.splash_names or [])
+        self.splash_names = names[:3] if names else ["splash"]
 
     def update(self, dt):
         super().update(dt)
-        self.elapsed += dt
-        if self.elapsed > 3.4:
+        self.elapsed += max(0.0, float(dt))
+        if self.elapsed >= max(3.3, len(self.splash_names) * 1.1):
             target = FirstRunScene(self.app) if not self.app.store.save_data.get("setup_complete", False) else MainMenuScene(self.app)
-            self.app.replace(target)
+            self.app.replace(LoadingScene(self.app, lambda: target, "Preparing the playground"))
 
     def draw(self, surface):
-        self.draw_background(surface, self.splash_name)
+        index = min(len(self.splash_names) - 1, int(self.elapsed / 1.1))
+        self.draw_background(surface, self.splash_names[index])
         veil = ui_surface((W, H), pygame.SRCALPHA)
         veil.fill((247, 227, 177, 32))
         ui_blit(surface, veil, (0, 0))
@@ -9907,11 +9947,108 @@ class SplashScene(Scene):
         title.set_alpha(alpha)
         ui_blit(surface, title, title.get_rect(center=(W // 2, H - 120)))
         draw_text(surface, "THE PLAYGROUND IS WAITING", (W // 2, H - 78), self.app.assets.font(15), COLORS["gold"], "center")
-        draw_text(surface, "Click or press Enter to continue", (W // 2, H - 34), self.app.assets.font(12), COLORS["muted"], "center")
+        draw_text(surface, "SPLASH " + str(index + 1) + "/" + str(len(self.splash_names)), (W // 2, H - 34), self.app.assets.font(12), COLORS["muted"], "center")
 
-    def handle(self, event):
-        if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-            self.app.replace(MainMenuScene(self.app))
+
+class LoadingScene(Scene):
+    def __init__(self, app, target_factory, reason="Preparing content"):
+        super().__init__(app)
+        self.target_factory = target_factory
+        self.reason = str(reason or "Preparing content")
+        self.elapsed = 0.0
+        self.visual_elapsed = 0.0
+        self.close_elapsed = 0.0
+        self.visual_index = 0
+        self.task_index = 0
+        self.closing = False
+        self.scope = "loading_" + str(id(self))
+        self.tasks = []
+        self.current_status = self.reason
+        self.visual_paths = []
+        self.audio_paths = []
+        self.audio_by_index = {}
+
+    def enter(self):
+        self.visual_paths = self.app.assets.loading_visual_paths()
+        self.audio_paths = self.app.assets.loading_audio_paths()
+        self.audio_by_index = {self.app.assets._numeric_media_index(path): path for path in self.audio_paths}
+        self.tasks = [
+            ("Reading media index", lambda: self.app.store.media.scan()),
+            ("Indexing universal images", self.app.assets.load_images),
+            ("Reading bitmap font indexes", self.app.assets.load_font_indexes),
+            ("Preparing dice and card templates", lambda: (self.app.assets.load_dice_faces(), self.app.assets.load_card_templates())),
+            ("Loading optional audio", self.app.assets.load_sounds),
+            ("Preparing place presentation media", self.prepare_place_media),
+            ("Checking loading-screen media", self.check_loading_media),
+        ]
+        if self.audio_paths:
+            first_index = self.app.assets._numeric_media_index(self.visual_paths[0]) if self.visual_paths else self.app.assets._numeric_media_index(self.audio_paths[0])
+            self.app.assets.play_loading_audio(self.audio_by_index.get(first_index, self.audio_paths[0]), self.app.store.save_data.get("music", True), 0.28)
+
+    def prepare_place_media(self):
+        for place_id in sorted(self.app.store.places):
+            self.app.assets.place_visual_path(place_id, "background", False)
+            self.app.assets.place_visual_path(place_id, "background", True)
+            self.app.assets.place_music_paths(place_id, "landscape", False)
+            self.app.assets.place_music_paths(place_id, "landscape", True)
+        return True
+
+    def check_loading_media(self):
+        self.visual_paths = self.app.assets.loading_visual_paths()
+        self.audio_paths = self.app.assets.loading_audio_paths()
+        self.audio_by_index = {self.app.assets._numeric_media_index(path): path for path in self.audio_paths}
+        return True
+
+    def update(self, dt):
+        super().update(dt)
+        dt = max(0.0, float(dt))
+        self.elapsed += dt
+        self.visual_elapsed += dt
+        if self.visual_elapsed >= 1.4 and self.visual_paths:
+            self.visual_elapsed -= 1.4
+            self.visual_index = (self.visual_index + 1) % len(self.visual_paths)
+            if self.audio_paths:
+                visual_number = self.app.assets._numeric_media_index(self.visual_paths[self.visual_index])
+                self.app.assets.play_loading_audio(self.audio_by_index.get(visual_number, self.audio_paths[self.visual_index % len(self.audio_paths)]), self.app.store.save_data.get("music", True), 0.28)
+        if not self.closing and self.task_index < len(self.tasks):
+            self.current_status, action = self.tasks[self.task_index]
+            try: action()
+            except (OSError, pygame.error, ValueError, TypeError, subprocess.SubprocessError): pass
+            self.task_index += 1
+        if not self.closing and self.task_index >= len(self.tasks) and self.elapsed >= 1.45:
+            self.closing = True
+        if self.closing:
+            self.close_elapsed += dt
+            if self.close_elapsed >= 0.38:
+                self.app.replace(self.target_factory())
+
+    def draw(self, surface):
+        surface.fill(COLORS["deep"])
+        image = None
+        if self.visual_paths:
+            path = self.visual_paths[self.visual_index % len(self.visual_paths)]
+            image = self.app.assets.media_video_frame(path, self.elapsed, (W, H), self.scope) if path.suffix.lower() in MediaRegistry.video_extensions else self.app.assets.media_image(path, (W, H), self.scope)
+        if image is not None: ui_blit(surface, image, (0, 0))
+        else: ui_blit(surface, self.app.assets.critical_image((W, H)), (0, 0))
+        veil = ui_surface((W, H), pygame.SRCALPHA)
+        veil.fill((9, 17, 35, 92))
+        ui_blit(surface, veil, (0, 0))
+        draw_text(surface, "LOADING", (W // 2, 115), self.app.assets.font(30, True), COLORS["cream"], "center")
+        draw_text(surface, self.reason.upper(), (W // 2, 153), self.app.assets.font(10, True), COLORS["gold"], "center")
+        progress = 1.0 if self.closing else min(0.96, self.task_index / max(1, len(self.tasks)))
+        rounded(surface, (130, 360, 540, 24), (12, 22, 43), COLORS["line"], 10, 2)
+        if progress > 0: rounded(surface, (134, 364, int(532 * progress), 16), COLORS["gold"], COLORS["gold"], 8, 0)
+        draw_text(surface, str(int(progress * 100)) + "%", (W // 2, 320), self.app.assets.font(24, True), COLORS["cream"], "center")
+        draw_text(surface, self.current_status, (W // 2, 408), self.app.assets.font(11), COLORS["muted"], "center")
+        if self.closing: draw_text(surface, "Ready", (W // 2, 442), self.app.assets.font(9, True), COLORS["green"], "center")
+        fade = clamp(int((0.38 - self.close_elapsed) * 670), 0, 255) if self.closing else clamp(int((0.35 - self.elapsed) * 730), 0, 255)
+        if fade:
+            cover = ui_surface((W, H), pygame.SRCALPHA)
+            cover.fill((0, 0, 0, fade))
+            ui_blit(surface, cover, (0, 0))
+
+    def leave(self):
+        self.app.assets.release_media_scope(self.scope)
 
 
 class MainMenuScene(Scene):
@@ -10183,7 +10320,9 @@ class BattleScene(Scene):
                 watched = self.app.store.watch_championship(entry_id, player_id)
                 active = next((battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and battle.get("championship_id") == entry_id), None)
                 self.app.notify("Championship observation registered." if watched else "That championship is no longer available or has reached six watchers.")
-                if watched and active: self.app.push(TeamWatchScene(self.app, active))
+                if watched and active:
+                    if isinstance(self.app, Application): self.app.push(LoadingScene(self.app, lambda active=active: TeamWatchScene(self.app, active), "Fetching championship watch data"))
+                    else: self.app.push(TeamWatchScene(self.app, active))
             self.refresh_content()
             return
         if self.tab == "requests" and entry_id:
@@ -10505,8 +10644,8 @@ class PreDuelScene(Scene):
             self.app.notify(place.name + " is full. This duel must wait or choose another place.")
             return
         starter = self.choice or "player"
-        if self.format_name == "1v1": self.app.push(DuelScene(self.app, self.opponent_id, starter, place_id, True, None, None, self.duel_mode, self.time_limit, terms, self.player_deck_id, self.opponent_deck_id))
-        else: self.app.push(TeamDuelScene(self.app, self.format_name, self.opponent_id, starter, True))
+        if self.format_name == "1v1": self.app.push(LoadingScene(self.app, lambda: DuelScene(self.app, self.opponent_id, starter, place_id, True, None, None, self.duel_mode, self.time_limit, terms, self.player_deck_id, self.opponent_deck_id), "Preparing duel field and media"))
+        else: self.app.push(LoadingScene(self.app, lambda: TeamDuelScene(self.app, self.format_name, self.opponent_id, starter, True), "Preparing team duel media"))
 
     def update(self, dt):
         self.elapsed += dt
@@ -13482,7 +13621,8 @@ class PlaceDuelViewScene(Scene):
 
     def open_watch(self, battle):
         if battle.get("engine_type") == "team":
-            self.app.push(TeamWatchScene(self.app, battle))
+            if isinstance(self.app, Application): self.app.push(LoadingScene(self.app, lambda battle=battle: TeamWatchScene(self.app, battle), "Fetching team watch data"))
+            else: self.app.push(TeamWatchScene(self.app, battle))
             return
         session = self.app.store._world_session(battle)
         if not session:
@@ -13593,7 +13733,7 @@ class PlacesScene(Scene):
             effect_label = selected_effect.get("kind", "none") if isinstance(selected_effect, dict) else "none"
             draw_text(surface, "Day/night: " + ("enabled" if place.day_night else "disabled") + "  |  media: " + ("scaffolded" if place.media_folder else "not set"), (238, y + 75), self.app.assets.font(10), COLORS["muted"])
             draw_text(surface, f"Linked teams: {linked}  |  occupants: {occupants}  |  effect: {effect_label}", (238, y + 91), self.app.assets.font(9), COLORS["gold"] if effect_label != "none" else COLORS["muted"])
-            view_button = Button((548, y + 34, 92, 34), "VIEW", lambda place_id=place.id: self.app.push(PlaceDuelViewScene(self.app, place_id)), COLORS["cyan"])
+            view_button = Button((548, y + 34, 92, 34), "VIEW", lambda place_id=place.id: self.app.push(LoadingScene(self.app, lambda place_id=place_id: PlaceDuelViewScene(self.app, place_id), "Preparing place media")), COLORS["cyan"])
             detail_button = Button((650, y + 34, 92, 34), "DETAIL", lambda place_id=place.id: self.app.push(EntityDetailScene(self.app, "places", place_id)), COLORS["green"])
             self.row_buttons.extend([view_button, detail_button])
             view_button.draw(surface, self.app.assets.font(10, True), assets=self.app.assets)
@@ -14188,7 +14328,7 @@ class TeamWatchScene(Scene):
     def refresh(self):
         self.battle = next((item for item in self.app.store.world.setdefault("active_battles", []) if item.get("id") == self.battle_id), self.battle)
         self.bracket_page = max(0, int(getattr(self, "bracket_page", 0)))
-        self.buttons = [Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((324, 530, 86, 38), "TREE <", lambda: self.change_bracket_page(-1), COLORS["violet"]), Button((416, 530, 86, 38), "TREE >", lambda: self.change_bracket_page(1), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((20, 558, 112, 32), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((140, 558, 112, 32), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((260, 558, 72, 32), "TREE <", lambda: self.change_bracket_page(-1), COLORS["violet"]), Button((340, 558, 72, 32), "TREE >", lambda: self.change_bracket_page(1), COLORS["violet"]), Button((650, 558, 110, 32), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def advance(self, seconds):
         self.app.store.advance_world(seconds)
@@ -14240,74 +14380,129 @@ class TeamWatchScene(Scene):
             deck_id = member.get("deck_id", "")
             deck = self.app.store.decks.get(deck_id, {}) if deck_id else {}
             self.draw_level_badge(surface, "decks", deck, member.get("deck_level", 0), (x + 8, y - 4), 10)
+    def draw_bracket_team_row(self, surface, snapshot, rect, accent):
+        box = pygame.Rect(rect)
+        status = str(snapshot.get("status", "active"))
+        eliminated = status == "eliminated"
+        edge = COLORS["muted"] if eliminated else accent
+        fill = (12, 22, 43) if not eliminated else (18, 20, 30)
+        rounded(surface, box, fill, edge, 6, 2)
+        crest = [(box.x + 16, box.y + 3), (box.x + 29, box.y + 18), (box.x + 3, box.y + 18)]
+        pygame.draw.polygon(surface, (41, 57, 88), crest)
+        pygame.draw.lines(surface, edge, True, crest, 1)
+        team = self.app.store.teams.get(snapshot.get("id", ""))
+        if team:
+            portrait = self.app.assets.team_portrait(team, (14, 14))
+            if portrait:
+                portrait = self.app.assets.circular_image(portrait, (14, 14))
+                ui_blit(surface, portrait, (box.x + 9, box.y + 4))
+        name = str(snapshot.get("name", snapshot.get("id", "unknown")))[:15]
+        label = ("K.O. " if eliminated else "") + name
+        draw_text(surface, label, (box.x + 34, box.y + 4), self.app.assets.font(7, True), COLORS["muted"] if eliminated else COLORS["cream"])
+        draw_text(surface, "TL" + str(snapshot.get("team_level", 0)), (box.right - 4, box.y + 4), self.app.assets.font(6, True), edge, "topright")
+        members = list(snapshot.get("members", []) or [])[:3]
+        for index, member in enumerate(members):
+            x = box.x + 37 + index * 28
+            character = self.app.store.characters.get(member.get("id", ""))
+            portrait = self.app.assets.character_portrait(character, (13, 13)) if character else None
+            if portrait:
+                portrait = self.app.assets.circular_image(portrait, (13, 13))
+                ui_blit(surface, portrait, (x, box.y + 21))
+            self.draw_level_badge(surface, "decks", self.app.store.decks.get(member.get("deck_id", ""), {}) if member.get("deck_id") else {}, member.get("deck_level", 0), (x + 7, box.y + 16), 9)
+        if eliminated:
+            fade = ui_surface(box.size, pygame.SRCALPHA)
+            fade.fill((0, 0, 0, 150 + int(28 * (0.5 + 0.5 * math.sin(self.time * 5.0)))))
+            ui_blit(surface, fade, box.topleft)
+
+    def draw_bracket_match(self, surface, pair, rect, left_side=True):
+        box = pygame.Rect(rect)
+        teams = list(pair.get("teams", []) or [])[:2]
+        rounded(surface, box, (9, 17, 35), COLORS["gold"] if pair.get("resolved") and not pair.get("ko") else COLORS["line"], 7, 2)
+        row_height = max(1, box.height // 2)
+        row_rects = []
+        for index, team_snapshot in enumerate(teams):
+            row_rect = pygame.Rect(box.x + 2, box.y + index * row_height + 2, box.width - 4, row_height - 3)
+            row_rects.append(row_rect)
+            self.draw_bracket_team_row(surface, team_snapshot, row_rect, COLORS["cyan"] if index == 0 else COLORS["red"])
+        if len(teams) < 2:
+            draw_text(surface, "WAITING FOR QUALIFIER", box.center, self.app.assets.font(6, True), COLORS["muted"], "center")
+        return row_rects
+
     def draw_bracket(self, surface, snapshot, rect):
         box = pygame.Rect(rect)
         self.draw_panel(surface, box, "CHAMPIONSHIP TREE", COLORS["gold"])
         rounds = list(snapshot.get("rounds", []) or [])
         if not rounds:
-            draw_text(surface, "Waiting for qualified teams", (box.centerx, box.centery), self.app.assets.font(11), COLORS["muted"], "center")
+            draw_text(surface, "Waiting for qualified teams", box.center, self.app.assets.font(13), COLORS["muted"], "center")
             return
         first_pairs = list(rounds[0].get("pairs", []) or [])
-        page_count = max(1, (len(first_pairs) + 3) // 4)
-        self.bracket_page = self.bracket_page % page_count
         page_size = 4
+        page_count = max(1, (len(first_pairs) + page_size - 1) // page_size)
+        self.bracket_page = self.bracket_page % page_count
         page_start = self.bracket_page * page_size
         page_end = min(len(first_pairs), page_start + page_size)
-        draw_text(surface, "LEVEL " + str(snapshot.get("level", 1)) + "  |  TIER " + str(snapshot.get("tier", 0)) + "-TEAM", (box.centerx, box.y + 57), self.app.assets.font(9, True), COLORS["cyan"], "center")
-        draw_text(surface, "OLYMPIC TREE  " + str(self.bracket_page + 1) + "/" + str(page_count), (box.centerx, box.y + 73), self.app.assets.font(7, True), COLORS["gold"], "center")
-        inner_top, inner_bottom = box.y + 104, box.bottom - 18
-        step = (inner_bottom - inner_top) / max(1, page_size)
-        card_width, card_height = 118, 44
-        left_x, right_x, final_x = box.x + 16, box.right - 134, box.centerx - card_width // 2
+        draw_text(surface, "LEVEL " + str(snapshot.get("level", 1)) + "  |  TIER " + str(snapshot.get("tier", 0)) + "-TEAM", (box.centerx, box.y + 42), self.app.assets.font(10, True), COLORS["cyan"], "center")
+        draw_text(surface, "PAGE " + str(self.bracket_page + 1) + "/" + str(page_count) + "  |  QUALIFIERS FLOW TOWARD THE FINAL", (box.centerx, box.y + 59), self.app.assets.font(7, True), COLORS["gold"], "center")
+        top, bottom = box.y + 92, box.bottom - 46
+        node_w, node_h = 142, 52
+        center_x = box.centerx
+        left_outer = box.x + 14
+        left_inner = center_x - node_w - 80
+        final_x = center_x - node_w // 2
+        right_inner = center_x + 80
+        right_outer = box.right - node_w - 14
+        visible = {}
         positions = {}
-        visible_pairs = {}
         for round_index, round_data in enumerate(rounds):
             raw_pairs = list(round_data.get("pairs", []) or [])
-            divisor = 2 ** round_index
-            start_pair = page_start // divisor
-            end_pair = max(start_pair, (page_end + divisor - 1) // divisor)
-            visible_pairs[round_index] = list(range(start_pair, min(len(raw_pairs), end_pair)))
-            stage = str(round_data.get("stage", "round")).upper()
             if round_index == len(rounds) - 1:
-                draw_text(surface, stage, (final_x + card_width // 2, box.y + 92), self.app.assets.font(7, True), COLORS["gold"], "center")
+                indices = [0] if raw_pairs else []
             else:
-                draw_text(surface, stage, (left_x + card_width // 2, box.y + 92), self.app.assets.font(7, True), COLORS["gold"], "center")
-                draw_text(surface, stage, (right_x + card_width // 2, box.y + 92), self.app.assets.font(7, True), COLORS["gold"], "center")
-            for pair_index in visible_pairs[round_index]:
+                divisor = 2 ** round_index
+                start = page_start // divisor
+                end = max(start, (page_end + divisor - 1) // divisor)
+                indices = list(range(start, min(len(raw_pairs), end)))
+            visible[round_index] = indices
+            stage = str(round_data.get("stage", "ROUND")).upper()
+            if round_index == len(rounds) - 1:
+                heading_positions = [(final_x + node_w // 2, box.y + 76)]
+            elif round_index == 0:
+                heading_positions = [(left_outer + node_w // 2, box.y + 76), (right_outer + node_w // 2, box.y + 76)]
+            else:
+                heading_positions = [(left_inner + node_w // 2, box.y + 76), (right_inner + node_w // 2, box.y + 76)]
+            for heading_x in heading_positions:
+                draw_text(surface, stage, heading_x, self.app.assets.font(7, True), COLORS["gold"], "center")
+            for pair_index in indices:
                 pair = raw_pairs[pair_index]
+                divisor = 2 ** round_index
                 global_center = pair_index * divisor + divisor / 2.0
-                local = (global_center - page_start) / max(1, page_size)
-                center_y = inner_top + local * (inner_bottom - inner_top)
+                normalized = (global_center - page_start) / max(1, page_size)
+                center_y = top + normalized * (bottom - top)
                 if round_index == len(rounds) - 1:
                     x = final_x
                 else:
-                    x = left_x if global_center < page_start + page_size / 2 else right_x
-                team_snapshots = list(pair.get("teams", []) or [])
-                for member_index, team_snapshot in enumerate(team_snapshots[:2]):
-                    y = int(center_y - card_height + 3 + member_index * (card_height + 2))
-                    node_rect = pygame.Rect(x, y, card_width, card_height)
-                    positions[(round_index, pair_index, member_index)] = node_rect
-                    self.draw_team_bracket_card(surface, team_snapshot, node_rect, COLORS["cyan"] if member_index == 0 else COLORS["red"])
-                if pair.get("resolved") and not pair.get("ko"):
-                    draw_text(surface, "RESOLVED", (x + card_width, int(center_y + card_height // 2)), self.app.assets.font(6, True), COLORS["muted"], "midright")
+                    is_right = global_center >= page_start + page_size / 2
+                    if round_index == 0: x = right_outer if is_right else left_outer
+                    else: x = right_inner if is_right else left_inner
+                match_rect = pygame.Rect(int(x), int(center_y - node_h // 2), node_w, node_h)
+                positions[(round_index, pair_index)] = match_rect
+                self.draw_bracket_match(surface, pair, match_rect, match_rect.centerx < center_x)
         for round_index in range(len(rounds) - 1):
-            for pair_index in visible_pairs.get(round_index, []):
+            for pair_index in visible.get(round_index, []):
                 target_index = pair_index // 2
-                if target_index not in visible_pairs.get(round_index + 1, []): continue
-                source_a = positions.get((round_index, pair_index, 0))
-                source_b = positions.get((round_index, pair_index, 1))
-                target_a = positions.get((round_index + 1, target_index, 0))
-                if not source_a or not target_a: continue
-                source_side_right = source_a.centerx > box.centerx
-                target_side_right = target_a.centerx > box.centerx
-                start_a = (source_a.left if source_side_right else source_a.right, source_a.centery)
-                end_a = (target_a.right if target_side_right else target_a.left, target_a.centery)
-                ui_draw_line(surface, COLORS["line"], start_a, end_a, 1)
-                if source_b:
-                    start_b = (source_b.left if source_side_right else source_b.right, source_b.centery)
-                    ui_draw_line(surface, COLORS["line"], start_b, end_a, 1)
+                source = positions.get((round_index, pair_index))
+                target = positions.get((round_index + 1, target_index))
+                if not source or not target: continue
+                right_side = source.centerx > center_x
+                source_x = source.left if right_side else source.right
+                target_x = target.right if right_side else target.left
+                mid_x = int((source_x + target_x) / 2)
+                ui_draw_line(surface, COLORS["line"], (source_x, source.centery), (mid_x, source.centery), 2)
+                ui_draw_line(surface, COLORS["line"], (mid_x, source.centery), (mid_x, target.centery), 2)
+                ui_draw_line(surface, COLORS["line"], (mid_x, target.centery), (target_x, target.centery), 2)
         if snapshot.get("winner"):
-            draw_text(surface, "CHAMPION  " + self.team_name(snapshot.get("winner", ""))[:18], (box.centerx, box.bottom - 7), self.app.assets.font(8, True), COLORS["gold"], "midbottom")
+            draw_text(surface, "CHAMPION  " + self.team_name(snapshot.get("winner", ""))[:22], (box.centerx, box.bottom - 23), self.app.assets.font(9, True), COLORS["gold"], "center")
+
     def media_preview(self, selection, size):
         if not isinstance(selection, dict): return None
         path = selection.get("image", "")
@@ -14336,37 +14531,28 @@ class TeamWatchScene(Scene):
     def draw(self, surface):
         place = self.app.store.places.get(self.battle.get("place", ""))
         self.draw_background(surface, place.background if place else "")
-        overlay = ui_surface((W, H), pygame.SRCALPHA); overlay.fill((247, 227, 177, 42)); ui_blit(surface, overlay, (0, 0))
-        draw_text(surface, "LIVE TEAM DUEL", (24, 22), self.app.assets.font(25, True), COLORS["gold"])
-        draw_text(surface, "HOUSE POV  |  CHAMPIONSHIP TEAM WATCH", (26, 55), self.app.assets.font(11), COLORS["muted"])
+        overlay = ui_surface((W, H), pygame.SRCALPHA); overlay.fill((247, 227, 177, 32)); ui_blit(surface, overlay, (0, 0))
+        draw_text(surface, "CHAMPIONSHIP WATCH", (24, 22), self.app.assets.font(22, True), COLORS["gold"])
+        draw_text(surface, "HOUSE POV  |  LIVE TEAM MATCH", (26, 50), self.app.assets.font(10), COLORS["muted"])
         snapshot = self.app.store.championship_bracket_snapshot(self.battle.get("championship_id", "")) if self.battle.get("championship_id") else None
         if snapshot:
-            self.draw_bracket(surface, snapshot, (382, 82, 396, 442))
-        self.draw_panel(surface, (24, 82, 344, 442), "LIVE TEAM TABLE", COLORS["violet"])
+            self.draw_bracket(surface, snapshot, (10, 70, 780, 430))
+        else:
+            self.draw_panel(surface, (10, 70, 780, 430), "CHAMPIONSHIP TREE", COLORS["gold"])
+            draw_text(surface, "Waiting for the championship tree snapshot", (400, 285), self.app.assets.font(13), COLORS["muted"], "center")
         player_team = self.team_name(self.battle.get("player_team", ""))
         opponent_team = self.team_name(self.battle.get("opponent_team", ""))
         lp = self.battle.get("team_lp", {})
         active = self.battle.get("active_members", {})
-        draw_text(surface, player_team, (196, 124), self.app.assets.font(15, True), COLORS["cyan"], "center")
-        draw_text(surface, "VS", (196, 148), self.app.assets.font(13, True), COLORS["gold"], "center")
-        draw_text(surface, opponent_team, (196, 172), self.app.assets.font(15, True), COLORS["red"], "center")
-        draw_text(surface, "LP " + str(lp.get("player", 8000)) + "  /  " + str(lp.get("opponent", 8000)), (196, 202), self.app.assets.font(14, True), COLORS["cream"], "center")
-        draw_text(surface, "Active: " + self.member_name(active.get("player", "")) + " / " + self.member_name(active.get("opponent", "")), (196, 228), self.app.assets.font(10), COLORS["gold"], "center")
-        draw_text(surface, "Round " + str(self.battle.get("round", 1)) + "  |  Turn " + str(self.battle.get("duel_turn", self.battle.get("turn", 1))) + "  |  " + str(self.battle.get("phase", "duel")).upper(), (196, 252), self.app.assets.font(9), COLORS["muted"], "center")
-        media_states = list(self.battle.get("media_states", []) or [])
-        if media_states: self.draw_watch_media(surface, media_states[-1], (42, 278, 308, 92))
-        rounds = list(self.battle.get("rounds", []) or [])
-        if not rounds: draw_text(surface, "Live engine has not completed a round.", (196, 402), self.app.assets.font(10), COLORS["muted"], "center")
-        for index, result in enumerate(rounds[-3:]):
-            winner = self.member_name(result.get("winner", "draw"))
-            transfers = list(result.get("transfer_events", []) or [])
-            draw_text(surface, "R" + str(result.get("round", index + 1)) + " " + winner, (42, 402 + index * 25), self.app.assets.font(8, True), COLORS["cream"])
-            draw_text(surface, "transfers " + str(len(transfers)), (350, 402 + index * 25), self.app.assets.font(7), COLORS["muted"], "topright")
-        fallback_count = sum(1 for state in media_states for side in ["player", "opponent"] if state.get(side, {}).get("fallback"))
-        turns = list(self.battle.get("team_turns", []) or [])
-        draw_text(surface, "Team media states " + str(len(media_states)) + "  |  member fallbacks " + str(fallback_count), (196, 478), self.app.assets.font(8), COLORS["muted"], "center")
-        draw_text(surface, "Turns " + str(len(turns)) + "  |  watchers " + str(len(self.battle.get("watchers", []))) + "/6", (196, 496), self.app.assets.font(9), COLORS["muted"], "center")
-        self.draw_buttons(surface, 9)
+        rounded(surface, (10, 508, 780, 42), (13, 22, 42), COLORS["line"], 7, 1)
+        draw_text(surface, "HOUSE  " + player_team[:18], (24, 522), self.app.assets.font(8, True), COLORS["cyan"])
+        draw_text(surface, "LP " + str(lp.get("player", 8000)), (24, 539), self.app.assets.font(7), COLORS["cream"])
+        draw_text(surface, "ACTIVE  " + self.member_name(active.get("player", ""))[:14], (160, 530), self.app.assets.font(8), COLORS["gold"])
+        draw_text(surface, "VS", (400, 530), self.app.assets.font(9, True), COLORS["gold"], "center")
+        draw_text(surface, "ACTIVE  " + self.member_name(active.get("opponent", ""))[:14], (640, 530), self.app.assets.font(8), COLORS["gold"], "topright")
+        draw_text(surface, "GUEST  " + opponent_team[:18], (776, 522), self.app.assets.font(8, True), COLORS["red"], "topright")
+        draw_text(surface, "LP " + str(lp.get("opponent", 8000)), (776, 539), self.app.assets.font(7), COLORS["cream"], "topright")
+        self.draw_buttons(surface, 8)
         self.app.draw_notice(surface)
 
 
@@ -14405,7 +14591,8 @@ class WatchScene(Scene):
 
     def open_watch(self, battle):
         if battle.get("engine_type") == "team":
-            self.app.push(TeamWatchScene(self.app, battle))
+            if isinstance(self.app, Application): self.app.push(LoadingScene(self.app, lambda battle=battle: TeamWatchScene(self.app, battle), "Fetching team watch data"))
+            else: self.app.push(TeamWatchScene(self.app, battle))
             return
         session = self.app.store._world_session(battle)
         if not session:
