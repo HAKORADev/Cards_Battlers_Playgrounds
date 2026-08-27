@@ -6268,6 +6268,18 @@ class DuelEngine:
                 if selected.get("target", "opponents") == "opponents" and side.character.id in members: continue
                 for stat in ["attack", "defense"]:
                     records.append({"source": self.place, "modifier": {"scope": "field", "selector": {"side": "self", "zone": "monster"}, "stat": stat, "operation": "add", "amount": amount, "owner": side.name, "layer": 4}})
+        elif isinstance(selected.get("modifier"), dict):
+            target = str(selected.get("target", "team_members")).lower()
+            for side in [self.player, self.opponent]:
+                if target in ["team_members", "allies"] and side.character.id not in members: continue
+                if target in ["opponents", "enemies"] and side.character.id in members: continue
+                modifier = dict(selected["modifier"])
+                modifier["selector"] = dict(modifier.get("selector") or {})
+                modifier["selector"].setdefault("side", "self")
+                modifier.setdefault("scope", "field")
+                modifier.setdefault("layer", 4)
+                modifier.setdefault("owner", side.name)
+                records.append({"source": self.place, "modifier": modifier})
         for side, effect in [(self.player, self.team_effect), (self.opponent, self.opponent_team_effect)]:
             selected = effect.get("selected", effect) if isinstance(effect, dict) else {}
             if selected.get("kind") == "family_boost":
