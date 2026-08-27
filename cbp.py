@@ -1124,6 +1124,7 @@ class CharacterDef:
     preferred_subtypes: list = field(default_factory=list)
     preferred_cards: list = field(default_factory=list)
     preferred_places: list = field(default_factory=list)
+    relationship_preferences: dict = field(default_factory=dict)
     technique_profile: dict = field(default_factory=dict)
     cognition: dict = field(default_factory=dict)
     learning_policy: dict = field(default_factory=dict)
@@ -2097,6 +2098,7 @@ class ContentStore:
             self.decks[deck_id] = deck
         self.places = {entry["id"]: self.place_from_entry(entry) for entry in read_json(DATA / "places.json", [])}
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
+        self.seed_relationship_preferences()
         self.ensure_behavior_weights()
         self.world = self.load_world_state()
         self.world.setdefault("clock_epoch", int(time.time()))
@@ -2250,6 +2252,8 @@ class ContentStore:
         character.preferred_cards = [str(item) for item in self.normalize_profile_list(getattr(character, "preferred_cards", []) or getattr(character, "best_cards", []), set(self.cards), 20)]
         character.best_cards = [str(item) for item in self.normalize_profile_list(getattr(character, "best_cards", []), set(self.cards), 20)]
         character.preferred_places = [str(item) for item in self.normalize_profile_list(getattr(character, "preferred_places", []), set(self.places), 20)]
+        raw_relationships = getattr(character, "relationship_preferences", {}) if isinstance(getattr(character, "relationship_preferences", {}), dict) else {}
+        character.relationship_preferences = {relation: [str(item) for item in self.normalize_profile_list(raw_relationships.get(relation, []), set(self.characters) - {character.id}, 20)] for relation in ["ally", "enemy", "stranger"]}
         character.technique_profile = self.normalize_number_map(getattr(character, "technique_profile", {}), {"aggression": 5.0, "defense": 5.0, "control": 5.0, "combo": 5.0, "resource": 5.0, "bluff": 5.0, "risk": 5.0, "adaptation": 5.0})
         character.cognition = self.normalize_number_map(getattr(character, "cognition", {}), {"smartness": float(character.smartness), "memory": 5.0, "inference": 5.0, "planning": 5.0, "uncertainty": 5.0})
         character.cognition["smartness"] = float(character.smartness)
@@ -2320,6 +2324,18 @@ class ContentStore:
             character.persona_state.setdefault("trust", {})
             character.persona_state.setdefault("confidence", 0.0)
         for team in self.teams.values(): self.normalize_team_profile(team)
+
+    def seed_relationship_preferences(self):
+        for character in self.characters.values():
+            preferences = getattr(character, "relationship_preferences", {}) if isinstance(getattr(character, "relationship_preferences", {}), dict) else {}
+            known = set(character.allies) | set(character.enemies) | {str(item.get("other", "")) for item in character.relationship_history if isinstance(item, dict)}
+            for relation in ["ally", "enemy"]:
+                for other_id in preferences.get(relation, []):
+                    other_id = str(other_id)
+                    if other_id not in self.characters or other_id == character.id or other_id in known: continue
+                    if relation == "ally": character.allies.append(other_id)
+                    else: character.enemies.append(other_id)
+                    known.add(other_id)
 
     def relationship_for(self, character_id, other_id):
         character = self.characters.get(character_id)
@@ -4823,7 +4839,7 @@ class ContentStore:
     def update_character(self, character_id, values):
         character = self.characters.get(character_id)
         if not character: return None
-        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood", "logic_graph"}
+        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood", "relationship_preferences", "logic_graph"}
         for key, value in values.items():
             if key not in allowed: continue
             if key == "stars": value = clamp(int(value), 0, 10)
@@ -4993,7 +5009,7 @@ class ContentStore:
         normalized = DeckRules.normalized(result, self.cards)
         return normalized if len(normalized) >= DeckRules.minimum else normalized + [item for item in pool if item not in normalized][:max(0, DeckRules.minimum - len(normalized))]
 
-    def create_character(self, name, stars, smartness, family, portrait="", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph=""):
+    def create_character(self, name, stars, smartness, family, portrait="", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph="", relationship_preferences=None):
         char_id = "character_" + str(int(time.time() * 1000))
         display_name = str(name or "New Character").strip() or "New Character"
         families = [str(family or "warrior").lower()]
@@ -5002,7 +5018,7 @@ class ContentStore:
             deck_folder = self.scaffold_entity("decks", deck_id, display_name + " Deck")
             self.decks[deck_id] = {"schema": 2, "name": display_name + " Deck", "description": "", "portrait": "", "owner_id": char_id, "main_cards": self.starter_deck_cards(families, preferred_card_kinds, preferred_cards), "fusion_cards": [], "best_cards": list(preferred_cards or [])[:20], "preferred_families": families, "preferred_card_kinds": list(preferred_card_kinds or []), "media_folder": deck_folder}
         folder = self.scaffold_entity("characters", char_id, display_name)
-        char = CharacterDef(id=char_id, name=display_name, portrait="", stars=clamp(int(stars), 0, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), technique_profile=dict(technique_profile or {}))
+        char = CharacterDef(id=char_id, name=display_name, portrait="", stars=clamp(int(stars), 0, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), relationship_preferences=dict(relationship_preferences or {}), technique_profile=dict(technique_profile or {}))
         char.logic_graph = str(logic_graph or "")
         self.import_entity_image(portrait, folder)
         self.characters[char_id] = char
@@ -12075,15 +12091,19 @@ class CharacterMakerScene(Scene):
         self.subtypes = TextInput((400, 236, 300, 30), ", ".join(getattr(character, "preferred_subtypes", [])) if character else "")
         self.preferred_cards = TextInput((70, 274, 300, 30), ", ".join(getattr(character, "preferred_cards", [])) if character else "")
         self.preferred_places = TextInput((400, 274, 300, 30), ", ".join(getattr(character, "preferred_places", [])) if character else "")
+        relationship_preferences = getattr(character, "relationship_preferences", {}) if character else {}
+        self.allies = TextInput((70, 312, 300, 30), ", ".join(relationship_preferences.get("ally", [])))
+        self.enemies = TextInput((400, 312, 300, 30), ", ".join(relationship_preferences.get("enemy", [])))
+        self.strangers = TextInput((70, 350, 300, 30), ", ".join(relationship_preferences.get("stranger", [])))
         profile = getattr(character, "technique_profile", {}) if character else {}
-        self.techniques = TextInput((70, 312, 630, 30), ", ".join(f"{key}={value:g}" for key, value in profile.items()) if profile else "aggression=5, control=5, combo=5, defense=5, adaptation=5")
-        self.origin = TextInput((70, 350, 300, 30), character.origin if character else "community")
-        self.logic = TextInput((400, 350, 300, 30), getattr(character, "logic_graph", "") if character else "")
+        self.techniques = TextInput((70, 388, 630, 30), ", ".join(f"{key}={value:g}" for key, value in profile.items()) if profile else "aggression=5, control=5, combo=5, defense=5, adaptation=5")
+        self.origin = TextInput((70, 426, 300, 30), character.origin if character else "community")
+        self.logic = TextInput((400, 426, 300, 30), getattr(character, "logic_graph", "") if character else "")
         self.gender = character.gender if character else "other"
         self.stars = int(character.stars) if character else 0
         self.smartness = int(character.smartness) if character else 5
         label = "SAVE CHARACTER" if character else "CREATE CHARACTER"
-        self.buttons = [Button((70, 390, 150, 32), "GENDER: " + self.gender.upper(), lambda: self.cycle_gender(), COLORS["violet"]), Button((236, 390, 140, 32), "EDIT WEIGHTS", lambda: self.open_weights(), COLORS["gold"]), Button((392, 390, 90, 32), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((492, 390, 110, 32), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((70, 430, 210, 36), label, lambda: self.save_character(), COLORS["green"]), Button((300, 430, 180, 36), "EXPORT CHARACTER", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((70, 470, 150, 32), "GENDER: " + self.gender.upper(), lambda: self.cycle_gender(), COLORS["violet"]), Button((236, 470, 140, 32), "EDIT WEIGHTS", lambda: self.open_weights(), COLORS["gold"]), Button((392, 470, 90, 32), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((492, 470, 110, 32), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((70, 510, 210, 36), label, lambda: self.save_character(), COLORS["green"]), Button((300, 510, 180, 36), "EXPORT CHARACTER", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def change(self, field, amount): setattr(self, field, clamp(getattr(self, field) + amount, 0 if field == "stars" else 1, 10))
 
@@ -12103,18 +12123,18 @@ class CharacterMakerScene(Scene):
         self.app.notify("Exported character package with dependencies and experience: " + path.name)
 
     def save_character(self):
-        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "preferred_families": self.parse_list(self.family.value), "deck_id": self.deck.value.strip(), "preferred_card_kinds": self.parse_list(self.card_kinds.value), "preferred_subtypes": self.parse_list(self.subtypes.value)[:2], "preferred_cards": self.parse_list(self.preferred_cards.value), "preferred_places": self.parse_list(self.preferred_places.value), "technique_profile": self.parse_map(self.techniques.value), "gender": self.gender, "origin": self.origin.value, "logic_graph": self.logic.value.strip(), "stars": self.stars, "smartness": self.smartness}
+        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "preferred_families": self.parse_list(self.family.value), "deck_id": self.deck.value.strip(), "preferred_card_kinds": self.parse_list(self.card_kinds.value), "preferred_subtypes": self.parse_list(self.subtypes.value)[:2], "preferred_cards": self.parse_list(self.preferred_cards.value), "preferred_places": self.parse_list(self.preferred_places.value), "relationship_preferences": {"ally": self.parse_list(self.allies.value), "enemy": self.parse_list(self.enemies.value), "stranger": self.parse_list(self.strangers.value)}, "technique_profile": self.parse_map(self.techniques.value), "gender": self.gender, "origin": self.origin.value, "logic_graph": self.logic.value.strip(), "stars": self.stars, "smartness": self.smartness}
         if self.character_id:
             result = self.app.store.update_character(self.character_id, values)
         else:
-            result = self.app.store.create_character(values["name"], values["stars"], values["smartness"], values["preferred_families"][0] if values["preferred_families"] else "warrior", values["portrait"], values["gender"], values["origin"], values["deck_id"], values["description"], values["preferred_card_kinds"], values["preferred_subtypes"], values["preferred_cards"], values["preferred_places"], values["technique_profile"], values["logic_graph"])
+            result = self.app.store.create_character(values["name"], values["stars"], values["smartness"], values["preferred_families"][0] if values["preferred_families"] else "warrior", values["portrait"], values["gender"], values["origin"], values["deck_id"], values["description"], values["preferred_card_kinds"], values["preferred_subtypes"], values["preferred_cards"], values["preferred_places"], values["technique_profile"], values["logic_graph"], values["relationship_preferences"])
             if result: self.character_id = result.id
         self.app.store.load()
         self.app.notify("Character definition saved with preferences, cognition inputs, deck linkage, and media structure." if result else "Character definition could not be saved.")
         self.enter()
 
     def handle(self, event):
-        for field in [self.name, self.portrait, self.description, self.family, self.deck, self.card_kinds, self.subtypes, self.preferred_cards, self.preferred_places, self.techniques, self.origin, self.logic]: field.handle(event)
+        for field in [self.name, self.portrait, self.description, self.family, self.deck, self.card_kinds, self.subtypes, self.preferred_cards, self.preferred_places, self.allies, self.enemies, self.strangers, self.techniques, self.origin, self.logic]: field.handle(event)
         super().handle(event)
 
     def draw(self, surface):
@@ -12122,9 +12142,9 @@ class CharacterMakerScene(Scene):
         draw_text(surface, "CHARACTER MAKER / EDITOR", (34, 28), self.app.assets.font(27, True), COLORS["violet"])
         draw_text(surface, "Identity, deck preferences, relationships-ready fields, cognition inputs, technique weights, and media roots remain separately authored.", (36, 62), self.app.assets.font(11), COLORS["muted"])
         self.draw_panel(surface, (42, 100, 720, 370), "CHARACTER DEFINITION", COLORS["violet"])
-        for field, label in [(self.name, "Name"), (self.portrait, "Portrait key"), (self.description, "Description"), (self.family, "Preferred families"), (self.deck, "Deck id"), (self.card_kinds, "Preferred card kinds"), (self.subtypes, "Preferred monster subtypes, max 2"), (self.preferred_cards, "Preferred / best cards"), (self.preferred_places, "Preferred places"), (self.techniques, "Technique weights key=value"), (self.origin, "Origin"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
-        draw_text(surface, f"STARS {self.stars}/10   SMARTNESS {self.smartness}/10   GENDER {self.gender.upper()}", (400, 415), self.app.assets.font(12, True), COLORS["cream"], "center")
-        draw_text(surface, "Runtime learning, relationship history, knowledge, and duel experience stay outside authored fields.", (400, 470), self.app.assets.font(10), COLORS["gold"], "center")
+        for field, label in [(self.name, "Name"), (self.portrait, "Portrait key"), (self.description, "Description"), (self.family, "Preferred families"), (self.deck, "Deck id"), (self.card_kinds, "Preferred card kinds"), (self.subtypes, "Preferred monster subtypes, max 2"), (self.preferred_cards, "Preferred / best cards"), (self.preferred_places, "Preferred places"), (self.allies, "Authored ally preferences"), (self.enemies, "Authored enemy preferences"), (self.strangers, "Authored stranger preferences"), (self.techniques, "Technique weights key=value"), (self.origin, "Origin"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
+        draw_text(surface, f"STARS {self.stars}/10   SMARTNESS {self.smartness}/10   GENDER {self.gender.upper()}", (400, 470), self.app.assets.font(12, True), COLORS["cream"], "center")
+        draw_text(surface, "Authored preferences seed relationship choices; runtime trust, history, knowledge, and experience remain dynamic.", (400, 486), self.app.assets.font(9), COLORS["gold"], "center")
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
