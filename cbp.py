@@ -2503,9 +2503,9 @@ class ContentStore:
         self.dirty_domains.difference_update(requested)
         return True
 
-    def reserve_place(self, place_id):
+    def reserve_place(self, place_id, allow_championship=False):
         place = self.places.get(place_id)
-        if not place or place.current_duels >= place.capacity: return False
+        if not place or (getattr(place, "championship_only", False) and not allow_championship) or place.current_duels >= place.capacity: return False
         place.current_duels += 1
         self.sync_place_runtime()
         self.save()
@@ -4508,7 +4508,7 @@ class ContentStore:
             tier_place_id = str(championship.get("tier_place", ""))
             place = self.places.get(tier_place_id) if tier_place_id else None
             if not place or place.current_duels >= place.capacity: break
-            if not self.reserve_place(place.id): continue
+            if not self.reserve_place(place.id, allow_championship=True): continue
             for team_id in pair:
                 team = self.teams.get(team_id)
                 if team:
@@ -8684,7 +8684,7 @@ class TeamDuelEngine:
         self.opponent_deck_choices = dict(opponent_deck_choices or {})
         self.selected_deck_choices = []
         self.place_id = place_id
-        self.place_reserved = reserved or store.reserve_place(place_id)
+        self.place_reserved = reserved or store.reserve_place(place_id, allow_championship=False)
         self.round = 1
         self.results = []
         self.current = None
