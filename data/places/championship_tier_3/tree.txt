@@ -5,4 +5,5 @@ logic/
 manifest.json
 music/
 presentation/
+table/
 tree.txt

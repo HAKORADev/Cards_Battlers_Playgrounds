@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "asset_contract": "place_duel_table_v1",
+  "canvas_size": [
+    608,
+    564
+  ],
+  "height_map": "height.png",
+  "layers": [
+    {
+      "name": "base",
+      "file": "base.png",
+      "blend": "normal"
+    },
+    {
+      "name": "shadow",
+      "file": "shadow.png",
+      "blend": "normal"
+    },
+    {
+      "name": "rim",
+      "file": "rim.png",
+      "blend": "normal"
+    },
+    {
+      "name": "glow",
+      "file": "glow.png",
+      "blend": "normal"
+    }
+  ]
+}

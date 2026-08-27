@@ -469,14 +469,14 @@ def card_frame_color(card):
 @dataclass
 class DuelLayout:
     viewport: tuple = (800, 600)
-    table: pygame.Rect = field(default_factory=lambda: pygame.Rect(126, 18, 624, 564))
-    duel_frame: pygame.Rect = field(default_factory=lambda: pygame.Rect(170, 45, 536, 480))
-    field: pygame.Rect = field(default_factory=lambda: pygame.Rect(238, 92, 400, 400))
+    table: pygame.Rect = field(default_factory=lambda: pygame.Rect(96, 18, 608, 564))
+    duel_frame: pygame.Rect = field(default_factory=lambda: pygame.Rect(148, 45, 504, 480))
+    field: pygame.Rect = field(default_factory=lambda: pygame.Rect(202, 92, 400, 400))
     center_y: int = 292
-    left_rail_x: int = 184
-    right_rail_x: int = 656
-    hand_center_x: int = 438
-    phase_x: int = 118
+    left_rail_x: int = 154
+    right_rail_x: int = 650
+    hand_center_x: int = 402
+    phase_x: int = 99
     opponent_hand_y: int = 6
     player_hand_y: int = 486
     monster_card_size: tuple = (60, 78)
@@ -503,8 +503,8 @@ class DuelLayout:
         return pygame.Rect(start + index * step, y - (8 if selected else 0) - lift, self.hand_card_size[0], height)
     def side_well_rect(self, side, kind):
         positions = {
-            "opponent": {"extra": (self.right_rail_x, 164, 54, 68), "field": (self.right_rail_x, 90, 54, 68), "deck": (self.left_rail_x, 164, 54, 68), "graveyard": (self.left_rail_x, 90, 54, 68), "banished": (self.left_rail_x, 238, 54, 68)},
-            "player": {"extra": (self.left_rail_x, 454, 54, 68), "field": (self.left_rail_x, 380, 54, 68), "deck": (self.right_rail_x, 454, 54, 68), "graveyard": (self.right_rail_x, 380, 54, 68), "banished": (self.right_rail_x, 528, 54, 68)}
+            "opponent": {"extra": (self.right_rail_x, 164, 48, 68), "field": (self.right_rail_x, 90, 48, 68), "deck": (self.left_rail_x, 164, 48, 68), "graveyard": (self.left_rail_x, 90, 48, 68), "banished": (self.left_rail_x, 303, 48, 68)},
+            "player": {"extra": (self.left_rail_x, 454, 48, 68), "field": (self.left_rail_x, 380, 48, 68), "deck": (self.right_rail_x, 454, 48, 68), "graveyard": (self.right_rail_x, 380, 48, 68), "banished": (self.right_rail_x, 303, 48, 68)}
         }
         return pygame.Rect(positions[side][kind])
     def field_slot_rect(self):
@@ -515,7 +515,7 @@ class DuelLayout:
         pfp = self.pfp_rect(side)
         return pygame.Rect(8, pfp.y - 4, 172, 54)
     def phase_rect(self, index):
-        return pygame.Rect(self.phase_x, 116 + index * 38, 54, 32)
+        return pygame.Rect(self.phase_x, 116 + index * 35, 48, 30)
     def question_rect(self):
         return pygame.Rect(314, 238, 316, 126)
     def question_action_rect(self, name):
@@ -584,19 +584,29 @@ def render_engine_card(surface, rect, card, assets, registry=None, known=True, f
     row_size = 5 if field_mode else 6 if compact else 8
     body_size = 4 if field_mode else 5 if compact else 7
     title_limit = 8 if field_mode else 12 if compact else 24
-    draw_text(surface, card.name[:title_limit], (layout_rect.x + int(layout_rect.width * 0.47), layout_rect.y + int(layout_rect.height * 0.105)), assets.display_font(title_size, True), COLORS["ink"], "center")
-    badge_center = (rect.x + int(rect.width * 0.84), rect.y + int(rect.height * 0.145))
-    badge_size = max(8, int(rect.width * 0.16))
+    title_y = layout_rect.y + int(layout_rect.height * 0.105)
+    badge_size = max(7, min(20, int(layout_rect.width * 0.11)))
+    badge_rect = pygame.Rect(layout_rect.right - badge_size - 3, title_y - badge_size // 2, badge_size, badge_size)
+    title_text = str(card.name or "")[:title_limit]
+    title_left = layout_rect.x + 5
+    title_right = badge_rect.x - 4
+    title_width = max(1, title_right - title_left)
+    title_font_size = title_size
+    title_font = assets.display_font(title_font_size, True)
+    while title_font_size > 4 and title_font.size(title_text)[0] > title_width:
+        title_font_size -= 1
+        title_font = assets.display_font(title_font_size, True)
+    draw_text(surface, title_text, ((title_left + title_right) // 2, title_y), title_font, COLORS["ink"], "center")
     badge = assets.card_badge(template_kind, (badge_size, badge_size))
-    if badge: surface.blit(badge, (badge_center[0] - badge_size // 2, badge_center[1] - badge_size // 2))
+    if badge: surface.blit(badge, badge_rect.topleft)
 
     monster_kind = card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
-    row_y = layout_rect.y + int(layout_rect.height * 0.195)
+    row_y = layout_rect.y + int(layout_rect.height * 0.215)
     if monster_kind:
         star_count = max(0, min(11, int(card.stars)))
-        star_size = max(5, min(14, int(layout_rect.width * 0.12)))
+        star_size = max(4, min(12, int(layout_rect.width * 0.10)))
         star_gap = max(1, star_size // 8)
-        available_width = max(1, layout_rect.width - 8)
+        available_width = max(1, layout_rect.width - 10)
         while star_count and star_size > 5 and star_count * star_size + max(0, star_count - 1) * star_gap > available_width: star_size -= 1
         total_width = star_count * star_size + max(0, star_count - 1) * star_gap
         if star_count and total_width <= available_width:
@@ -636,6 +646,7 @@ class AssetBank:
         self.reaction_sounds = {}
         self.media_images = {}
         self.media_sounds = {}
+        self.place_table_manifests = {}
         self.media_video_frames = {}
         self.media_scopes = {}
         self.scan_generation = 0
@@ -1052,6 +1063,35 @@ class AssetBank:
         if path.suffix.lower() in MediaRegistry.video_extensions: return self.media_video_frame(path, clock, size, scope)
         return self.media_image(path, size, scope)
 
+    def place_table_manifest(self, place_id):
+        root = DATA / "places" / str(place_id) / "table"
+        if not root.exists(): return {}
+        key = str(place_id)
+        manifest = self.place_table_manifests.get(key)
+        if manifest is None:
+            path = root / "manifest.json"
+            manifest = read_json(path, {}) if path.exists() else {}
+            self.place_table_manifests[key] = manifest
+        return manifest if isinstance(manifest, dict) else {}
+
+    def place_table_height_path(self, place_id):
+        root = DATA / "places" / str(place_id) / "table"
+        filename = str(self.place_table_manifest(place_id).get("height_map", "height.png") or "height.png")
+        path = root / filename
+        return path if path.exists() else None
+
+    def place_table_layers(self, place_id, size=None, scope="scene"):
+        root = DATA / "places" / str(place_id) / "table"
+        if not root.exists(): return []
+        manifest = self.place_table_manifest(place_id)
+        layers = []
+        for item in list(manifest.get("layers", []) or []):
+            filename = str(item.get("file", "") if isinstance(item, dict) else item).strip()
+            path = root / filename
+            image = self.media_image(path, size, scope)
+            if image is not None: layers.append(image)
+        return layers
+
     def media_image(self, path, size=None, scope="scene"):
         if not path or not Path(path).exists(): return None
         key = str(path)
@@ -1354,6 +1394,7 @@ class MediaRegistry:
         self.catalog = {"images": [], "audio": [], "video": [], "timelines": []}
         self.variant_cache = {}
         self.duration_cache = {}
+        self.composition_profiles = {}
         self.scan_generation = 0
         self.scanned_generation = -1
 
@@ -2050,6 +2091,7 @@ class PlayLightSystem:
         self.enabled = bool(enabled)
         self.normal_index = {}
         self.overlay_cache = {}
+        self.depth_cache = {}
 
     def minute_profile(self, clock=None):
         current = clock or time.localtime()
@@ -2118,6 +2160,55 @@ class PlayLightSystem:
         result.fill(color)
         if len(self.overlay_cache) >= 96: self.overlay_cache.clear()
         self.overlay_cache[key] = result
+        return result
+
+    def depth_overlay(self, size, clock=None, table_rect=None, height_path=None):
+        if not self.enabled: return None
+        size = (max(1, int(size[0])), max(1, int(size[1])))
+        profile = self.minute_profile(clock)
+        path = Path(height_path) if height_path else None
+        try: stamp = (str(path), path.stat().st_mtime_ns) if path and path.exists() else ("", 0)
+        except OSError: stamp = ("", 0)
+        key = (size, profile["minute"], stamp, tuple(table_rect) if table_rect else ())
+        if key in self.depth_cache: return self.depth_cache[key]
+        sample_size = (max(96, min(320, size[0] // 8)), max(54, min(180, size[1] // 8)))
+        result = pygame.Surface(sample_size, pygame.SRCALPHA)
+        result.fill((0, 0, 0, 0))
+        normal = self.normal_map(path, 0.8) if path and path.exists() else None
+        normal_size = normal.get_size() if normal else (0, 0)
+        scale_x = size[0] / float(SCENE_W) if size[0] == RENDER_W else 1.0
+        scale_y = size[1] / float(SCENE_H) if size[1] == RENDER_H else 1.0
+        offset_x = RENDER_VIEW_X if size[0] == RENDER_W else 0
+        offset_y = RENDER_VIEW_Y if size[1] == RENDER_H else 0
+        table = pygame.Rect(table_rect) if table_rect else pygame.Rect(96, 18, 608, 564)
+        table_px = pygame.Rect(int(offset_x + table.x * scale_x), int(offset_y + table.y * scale_y), int(table.width * scale_x), int(table.height * scale_y))
+        light_x = 0.78 if not profile["night"] else 0.25
+        light_y = 0.16
+        for y in range(sample_size[1]):
+            for x in range(sample_size[0]):
+                px = (x + 0.5) * size[0] / sample_size[0]
+                py = (y + 0.5) * size[1] / sample_size[1]
+                nx = px / max(1, size[0])
+                ny = py / max(1, size[1])
+                distance = math.sqrt(((nx - light_x) / 0.86) ** 2 + ((ny - light_y) / 0.92) ** 2)
+                falloff = clamp(1.0 - distance, 0.0, 1.0)
+                inside_table = table_px.collidepoint((int(px), int(py)))
+                normal_response = 0.72
+                if inside_table and normal:
+                    tx = int(clamp((px - table_px.x) / max(1, table_px.width) * normal_size[0], 0, normal_size[0] - 1))
+                    ty = int(clamp((py - table_px.y) / max(1, table_px.height) * normal_size[1], 0, normal_size[1] - 1))
+                    vector = normal.get_at((tx, ty))
+                    normal_response = clamp(vector.b / 255.0 + (vector.r + vector.g - 255.0) / 1020.0, 0.55, 1.1)
+                highlight_alpha = int((5.0 + 30.0 * falloff) * normal_response)
+                shadow_alpha = int(8.0 * (1.0 - falloff) if inside_table else 0.0)
+                if highlight_alpha >= shadow_alpha:
+                    color = (255, 244, 206, min(42, highlight_alpha)) if not profile["night"] else (184, 210, 255, min(46, highlight_alpha))
+                else:
+                    color = (0, 0, 0, min(12, shadow_alpha))
+                result.set_at((x, y), color)
+        result = scaled_image(result, size)
+        if len(self.depth_cache) >= 48: self.depth_cache.clear()
+        self.depth_cache[key] = result
         return result
 
 
@@ -5596,7 +5687,7 @@ class ContentStore:
             "cards": ["logic", "art", "art/variants", "art/metadata"],
             "characters": ["logic", "weights", "pfp", "pfp/variants", "badges", "badges/levels", "cards", "cards/best-class"],
             "teams": ["logic", "effects", "members", "members/1", "members/2", "members/3", "pfp", "pfp/variants", "badges", "badges/levels"],
-            "places": ["logic", "background/day", "background/night", "field/day", "field/night", "ground/day", "ground/night", "presentation"],
+            "places": ["logic", "background/day", "background/night", "field/day", "field/night", "ground/day", "ground/night", "table", "presentation"],
             "decks": ["logic", "pfp", "pfp/variants", "badges", "badges/levels", "cards", "experience"]
         }
         if category == "cards":
@@ -5670,6 +5761,8 @@ class ContentStore:
                 else: legal.update(f"{index}{extension}" for index in range(1, 11) for extension in audio_extensions)
             if parts and parts[-1] == "vfx":
                 legal.update(["vfx.png", "effect.png", "universal.png", "1.png"])
+            if parts and parts[-1] == "table":
+                legal.update(["base.png", "glow.png", "height.png", "manifest.json", "rim.png", "shadow.png"])
             (current / "tree.txt").write_text("\n".join(sorted(legal | {"tree.txt"})) + "\n", encoding="utf-8")
 
     def scaffold_entity(self, category, entity_id, display_name, folders=None, created=None, folder_name=""):
@@ -11454,13 +11547,13 @@ class DuelScene(Scene):
             if not character: continue
             side = "left" if index < 3 else "right"
             column_index = index if index < 3 else index - 3
-            x = 12 if side == "left" else W - 92
-            y = 155 + column_index * 112
+            x = 4 if side == "left" else W - 84
+            y = [112, 247, 382][column_index]
             character = self.app.store.characters.get(watcher_id)
             profile = normalize_media_composition(getattr(character, "media_composition", {}) if character else {})
-            if profile["watch_anchor"] == "top": y = 58 + column_index * 112
-            elif profile["watch_anchor"] == "middle": y = 267 + column_index * 78
-            elif profile["watch_anchor"] == "bottom": y = 390 + column_index * 62
+            if profile["watch_anchor"] == "top": y = 112
+            elif profile["watch_anchor"] == "middle": y = 247
+            elif profile["watch_anchor"] == "bottom": y = 382
             relation = self.app.store.relationship_for(watcher_id, self.engine.player.character.id)
             accent = COLORS["gold"] if relation == "ally" else COLORS["red"] if relation == "enemy" else COLORS["line"]
             rounded(surface, (x, y, 80, 96), (18, 30, 58, 215), accent, 7, 1)
@@ -11491,10 +11584,12 @@ class DuelScene(Scene):
             place = self.app.store.places.get(self.place_id)
             image = self.app.assets.image(place.background, (W, H)) if place and place.background else None
             if image: ui_blit(surface, image, (0, 0))
-        table = self.app.assets.role_image("table_frame", (646, 564), True)
-        frame = self.app.assets.role_image("duel_frame", (552, 480), True)
+        table_layers = self.app.assets.place_table_layers(self.place_id, self.layout.table.size, self.media_scope)
+        if not table_layers: table_layers = [self.app.assets.role_image("table_frame", self.layout.table.size, True)]
+        frame = self.app.assets.role_image("duel_frame", self.layout.duel_frame.size, True)
         field_surface = self.app.assets.place_visual(self.place_id, "field", night, self.time, self.layout.field.size, self.media_scope) or self.app.assets.role_image("field_surface", self.layout.field.size, True)
-        ui_blit(surface, table, self.layout.table.topleft)
+        for table in table_layers:
+            if table: ui_blit(surface, table, self.layout.table.topleft)
         ui_blit(surface, frame, self.layout.duel_frame.topleft)
         ui_blit(surface, field_surface, self.layout.field.topleft)
 
@@ -11795,18 +11890,22 @@ class DuelScene(Scene):
     def draw_pile_label(self, surface, label, count, rect, rotation):
         font = self.app.assets.duel_font(6, "white", True)
         text = font.render(f"{label[:6]} {count}", True, COLORS["white"])
-        label_y = min(rect.bottom + 5, H - 9)
-        target = text.get_rect(center=(rect.centerx, label_y))
-        ui_blit(surface, text, target)
+        if rotation: text = pygame.transform.rotate(text, rotation)
+        if render_factor(surface) != (1.0, 1.0): text = scaled_image(text, render_size(surface, text.get_size()))
+        label_y = rect.y - 7 if rotation else min(rect.bottom + 5, H - 9)
+        target = text.get_rect(center=render_point(surface, (rect.centerx, label_y)))
+        surface.blit(text, target)
 
     def draw_banish_marker(self, surface, rect, count, opponent):
         rect = pygame.Rect(rect)
-        direction = -1 if opponent else 1
-        start = (rect.centerx - direction * 13, rect.centery)
-        end = (rect.centerx + direction * 13, rect.centery)
-        ui_draw_line(surface, (255, 255, 255, 180), start, end, 2)
-        ui_draw_polygon(surface, (255, 255, 255, 210), [end, (end[0] - direction * 7, end[1] - 5), (end[0] - direction * 7, end[1] + 5)])
-        draw_text(surface, str(count), (rect.centerx, rect.bottom + 5 if not opponent else rect.y - 5), self.app.assets.duel_font(8, "white", True), COLORS["white"], "center")
+        name = "left-triangle" if opponent else "right-triangle"
+        arrow = self.app.assets.image("ui/scroller/" + name, (28, 28))
+        if arrow:
+            ui_blit(surface, arrow, (rect.centerx - 14, rect.centery - 14))
+        else:
+            ui_draw_line(surface, (255, 255, 255, 180), (rect.centerx - 12, rect.centery), (rect.centerx + 12, rect.centery), 2)
+        label_y = rect.y - 7 if opponent else rect.bottom + 5
+        draw_text(surface, str(count), (rect.centerx, label_y), self.app.assets.duel_font(7, "white", True), COLORS["white"], "center")
 
     def draw_pile(self, surface, label, cards, rect, face_down, rotation=0, show_label=True):
         rect = pygame.Rect(rect)
@@ -14919,6 +15018,15 @@ class Application:
             scene_mouse = self.window_to_scene(pygame.mouse.get_pos())
             light_overlay = self.playlight.overlay(render_surface.get_size(), time.localtime())
             if light_overlay: render_surface.blit(light_overlay, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            light_depth = None
+            if self.scenes:
+                scene = self.scenes[-1]
+                place_id = getattr(scene, "place_id", "")
+                layout = getattr(scene, "layout", None)
+                table_rect = getattr(layout, "table", None)
+                height_path = self.assets.place_table_height_path(place_id) if place_id else None
+                light_depth = self.playlight.depth_overlay(render_surface.get_size(), time.localtime(), table_rect, height_path)
+            if light_depth: render_surface.blit(light_depth, (0, 0))
             light_source = self.playlight.source(self.assets, render_surface.get_size(), time.localtime())
             if light_source: render_surface.blit(light_source, (render_surface.get_width() - light_source.get_width() - 72, 34))
             if scene_mouse != (-1, -1):

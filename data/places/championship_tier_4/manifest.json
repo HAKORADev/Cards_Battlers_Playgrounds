@@ -58,7 +58,8 @@
     "presentation/spin-dice/animations",
     "presentation/spin-dice/audio",
     "presentation/win/animations",
-    "presentation/win/audio"
+    "presentation/win/audio",
+    "table"
   ],
   "asset_contract": "gdd_nested_v2"
 }
