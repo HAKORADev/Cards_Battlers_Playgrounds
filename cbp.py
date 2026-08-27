@@ -3584,14 +3584,30 @@ class ContentStore:
         return True
 
     def close_world_entry(self, collection, entry_id):
-        family = {"orders": "order", "requests": "request", "trades": "trade", "borrows": "borrow"}.get(collection, collection.rstrip("s"))
-        for entry in self.world.setdefault(collection, []):
-            if entry.get("id") == entry_id:
-                actor = entry.get("taker") or entry.get("recipient") or entry.get("to") or entry.get("placer") or entry.get("creator") or entry.get("borrower") or "world"
-                self.transition_interaction(family, entry, "accepted", actor, "accept")
-                self.save()
-                return entry
-        return None
+        entries = self.world.setdefault(collection, [])
+        entry = next((item for item in entries if item.get("id") == entry_id), None)
+        if not entry: return None
+        if collection == "trades":
+            actor = entry.get("recipient", "")
+            if actor and self.accept_trade(entry_id, actor): return entry
+            return entry
+        if collection == "borrows":
+            actor = entry.get("lender", "")
+            if actor and self.respond_borrow_request(entry_id, actor, "accept"): return entry
+            return entry
+        if collection == "requests":
+            actor = entry.get("to", "")
+            if actor and self.respond_request(entry_id, actor, "accept"): return entry
+            return entry
+        if collection == "orders":
+            actor = entry.get("taker", "")
+            if actor and self.respond_order(entry_id, actor, "accept"): return entry
+            return entry
+        family = collection.rstrip("s")
+        actor = entry.get("target") or entry.get("to") or entry.get("actor") or "world"
+        self.transition_interaction(family, entry, "accepted", actor, "accept")
+        self.save()
+        return entry
 
     def trade_list(self):
         self._advance_trades()
