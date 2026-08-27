@@ -487,11 +487,11 @@ class DuelLayout:
         return self.field.x + 18 + index * self.slot_pitch
     def monster_rect(self, side, index):
         x = self.zone_x(index)
-        y = self.field.y + 92 if side == "opponent" else self.field.y + 212
+        y = self.field.y + 92 if side == "opponent" else self.field.y + self.field.height - 92 - self.monster_card_size[1]
         return pygame.Rect(x, y, self.monster_card_size[0], self.monster_card_size[1])
     def spell_rect(self, side, index):
         x = self.zone_x(index)
-        y = self.field.y + 10 if side == "opponent" else self.field.y + 306
+        y = self.field.y + 10 if side == "opponent" else self.field.y + self.field.height - 10 - self.spell_card_size[1]
         return pygame.Rect(x, y, self.spell_card_size[0], self.spell_card_size[1])
     def hand_rect(self, side, index, count, selected=False, lifted=False):
         step = min(68, 360 // max(1, count))
@@ -503,8 +503,8 @@ class DuelLayout:
         return pygame.Rect(start + index * step, y - (8 if selected else 0) - lift, self.hand_card_size[0], height)
     def side_well_rect(self, side, kind):
         positions = {
-            "opponent": {"extra": (self.right_rail_x, 164, 48, 68), "field": (self.right_rail_x, 90, 48, 68), "deck": (self.left_rail_x, 164, 48, 68), "graveyard": (self.left_rail_x, 90, 48, 68), "banished": (self.left_rail_x, 303, 48, 68)},
-            "player": {"extra": (self.left_rail_x, 454, 48, 68), "field": (self.left_rail_x, 380, 48, 68), "deck": (self.right_rail_x, 454, 48, 68), "graveyard": (self.right_rail_x, 380, 48, 68), "banished": (self.right_rail_x, 303, 48, 68)}
+            "opponent": {"extra": (self.right_rail_x, 166, 56, 78), "field": (self.right_rail_x, 86, 56, 78), "deck": (self.left_rail_x, 166, 56, 78), "graveyard": (self.left_rail_x, 86, 56, 78), "banished": (108, 300, 28, 78)},
+            "player": {"extra": (self.left_rail_x, 452, 56, 78), "field": (self.left_rail_x, 386, 56, 78), "deck": (self.right_rail_x, 452, 56, 78), "graveyard": (self.right_rail_x, 386, 56, 78), "banished": (664, 300, 28, 78)}
         }
         return pygame.Rect(positions[side][kind])
     def field_slot_rect(self):
@@ -515,7 +515,7 @@ class DuelLayout:
         pfp = self.pfp_rect(side)
         return pygame.Rect(8, pfp.y - 4, 172, 54)
     def phase_rect(self, index):
-        return pygame.Rect(self.phase_x, 118 + index * 35, 48, 30)
+        return pygame.Rect(self.phase_x, 88 + index * 35, 48, 30)
     def question_rect(self):
         return pygame.Rect(314, 238, 316, 126)
     def question_action_rect(self, name):
@@ -11858,11 +11858,15 @@ class DuelScene(Scene):
     def draw_slot_guides(self, surface):
         l = self.layout
         for side in ["opponent", "player"]:
+            duelist = self.engine.opponent if side == "opponent" else self.engine.player
             for index in range(5):
-                for rect in [l.spell_rect(side, index), l.monster_rect(side, index)]:
-                    guide = pygame.Surface(rect.size, pygame.SRCALPHA)
+                monster = duelist.monsters[index] if index < len(duelist.monsters) else None
+                spell = duelist.spells[index] if index < len(duelist.spells) else None
+                for rect, card in [(l.spell_rect(side, index), spell), (l.monster_rect(side, index), monster)]:
+                    guide_rect = self.zone_display_rect(card, rect) if card else pygame.Rect(rect)
+                    guide = pygame.Surface(guide_rect.size, pygame.SRCALPHA)
                     ui_draw_rect(guide, (255, 255, 255, 64), guide.get_rect(), 2, border_radius=5)
-                    ui_blit(surface, guide, rect.topleft)
+                    ui_blit(surface, guide, guide_rect.topleft)
         divider = pygame.Surface((l.field.width - 12, 4), pygame.SRCALPHA)
         divider.fill((255, 255, 255, 76))
         ui_blit(surface, divider, (l.field.x + 6, l.field.y + 200))
@@ -11895,19 +11899,26 @@ class DuelScene(Scene):
         for index, card in enumerate(self.engine.opponent.spells): self.draw_zone_card(surface, card, l.spell_rect("opponent", index), False)
         for index, card in enumerate(self.engine.player.spells): self.draw_zone_card(surface, card, l.spell_rect("player", index), True)
 
-    def pile_card_rect(self, rect, index, rotation):
+    def pile_card_rect(self, rect, index, rotation, layers=1):
         rect = pygame.Rect(rect)
-        dx = index * 2
-        dy = -index if rotation == 0 else index
-        return pygame.Rect(rect.x + dx, rect.y + dy, rect.width, rect.height)
+        spread = min(4, max(0, int(layers) - 1))
+        offset = min(spread, int(index))
+        if rotation:
+            x = rect.x + offset
+            y = rect.y + offset
+        else:
+            x = rect.x + spread - offset
+            y = rect.y + spread - offset
+        return pygame.Rect(x, y, rect.width, rect.height)
 
-    def draw_pile_label(self, surface, label, count, rect, rotation):
+    def draw_pile_label(self, surface, label, count, rect, rotation, layers=1):
         font = self.app.assets.duel_font(6, "white", True)
         text = font.render(f"{label[:6]} {count}", True, COLORS["white"])
-        if rotation: text = pygame.transform.rotate(text, rotation)
         if render_factor(surface) != (1.0, 1.0): text = scaled_image(text, render_size(surface, text.get_size()))
-        label_y = rect.y - 7 if rotation else min(rect.bottom + 5, H - 9)
-        target = text.get_rect(center=render_point(surface, (rect.centerx, label_y)))
+        spread = min(4, max(0, int(layers) - 1))
+        stack_rect = pygame.Rect(rect.x, rect.y, rect.width + spread, rect.height + spread)
+        label_y = stack_rect.y - 8 if rotation else min(stack_rect.bottom + 5, H - 9)
+        target = text.get_rect(center=render_point(surface, (stack_rect.centerx, label_y)))
         surface.blit(text, target)
 
     def draw_banish_marker(self, surface, rect, count, opponent):
@@ -11918,7 +11929,9 @@ class DuelScene(Scene):
             ui_blit(surface, arrow, (rect.centerx - 14, rect.centery - 14))
         else:
             ui_draw_line(surface, (255, 255, 255, 180), (rect.centerx - 12, rect.centery), (rect.centerx + 12, rect.centery), 2)
-        label_y = rect.y - 7 if opponent else rect.bottom + 5
+        label_y = rect.bottom + 6
+        count_panel = pygame.Rect(rect.x - 3, label_y - 8, rect.width + 6, 16)
+        rounded(surface, count_panel, (22, 31, 38, 178), COLORS["line"], 4, 1)
         draw_text(surface, str(count), (rect.centerx, label_y), self.app.assets.duel_font(7, "white", True), COLORS["white"], "center")
 
     def draw_pile(self, surface, label, cards, rect, face_down, rotation=0, show_label=True):
@@ -11927,7 +11940,7 @@ class DuelScene(Scene):
         layers = min(8, (len(cards) + 9) // 10)
         if face_down: layers = max(1, layers)
         for index in range(layers):
-            target = self.pile_card_rect(rect, index, rotation)
+            target = self.pile_card_rect(rect, index, rotation, layers)
             if face_down:
                 image = self.app.assets.image("placeholder/card_back")
                 if image:
@@ -11943,7 +11956,7 @@ class DuelScene(Scene):
                 overlay = pygame.Surface(target.size, pygame.SRCALPHA)
                 overlay.fill((54, 75, 51, 84))
                 ui_blit(surface, overlay, target.topleft)
-        if show_label and (cards or face_down): self.draw_pile_label(surface, label, len(cards), rect, rotation)
+        if show_label and (cards or face_down): self.draw_pile_label(surface, label, len(cards), rect, rotation, layers)
 
     def draw_opponent_hand(self, surface):
         hand_count = len(self.engine.opponent.hand)
