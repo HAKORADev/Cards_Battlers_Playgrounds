@@ -10018,7 +10018,7 @@ class Scene:
 
     def draw_menu_composition(self, surface):
         background = self.app.assets.menu_layer("menu_background", (W, H))
-        if background is None: background = self.app.assets.image("menu/anchor", (W, H)) or self.app.assets.critical_image((W, H))
+        if background is None: background = self.app.assets.critical_image((W, H))
         ui_blit(surface, background, (0, 0))
         layers = [("dueler_left", (0, 0, 275, 600)), ("dueler_center", (238, 0, 324, 600)), ("dueler_right", (548, 0, 252, 600))]
         for name, rect in layers:
