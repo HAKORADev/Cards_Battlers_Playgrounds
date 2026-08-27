@@ -10760,7 +10760,7 @@ class DuelScene(Scene):
         attack_color = COLORS["blue"] if attack > card.card.atk else COLORS["red"] if attack < card.card.atk else COLORS["white"]
         attack_text = self.app.assets.duel_font(6, "blue" if attack > card.card.atk else "red" if attack < card.card.atk else "white", True).render(str(attack), True, attack_color)
         divider = self.app.assets.duel_font(6, "white", True).render(" / ", True, COLORS["white"])
-        defense = card.defense
+        defense = self.engine.effective_defense(card, owner)
         defense_color = COLORS["blue"] if defense > card.card.defense else COLORS["red"] if defense < card.card.defense else COLORS["white"]
         defense_text = self.app.assets.duel_font(6, "blue" if defense > card.card.defense else "red" if defense < card.card.defense else "white", True).render(str(defense), True, defense_color)
         width = attack_text.get_width() + divider.get_width() + defense_text.get_width()
