@@ -10994,6 +10994,7 @@ class DuelScene(Scene):
         self.hover_target = None
         self.watcher_media = {}
         self.watcher_seen = set()
+        self.hover_watcher_id = None
         self.hover_set = None
         self.hover_procedure = None
         self.action_mode = "summon"
@@ -11085,6 +11086,9 @@ class DuelScene(Scene):
             return
         if self.spectator:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: self.app.pop(); return
+            if event.type == pygame.MOUSEMOTION:
+                self.last_pointer = event.pos
+                self.update_watcher_hover(event.pos)
             super().handle(event)
             return
         if event.type == pygame.MOUSEMOTION:
@@ -11555,41 +11559,59 @@ class DuelScene(Scene):
         if self.card_info_overlay: self.card_info_overlay.draw(surface)
         if self.reward_reveal: self.reward_reveal.draw(surface)
 
+    def watcher_rect(self, index):
+        side = "left" if index < 3 else "right"
+        column_index = index if index < 3 else index - 3
+        x = 8 if side == "left" else W - 80
+        y = [118, 258, 398][column_index]
+        return pygame.Rect(x, y, 64, 84)
+
+    def update_watcher_hover(self, pos):
+        self.hover_watcher_id = None
+        if not self.spectator: return
+        watcher_ids = list(self.watched_battle.get("watchers", []))
+        for index, watcher_id in enumerate(watcher_ids[:6]):
+            if self.watcher_rect(index).collidepoint(pos):
+                self.hover_watcher_id = watcher_id
+                return
+
+    def draw_watcher_info_card(self, surface, character, relation, anchor):
+        x = 128 if anchor.centerx < W // 2 else W - 338
+        y = int(clamp(anchor.y - 18, 72, 392))
+        panel = pygame.Rect(x, y, 210, 154)
+        accent = COLORS["gold"] if relation == "ally" else COLORS["red"] if relation == "enemy" else COLORS["line"]
+        rounded(surface, panel, (12, 21, 47, 238), accent, 10, 2)
+        portrait = self.app.assets.character_portrait(character, (72, 72))
+        if portrait: ui_blit(surface, portrait, (panel.x + 10, panel.y + 12))
+        draw_text(surface, character.name[:16], (panel.x + 92, panel.y + 24), self.app.assets.font(10, True), COLORS["cream"], "midleft")
+        draw_text(surface, relation.upper(), (panel.x + 92, panel.y + 49), self.app.assets.font(8, True), accent, "midleft")
+        draw_text(surface, "WATCHER", (panel.x + 92, panel.y + 69), self.app.assets.font(7), COLORS["muted"], "midleft")
+        draw_text(surface, f"LVL {getattr(character, 'level', 0)}  |  {str(getattr(character, 'mood', 'neutral')).upper()}", (panel.x + 10, panel.y + 112), self.app.assets.font(7), COLORS["gold"], "midleft")
+        draw_text(surface, "Hover card", (panel.x + 10, panel.y + 136), self.app.assets.font(6), COLORS["muted"], "midleft")
+
     def draw_watchers(self, surface):
         watcher_ids = list(self.watched_battle.get("watchers", [])) if self.spectator else list(getattr(self.engine, "watcher_ids", []))
         for index, watcher_id in enumerate(watcher_ids[:6]):
             character = self.app.store.characters.get(watcher_id)
             if not character: continue
+            rect = self.watcher_rect(index)
             side = "left" if index < 3 else "right"
-            column_index = index if index < 3 else index - 3
-            x = 8 if side == "left" else W - 80
-            y = [118, 258, 398][column_index]
-            character = self.app.store.characters.get(watcher_id)
             profile = normalize_media_composition(getattr(character, "media_composition", {}) if character else {})
-            if profile["watch_anchor"] == "top": y = 118
-            elif profile["watch_anchor"] == "middle": y = 258
-            elif profile["watch_anchor"] == "bottom": y = 398
-            relation = self.app.store.relationship_for(watcher_id, self.engine.player.character.id)
-            accent = COLORS["gold"] if relation == "ally" else COLORS["red"] if relation == "enemy" else COLORS["line"]
-            rounded(surface, (x, y, 64, 84), (18, 30, 58, 215), accent, 7, 1)
+            if profile["watch_anchor"] == "top": rect.y = 118
+            elif profile["watch_anchor"] == "middle": rect.y = 258
+            elif profile["watch_anchor"] == "bottom": rect.y = 398
             selection = self.watcher_media.get(watcher_id)
             image = None
-            frame = None
-            if profile["frame_mode"] == "universal" and profile["frame_asset"]:
-                frame = self.app.assets.image(profile["frame_asset"], (52, 52))
-            elif profile["frame_mode"] == "place":
-                night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
-                frame = self.app.assets.place_visual(self.place_id, profile["place_background_kind"], night, self.time, (52, 52), self.media_scope)
-            if frame: ui_blit(surface, frame, (x + 6, y + 6))
             if selection:
                 frame_index = int(self.time * max(1.0, float(selection.frame_rate or FPS)))
-                if selection.frames: image = self.app.assets.media_image(selection.frames[frame_index % len(selection.frames)], (52, 52), self.media_scope)
-                elif selection.image: image = self.app.assets.media_image(selection.image, (52, 52), self.media_scope)
-            if not image: image = self.app.assets.image(character.portrait, (52, 52))
+                if selection.frames: image = self.app.assets.media_image(selection.frames[frame_index % len(selection.frames)], rect.size, self.media_scope)
+                elif selection.image: image = self.app.assets.media_image(selection.image, rect.size, self.media_scope)
+                elif selection.video: image = self.app.assets.media_video_frame(selection.video, self.time, rect.size, self.media_scope)
             if image and side == "right" and profile["mirror_right"]: image = pygame.transform.flip(image, True, False)
-            if image: ui_blit(surface, image, (x + 6, y + 6))
-            draw_text(surface, character.name[:9], (x + 32, y + 65), self.app.assets.font(7, True), COLORS["cream"], "center")
-            draw_text(surface, relation.upper(), (x + 32, y + 77), self.app.assets.font(6), COLORS["gold"], "center")
+            if image: blit_aspect(surface, image, rect)
+            if self.hover_watcher_id == watcher_id and self.spectator:
+                relation = self.app.store.relationship_for(watcher_id, self.engine.player.character.id)
+                self.draw_watcher_info_card(surface, character, relation, rect)
 
     def draw_duel_backdrop(self, surface):
         night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
