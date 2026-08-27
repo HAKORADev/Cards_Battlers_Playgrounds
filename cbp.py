@@ -4210,7 +4210,7 @@ class ContentStore:
         errors.extend(self.validate_effects(effects or []))
         return list(dict.fromkeys(errors))
 
-    def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path="", effects=None, summon_procedure=None, legendary_type="", non_removable=False):
+    def create_card(self, name, kind, stars, atk, defense, family, description, logic_graph="", targets=None, target_count=0, timing="main", field_effect=None, materials=None, ritual_cost=0, summon_method="normal", art_path="", effects=None, summon_procedure=None, legendary_type="", non_removable=False, subtypes=None):
         resolved_method = summon_method if summon_method != "normal" else kind if kind in ["fusion", "ritual"] else "legendary" if kind == "legendary" else "normal"
         procedure = dict(summon_procedure or {})
         if not procedure and kind == "fusion": procedure = {"kind": "fusion", "required_card_ids": list(materials or []), "material_selector": {"side": "self", "zone": ["hand", "monster"]}, "locations": ["hand", "monster"], "exact": bool(materials), "min_materials": len(materials) if materials else 2, "max_materials": len(materials) if materials else 4, "material_destination": "graveyard", "source_selector": {"zone": "extra", "card_kind": "fusion"}, "source_method": "fusion", "enabler": {"card_kinds": ["spell", "effect"]}}
@@ -4222,7 +4222,7 @@ class ContentStore:
         if errors: return None
         card_id = "card_" + str(int(time.time() * 1000))
         frame = "yellow" if kind == "normal" else "orange" if kind == "effect" else "sky" if kind in ["spell", "field"] else "pink" if kind == "trap" else "violet" if kind == "fusion" else "blue" if kind == "ritual" else "red"
-        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, legendary_type=resolved_legendary_type, non_removable=bool(non_removable))
+        card = CardDef(card_id, name or "Unnamed Card", kind, frame, stars, atk, defense, family or "other", description or "A community-created card.", list(effects or []), (90, 120, 200), kind == "legendary", 1 if kind == "legendary" else 3, logic_graph, list(targets or ["none"]), int(target_count), timing, dict(field_effect or {}), list(materials or []), int(ritual_cost), resolved_method, summon_procedure=procedure, subtypes=self.normalize_profile_list(subtypes, limit=2), legendary_type=resolved_legendary_type, non_removable=bool(non_removable))
         card.media_folder = self.scaffold_entity("cards", card_id, name or "Unnamed Card")
         card.art_folder = card.media_folder
         self.import_card_art(art_path, card.media_folder)
@@ -11433,9 +11433,8 @@ class CardMakerScene(Scene):
         if self.card_id:
             if not self.app.store.update_card(self.card_id, values): self.app.notify("Card update failed."); return
         else:
-            created = self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"], values["summon_procedure"], values["legendary_type"], values["non_removable"])
+            created = self.app.store.create_card(values["name"], values["kind"], values["stars"], values["atk"], values["defense"], values["family"], values["description"], graph, values["targets"], values["target_count"], values["timing"], values["field_effect"], values["materials"], values["ritual_cost"], values["summon_method"], self.art_path.value, values["effects"], values["summon_procedure"], values["legendary_type"], values["non_removable"], values["subtypes"])
             if created:
-                created.subtypes = values["subtypes"]
                 self.app.store.save()
 
         self.app.store.load()
