@@ -1648,8 +1648,8 @@ class EffectSpec:
     response: dict = field(default_factory=dict)
     optional: bool = False
 
-    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
-    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "banish", "send_to_graveyard", "return_to_hand", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
+    action_names = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "search", "recover", "mill", "reveal", "banish", "send_to_graveyard", "return_to_hand", "return_to_deck", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
+    implemented_actions = {"boost_attack", "boost_defense", "damage", "heal", "draw", "discard", "grant_normal_summon", "search", "recover", "mill", "reveal", "banish", "send_to_graveyard", "return_to_hand", "return_to_deck", "set_face_up", "set_face_down", "switch_position", "destroy", "control", "summon", "special_summon", "fusion_summon", "ritual_summon", "negate_chain", "shuffle"}
     phases = {"draw", "standby", "main", "battle", "end", "any"}
     once_policies = {"", "once", "once_per_duel", "once_per_turn", "per_turn"}
 
@@ -4616,7 +4616,7 @@ class ContentStore:
         return True
 
     def entity_tree(self, category):
-        events = ["idle", "about", "pre-duel", "spin-dice", "draw", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"]
+        events = ["idle", "about", "pre-duel", "spin-dice", "draw", "search", "recover", "mill", "reveal", "return-to-deck", "standby", "turn-start", "turn-end", "summon", "special-summon", "set", "flip", "flip-reveal", "activate", "effect", "effect-start", "attack", "attacking", "attack-travel", "hit", "damage", "switch-position", "stat-change", "damage-dealt", "damage-received", "direct-damage", "destroy", "destroyed", "die", "death", "return", "return-to-hand", "banish", "banished", "best-card", "near-win", "near-lose", "win", "lose", "draw-result", "instant-win", "instant-lose"]
         trees = {
             "cards": ["logic", "art", "art/variants", "art/metadata"],
             "characters": ["logic", "weights", "pfp", "pfp/variants", "badges", "badges/levels", "cards", "cards/best-class"],
@@ -5458,6 +5458,7 @@ class Duelist:
         return result
 
     def remove(self, card):
+        if card in self.deck: self.deck.remove(card)
         if card in self.hand: self.hand.remove(card)
         if card in self.graveyard: self.graveyard.remove(card)
         if card in self.banished: self.banished.remove(card)
@@ -6075,9 +6076,9 @@ class DuelEngine:
     def register_control_change(self, card, actor, original_side, duration, source_card=None, source_effect_id=""):
         existing = self.control_change_record(card)
         if existing:
-            existing.update({"controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"})
+            existing.update({"controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_instance_id": getattr(source_card, "instance_id", ""), "source_effect_id": source_effect_id, "status": "active"})
             return existing
-        record = {"card": card, "card_id": card.card.id, "card_instance_id": getattr(card, "instance_id", ""), "original_side": self.side_key(original_side), "original_owner": getattr(card, "original_owner", original_side.name), "controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_effect_id": source_effect_id, "status": "active"}
+        record = {"card": card, "card_id": card.card.id, "card_instance_id": getattr(card, "instance_id", ""), "original_side": self.side_key(original_side), "original_owner": getattr(card, "original_owner", original_side.name), "controller_side": self.side_key(actor), "controller_name": actor.name, "duration": str(duration or "permanent"), "created_turn": self.turn, "created_phase_index": self.phase_index, "source_card_id": self.entity_id(source_card), "source_instance_id": getattr(source_card, "instance_id", ""), "source_effect_id": source_effect_id, "status": "active"}
         self.control_changes.append(record)
         self.control_changes = self.control_changes[-64:]
         return record
@@ -6779,7 +6780,11 @@ class DuelEngine:
             elif name == "draw": score += max(1, amount) * 180
             elif name == "discard": score += max(1, amount) * 45
             elif name == "destroy": score += 500
-            elif name in ["banish", "send_to_graveyard", "return_to_hand"]: score += 360
+            elif name in ["banish", "send_to_graveyard", "return_to_hand", "return_to_deck"]: score += 360
+            elif name == "search": score += 420 + min(240, len(actor.deck) * 2)
+            elif name == "recover": score += 380 + min(180, len(actor.graveyard) * 3)
+            elif name == "mill": score += 120 if actor is self.opponent else 80
+            elif name == "reveal": score += 90
             elif name == "control": score += 900
             elif name in ["boost_attack", "boost_defense"]: score += amount
             elif name == "special_summon": score += 700
@@ -6901,7 +6906,7 @@ class DuelEngine:
         state = self.visibility(viewer, card)
         if state == "hidden": return {"id": "hidden", "kind": "hidden", "position": card.position, "face_up": False}
         owner = self.owner_of(card)
-        return {"id": card.card.id, "name": card.card.name, "kind": card.card.kind, "position": card.position, "face_up": bool(card.face_up), "battle_position": card.battle_position, "visibility": state, "controller_id": owner.character.id if owner else "", "original_owner": getattr(card, "original_owner", "")}
+        return {"id": card.card.id, "instance_id": getattr(card, "instance_id", ""), "name": card.card.name, "kind": card.card.kind, "position": card.position, "face_up": bool(card.face_up), "battle_position": card.battle_position, "visibility": state, "controller_id": owner.character.id if owner else "", "original_owner": getattr(card, "original_owner", "")}
 
     def knowledge_character(self, viewer):
         side = viewer if isinstance(viewer, Duelist) else self.player if str(viewer) == "player" else self.opponent
@@ -7007,12 +7012,32 @@ class DuelEngine:
         return {"id": side.character.id, "name": side.name, "hp": side.hp, "deck": [self.checkpoint_card(item) for item in side.deck], "hand": [self.checkpoint_card(item) for item in side.hand], "monsters": [self.checkpoint_card(item) if item else None for item in side.monsters], "spells": [self.checkpoint_card(item) if item else None for item in side.spells], "graveyard": [self.checkpoint_card(item) for item in side.graveyard], "banished": [self.checkpoint_card(item) for item in side.banished], "extra": [self.checkpoint_card(item) for item in side.extra]}
 
     def pending_ref(self, item):
+        if isinstance(item, list): return [self.pending_ref(value) for value in item]
         if isinstance(item, Duelist): return {"kind": "side", "value": self.side_key(item)}
         if isinstance(item, CardInstance): return {"kind": "card", "value": item.card.id, "instance_id": getattr(item, "instance_id", "")}
         return item
 
+    def checkpoint_context(self, context):
+        if isinstance(context, RuleContext): return {"context_id": context.context_id, "trigger": context.trigger, "phase": context.phase, "turn": context.turn, "actor_id": context.actor_id, "source_card_id": context.source_card_id, "source_zone": context.source_zone, "target_ids": list(context.target_ids), "window": dict(context.window), "metadata": dict(context.metadata)}
+        return dict(context or {}) if isinstance(context, dict) else {}
+
+    def restore_context(self, payload):
+        raw = dict(payload or {})
+        return RuleContext(str(raw.get("context_id", "restored_context")), str(raw.get("trigger", "")), str(raw.get("phase", self.phase)), int(raw.get("turn", self.turn) or self.turn), str(raw.get("actor_id", "")), str(raw.get("source_card_id", "")), str(raw.get("source_zone", "")), list(raw.get("target_ids", []) or []), dict(raw.get("window", {}) or {}), dict(raw.get("metadata", {}) or {}))
+
     def pending_payload(self):
         if self.pending_discard: return {"kind": "discard", "owner": self.side_key(self.pending_discard)}
+        if self.pending_cost:
+            pending = self.pending_cost
+            return {"kind": "cost", "cost_kind": pending.get("kind", "discard"), "card": self.pending_ref(pending.get("card")), "spec": pending.get("spec").to_dict() if isinstance(pending.get("spec"), EffectSpec) else dict(pending.get("spec", {}) or {}), "actor": self.side_key(pending.get("actor")), "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])], "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "required": pending.get("required", 1), "cost_index": pending.get("cost_index", 0), "action_index": pending.get("action_index", 0), "cost_kind_detail": pending.get("cost_kind", ""), "response_target": self.pending_ref(pending.get("response_target")), "response_effect_id": pending.get("response_effect_id", "")}
+        if self.pending_response:
+            pending = self.pending_response
+            return {"kind": "response", "card": self.pending_ref(pending.get("card")), "spec": pending.get("spec").to_dict() if isinstance(pending.get("spec"), EffectSpec) else dict(pending.get("spec", {}) or {}), "actor": self.side_key(pending.get("actor")), "selector": dict(pending.get("selector", {}) or {}), "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])], "required": pending.get("required", 1)}
+        if self.pending_trigger_order:
+            pending = self.pending_trigger_order
+            ordered = [{"priority": item[0], "source": self.pending_ref(item[3]), "effect_id": item[2], "spec": item[4].to_dict()} for item in pending.get("ordered", [])]
+            return {"kind": "trigger_order", "group": dict(pending.get("group", {}) or {}), "members": list(pending.get("members", []) or []), "ordered": ordered, "trigger": pending.get("trigger", ""), "actor": self.side_key(pending.get("actor")), "target": self.pending_ref(pending.get("target")), "context": self.checkpoint_context(pending.get("context")), "previous_context": self.checkpoint_context(pending.get("previous_context")), "chooser": self.side_key(pending.get("chooser")), "required_ids": list(pending.get("required_ids", []) or []), "optional_ids": list(pending.get("optional_ids", []) or [])}
+
         if self.pending_target:
             pending = self.pending_target
             return {"kind": "target", "card": self.pending_ref(pending["card"]), "actor": self.side_key(pending["actor"]), "trigger": pending.get("trigger", ""), "effect_id": pending.get("effect_id", ""), "selector": pending.get("selector", {}), "required": pending.get("required", 1), "target_policy": pending.get("target_policy", {}), "selected": [self.pending_ref(item) for item in pending.get("selected", [])], "candidates": [self.pending_ref(item) for item in pending.get("candidates", [])], "snapshot": list(pending.get("snapshot", []))}
@@ -7061,6 +7086,7 @@ class DuelEngine:
         side.spells = [self._restore_card(item, side) if item else None for item in payload.get("spells", [None] * 5)]
 
     def restore_ref(self, ref):
+        if isinstance(ref, list): return [self.restore_ref(value) for value in ref]
         if not isinstance(ref, dict): return ref
         if ref.get("kind") == "side": return self.player if ref.get("value") == "player" else self.opponent
         if ref.get("kind") == "card":
@@ -7074,6 +7100,35 @@ class DuelEngine:
         if not isinstance(pending, dict): return True
         kind = pending.get("kind")
         if kind == "discard": self.pending_discard = self.player if pending.get("owner") == "player" else self.opponent; return True
+        if kind == "cost":
+            card = self.restore_ref(pending.get("card"))
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            spec = EffectSpec.from_dict(pending.get("spec", {}), pending.get("spec", {}).get("id", "restored_cost"))
+            candidates = [self.restore_ref(item) for item in pending.get("candidates", [])]
+            selected = [self.restore_ref(item) for item in pending.get("selected", [])]
+            if not isinstance(card, CardInstance) or spec.validate(): return False
+            self.pending_cost = {"kind": pending.get("cost_kind", "discard"), "card": card, "spec": spec, "actor": actor, "candidates": [item for item in candidates if item is not None], "selected": [item for item in selected if item is not None], "required": int(pending.get("required", 1)), "cost_index": int(pending.get("cost_index", 0)), "action_index": int(pending.get("action_index", 0)), "cost_kind": pending.get("cost_kind_detail", ""), "response_target": self.restore_ref(pending.get("response_target")), "response_effect_id": pending.get("response_effect_id", "")}; return True
+        if kind == "response":
+            card = self.restore_ref(pending.get("card"))
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            spec = EffectSpec.from_dict(pending.get("spec", {}), pending.get("spec", {}).get("id", "restored_response"))
+            candidates = [self.restore_ref(item) for item in pending.get("candidates", [])]
+            if not isinstance(card, CardInstance) or spec.validate(): return False
+            self.pending_response = {"card": card, "spec": spec, "actor": actor, "selector": dict(pending.get("selector", {}) or {}), "candidates": [item for item in candidates if item is not None], "required": int(pending.get("required", 1))}; return True
+        if kind == "trigger_order":
+            actor = self.player if pending.get("actor") == "player" else self.opponent
+            chooser = self.player if pending.get("chooser") == "player" else self.opponent
+            members = list(pending.get("members", []) or [])
+            ordered = []
+            for item in pending.get("ordered", []) or []:
+                source = self.restore_ref(item.get("source"))
+                spec = EffectSpec.from_dict(item.get("spec", {}), item.get("effect_id", "restored_trigger"))
+                if not isinstance(source, CardInstance) or spec.validate(): return False
+                ordered.append((int(item.get("priority", 0)), source.card.id, item.get("effect_id", ""), source, spec))
+            if not ordered and members: return False
+            context = self.restore_context(pending.get("context", {}))
+            previous_context = self.restore_context(pending.get("previous_context", {})) if pending.get("previous_context") else None
+            self.pending_trigger_order = {"group": dict(pending.get("group", {}) or {}), "members": members, "ordered": ordered, "trigger": pending.get("trigger", ""), "actor": actor, "target": self.restore_ref(pending.get("target")), "context": context, "previous_context": previous_context, "chooser": chooser, "required_ids": list(pending.get("required_ids", []) or []), "optional_ids": list(pending.get("optional_ids", []) or [])}; return True
         if kind == "trap":
             trap = self.restore_ref(pending.get("trap"))
             attacker = self.restore_ref(pending.get("attacker"))
@@ -7377,6 +7432,7 @@ class DuelEngine:
             for recipient in recipients:
                 drawn = recipient.draw(max(1, amount))
                 values.append(len(drawn))
+                for drawn_card in drawn: self.card_react("draw", drawn_card, recipient, self.other(recipient), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
                 self.emit_event("draw", recipient, source=card, target=recipient, metadata={"count": len(drawn), "card_ids": [item.card.id for item in drawn]})
             result["value"] = values[0] if len(values) == 1 else values
             self.log(f"{source} lets {len(recipients)} duelist(s) draw {sum(values)} card(s).")
@@ -7449,10 +7505,57 @@ class DuelEngine:
             for owner in owners: random.shuffle(owner.deck)
             result["value"] = [owner.name for owner in owners]
             self.log(f"{source} shuffles {len(owners)} deck(s).")
-        elif action in ["banish", "send_to_graveyard", "return_to_hand"]:
+        elif action == "mill":
+            owners = [item for item in targets if isinstance(item, Duelist)] or [actor]
+            moved = []
+            for owner in owners:
+                for item in list(owner.deck[:max(1, int(amount or 1))]):
+                    if self.move_card(item, "graveyard", owner):
+                        moved.append(item.card.id)
+                        self.card_react("mill", item, owner, self.other(owner), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
+            result["value"] = moved
+            result["status"] = "resolved" if moved else "blocked"
+            if moved: self.log(f"{source} mills {len(moved)} card(s).")
+        elif action in ["search", "recover", "reveal"]:
+            selected_cards = [item for item in targets if isinstance(item, CardInstance)]
+            if action == "search":
+                selected_cards = [item for item in selected_cards if item in actor.deck]
+                moved = []
+                for item in selected_cards:
+                    if self.move_card(item, "hand", actor):
+                        moved.append(item.card.id)
+                        self.card_react("search", item, actor, self.other(actor), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
+                result["value"] = moved
+                result["status"] = "resolved" if moved else "blocked"
+            elif action == "recover":
+                selected_cards = [item for item in selected_cards if item in actor.graveyard]
+                moved = []
+                for item in selected_cards:
+                    if self.move_card(item, "hand", actor):
+                        moved.append(item.card.id)
+                        self.card_react("recover", item, actor, self.other(actor), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
+                result["value"] = moved
+                result["status"] = "resolved" if moved else "blocked"
+            else:
+                revealed = []
+                for item in selected_cards:
+                    owner = self.owner_of(item) or actor
+                    viewer = self.other(owner)
+                    self.store.discover_card(viewer.character.id, item.card.id, "duel", owner.character.id, {"duel": True, "visibility": "revealed", "trigger": "effect_reveal", "instance_id": getattr(item, "instance_id", "")})
+                    self.emit_event("reveal", actor, source=card, target=item, metadata={"card_id": item.card.id, "instance_id": getattr(item, "instance_id", "")})
+                    self.card_react("reveal", item, owner, viewer, {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else "", "instance_id": getattr(item, "instance_id", "")})
+                    revealed.append(item.card.id)
+                result["value"] = revealed
+                result["status"] = "resolved" if revealed else "blocked"
+            if result["status"] == "resolved": self.log(f"{source} resolves {action} for {len(result.get('value', []))} card(s).")
+        elif action in ["banish", "send_to_graveyard", "return_to_hand", "return_to_deck"]:
             selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
-            destination = "banished" if action == "banish" else "graveyard" if action == "send_to_graveyard" else "hand"
-            moved = [item.card.id for item in selected_cards if self.move_card(item, destination)]
+            destination = "banished" if action == "banish" else "graveyard" if action == "send_to_graveyard" else "hand" if action == "return_to_hand" else "deck"
+            moved = []
+            for item in selected_cards:
+                if self.move_card(item, destination):
+                    moved.append(item.card.id)
+                    if destination == "deck": self.card_react("return-to-deck", item, self.owner_of(item) or actor, self.other(self.owner_of(item) or actor), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
             result["value"] = moved[0] if len(moved) == 1 else moved
             result["from_zone"] = getattr(card, "last_zone", "")
             result["to_zone"] = destination
@@ -7633,7 +7736,7 @@ class DuelEngine:
             elif target_value in target_map: resolved = target_map[target_value]
             elif target_value in ["actor", "self"]: resolved = actor
             elif target_value in ["opponent", "enemy"]: resolved = default_target
-            elif target_value in ["source", "card"] or not target_value: resolved = card if action_name in ["boost_attack", "boost_defense"] else default_target
+            elif target_value in ["source", "card"] or not target_value: resolved = card if action_name in ["boost_attack", "boost_defense"] else selected if action_name in ["search", "recover", "reveal"] else default_target
             else: resolved = selected
             if action_name == "discard":
                 discard_selector = dict(action.get("select") or action.get("selector") or {"side": "self", "zone": "hand", "count": action.get("count", 1)})
@@ -7794,7 +7897,7 @@ class DuelEngine:
         included_ordered = [item for item in ordered if not (order_policy["optional_effects"] == "none" and item[4].optional)]
         self.trigger_group_sequence += 1
         group_id = "trigger_group_" + str(self.trigger_group_sequence)
-        members = [{"index": index, "priority": item[0], "source_card_id": item[1], "effect_id": item[2], "optional": bool(item[4].optional), "ordering_key": [item[0], item[1], item[2]]} for index, item in enumerate(ordered)]
+        members = [{"index": index, "priority": item[0], "source_card_id": item[1], "source_instance_id": getattr(item[3], "instance_id", ""), "effect_id": item[2], "optional": bool(item[4].optional), "ordering_key": [item[0], item[1], item[2]]} for index, item in enumerate(ordered)]
         context.metadata.update({"trigger_group_id": group_id, "trigger_group_size": len(members), "trigger_group_order": [item["effect_id"] for item in members]})
         self.event_history.append(context.__dict__.copy())
         self.event_history = self.event_history[-128:]
@@ -8174,8 +8277,16 @@ class DuelEngine:
             if name == "destroy":
                 score += (enemy_value * 2 - own_value * 3) * float(actor.character.behavior_weights.get("duel", {}).get("removal_bias", 1.0))
                 if enemy_value <= 0: score -= 100000
-            elif name in ["banish", "send_to_graveyard", "return_to_hand"]:
+            elif name in ["banish", "send_to_graveyard", "return_to_hand", "return_to_deck"]:
                 score += enemy_value - own_value
+            elif name == "search":
+                score += 480 + min(300, len(actor.deck) * 2)
+            elif name == "recover":
+                score += 420 + min(240, len(actor.graveyard) * 3)
+            elif name == "mill":
+                score += max(0, len(enemy.deck) - 20) * 2
+            elif name == "reveal":
+                score += max(0, len(legal)) * 35
             elif name == "control":
                 score += (enemy_value * 2) - own_value + 450
             elif name == "draw":
@@ -8255,7 +8366,7 @@ class DuelEngine:
         if selector:
             legal = self.legal_targets(card, actor, selector)
             if not legal: return False
-            if selector.get("zone") in ["monster", "spell_trap", "field"] and not any(self.owner_of(item) is self.other(actor) for item in legal if isinstance(item, CardInstance)) and any(action.get("name") in ["destroy", "banish", "send_to_graveyard", "return_to_hand", "control"] for action in (spec.actions if spec else [])): return False
+            if selector.get("zone") in ["monster", "spell_trap", "field"] and not any(self.owner_of(item) is self.other(actor) for item in legal if isinstance(item, CardInstance)) and any(action.get("name") in ["destroy", "banish", "send_to_graveyard", "return_to_hand", "return_to_deck", "control"] for action in (spec.actions if spec else [])): return False
             required = selector.get("count", card.card.target_count or 0)
             if required == "all": return True
             try: required = int(required or 0)
