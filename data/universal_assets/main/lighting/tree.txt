@@ -1,0 +1,3 @@
+sun.png
+moon.png
+tree.txt

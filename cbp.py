@@ -108,6 +108,31 @@ def clamp(value, low, high):
     return max(low, min(high, value))
 
 
+def normalize_media_composition(value=None):
+    raw = dict(value or {}) if isinstance(value, dict) else {}
+    frame_mode = str(raw.get("frame_mode", "frameless") or "frameless").strip().lower().replace(" ", "-")
+    if frame_mode not in ["frameless", "universal", "place"]: frame_mode = "frameless"
+    sync_mode = str(raw.get("sync_mode", "hang") or "hang").strip().lower().replace("_", "-")
+    if sync_mode not in ["loop", "hang", "strict-sync"]: sync_mode = "hang"
+    anchor = str(raw.get("watch_anchor", "auto") or "auto").strip().lower().replace(" ", "-")
+    if anchor not in ["auto", "bottom", "middle", "top"]: anchor = "auto"
+    place_view = str(raw.get("place_view", "up") or "up").strip().lower()
+    if place_view not in ["up", "down"]: place_view = "up"
+    return {"frame_mode": frame_mode, "frame_asset": str(raw.get("frame_asset", "") or "").strip(), "place_background_kind": str(raw.get("place_background_kind", "background") or "background").strip() or "background", "mirror_right": bool(raw.get("mirror_right", True)), "sync_mode": sync_mode, "watch_anchor": anchor, "place_view": place_view}
+
+
+def parse_media_composition_text(value):
+    raw = {}
+    for part in str(value or "").split(","):
+        if "=" not in part: continue
+        key, item = part.split("=", 1)
+        key = key.strip().lower().replace("-", "_")
+        item = item.strip()
+        if key == "mirror_right": raw[key] = item.lower() not in ["0", "false", "no", "off"]
+        else: raw[key] = item
+    return normalize_media_composition(raw)
+
+
 def render_factor(surface):
     return (RENDER_SCALE, RENDER_SCALE) if surface.get_size() == (RENDER_W, RENDER_H) else (1.0, 1.0)
 
@@ -163,24 +188,29 @@ def nine_slice(image, size, border=180, brightness=1.0):
     key = (id(image), size, int(border), round(float(brightness), 3))
     cached = NINE_SLICE_CACHE.get(key)
     if cached is not None: return cached
+    alpha_bounds = image.get_bounding_rect(min_alpha=1)
+    if alpha_bounds.width > 0 and alpha_bounds.height > 0 and alpha_bounds.size != image.get_size(): image = image.subsurface(alpha_bounds)
     source_width, source_height = image.get_size()
-    edge_x = min(int(border), max(1, source_width // 2 - 1), max(1, size[0] // 2 - 1))
-    edge_y = min(int(border), max(1, source_height // 2 - 1), max(1, size[1] // 2 - 1))
+    requested_border = max(1, int(border))
+    source_edge_x = min(requested_border, max(1, source_width // 2))
+    source_edge_y = min(requested_border, max(1, source_height // 2))
+    edge_x = min(source_edge_x, max(1, size[0] // 2), max(1, int(size[1] * source_edge_x / max(1, source_height))))
+    edge_y = min(source_edge_y, max(1, size[1] // 2), max(1, int(size[0] * source_edge_y / max(1, source_width))))
+    source_center_width = max(1, source_width - source_edge_x * 2)
+    source_center_height = max(1, source_height - source_edge_y * 2)
     center_width = max(1, size[0] - edge_x * 2)
     center_height = max(1, size[1] - edge_y * 2)
-    source_center_width = max(1, source_width - int(border) * 2)
-    source_center_height = max(1, source_height - int(border) * 2)
     result = pygame.Surface(size, pygame.SRCALPHA)
     patches = [
-        (pygame.Rect(0, 0, edge_x, edge_y), (0, 0, edge_x, edge_y)),
-        (pygame.Rect(int(border), 0, source_center_width, int(border)), (edge_x, 0, center_width, edge_y)),
-        (pygame.Rect(source_width - int(border), 0, int(border), int(border)), (size[0] - edge_x, 0, edge_x, edge_y)),
-        (pygame.Rect(0, int(border), int(border), source_center_height), (0, edge_y, edge_x, center_height)),
-        (pygame.Rect(int(border), int(border), source_center_width, source_center_height), (edge_x, edge_y, center_width, center_height)),
-        (pygame.Rect(source_width - int(border), int(border), int(border), source_center_height), (size[0] - edge_x, edge_y, edge_x, center_height)),
-        (pygame.Rect(0, source_height - int(border), int(border), int(border)), (0, size[1] - edge_y, edge_x, edge_y)),
-        (pygame.Rect(int(border), source_height - int(border), source_center_width, int(border)), (edge_x, size[1] - edge_y, center_width, edge_y)),
-        (pygame.Rect(source_width - int(border), source_height - int(border), int(border), int(border)), (size[0] - edge_x, size[1] - edge_y, edge_x, edge_y))]
+        (pygame.Rect(0, 0, source_edge_x, source_edge_y), (0, 0, edge_x, edge_y)),
+        (pygame.Rect(source_edge_x, 0, source_center_width, source_edge_y), (edge_x, 0, center_width, edge_y)),
+        (pygame.Rect(source_width - source_edge_x, 0, source_edge_x, source_edge_y), (size[0] - edge_x, 0, edge_x, edge_y)),
+        (pygame.Rect(0, source_edge_y, source_edge_x, source_center_height), (0, edge_y, edge_x, center_height)),
+        (pygame.Rect(source_edge_x, source_edge_y, source_center_width, source_center_height), (edge_x, edge_y, center_width, center_height)),
+        (pygame.Rect(source_width - source_edge_x, source_edge_y, source_edge_x, source_center_height), (size[0] - edge_x, edge_y, edge_x, center_height)),
+        (pygame.Rect(0, source_height - source_edge_y, source_edge_x, source_edge_y), (0, size[1] - edge_y, edge_x, edge_y)),
+        (pygame.Rect(source_edge_x, source_height - source_edge_y, source_center_width, source_edge_y), (edge_x, size[1] - edge_y, center_width, edge_y)),
+        (pygame.Rect(source_width - source_edge_x, source_height - source_edge_y, source_edge_x, source_edge_y), (size[0] - edge_x, size[1] - edge_y, edge_x, edge_y))]
     for source_rect, destination_rect in patches:
         patch = image.subsurface(source_rect)
         patch = scaled_image(patch, destination_rect[2:])
@@ -612,6 +642,10 @@ class AssetBank:
         self.current_music_path = ""
         self.card_templates = {}
         self.card_badges = {}
+        self.composition_profiles = {}
+        self.play_audio = PlayAudio(True, 420.0)
+        self.play_audio_active = True
+        self.play_audio_max_distance = 420.0
         self.dice_faces = {}
         self.splash_names = []
         self.external_manifest = self.load_external_manifest()
@@ -1067,17 +1101,19 @@ class AssetBank:
             for frame_key in [item for item in self.media_video_frames if item[0] == key]: self.media_video_frames.pop(frame_key, None)
             FILE_IMAGE_CACHE.pop(key, None)
 
-    def play_reaction_audio(self, path, enabled=True, volume=0.8, scope="scene"):
-        if not enabled or not path or not Path(path).exists(): return False
+    def play_reaction_audio(self, path, enabled=True, volume=0.8, scope="scene", position=None, listener=(400, 300), max_distance=None):
+        if not enabled or not self.play_audio_active or not path or not Path(path).exists(): return False
         try:
             sound = self.media_sound(path, scope) or self.reaction_sounds.get(str(path))
             if sound is None:
                 sound = pygame.mixer.Sound(str(path))
                 if len(self.reaction_sounds) >= 128: self.reaction_sounds.pop(next(iter(self.reaction_sounds)))
                 self.reaction_sounds[str(path)] = sound
-            sound.set_volume(volume)
-            sound.play()
-            return True
+            if max_distance is not None: self.play_audio.max_distance = max(1.0, float(max_distance))
+            mix = self.play_audio.mix(position, listener, volume)
+            channel = sound.play()
+            if channel: channel.set_volume(mix["left"], mix["right"])
+            return bool(channel)
         except pygame.error: return False
 
 
@@ -1169,6 +1205,7 @@ class CharacterDef:
     persona_state: dict = field(default_factory=dict)
     idle_elapsed: float = 0.0
     idle_cue_count: int = 0
+    media_composition: dict = field(default_factory=normalize_media_composition)
 
 
 @dataclass
@@ -1224,6 +1261,7 @@ class TeamDef:
     formation_state: str = "complete"
     formation_requests: list = field(default_factory=list)
     distribution: dict = field(default_factory=dict)
+    media_composition: dict = field(default_factory=normalize_media_composition)
 
 
 @dataclass
@@ -1324,6 +1362,12 @@ class MediaRegistry:
         for candidate in candidates:
             if candidate.exists(): return str(candidate)
         return ""
+
+    def set_composition_profiles(self, profiles):
+        self.composition_profiles = {str(key): normalize_media_composition(value) for key, value in dict(profiles or {}).items()}
+
+    def composition_profile(self, entity_type, entity_id):
+        return normalize_media_composition(self.composition_profiles.get(str(entity_type) + ":" + str(entity_id), {}))
 
     def _numeric_files(self, folder, extensions):
         found = {}
@@ -1504,7 +1548,10 @@ class MediaRegistry:
                 selected = random.choice(paired or options)
             direct_images = self._numeric_files(Path(selected.source), self.image_extensions)
             preview = direct_images.get(selected.variant, selected.frames[0] if selected.frames else "")
-            return ReactionSelection(event, actor_id, target_id, relation, selected.source, selected.variant, preview, selected.audio, mode, False, selected.frames, selected.video, selected.duration, selected.animation_duration, FPS, mode)
+            profile = self.composition_profile(entity_type, entity_id)
+            selected_mode = profile["sync_mode"] if mode == "hang" else mode
+            selection = ReactionSelection(event, actor_id, target_id, relation, selected.source, selected.variant, preview, selected.audio, selected_mode, False, selected.frames, selected.video, selected.duration, selected.animation_duration, FPS, selected_mode, {"composition": profile})
+            return selection
         return ReactionSelection(event, actor_id, target_id, relation, "placeholder", 0, "", "", mode, True)
 
     def timed_media(self, root, now=None):
@@ -1940,6 +1987,100 @@ class WorldClock:
         return time.strftime("%Y-%m-%d %H:%M", time.localtime(self.epoch + max(0.0, float(simulation_time))))
 
 
+class PlayAudio:
+    def __init__(self, enabled=True, max_distance=420.0):
+        self.enabled = bool(enabled)
+        self.max_distance = max(1.0, float(max_distance))
+
+    def mix(self, position=None, listener=(400, 300), volume=0.8):
+        gain, pan = 1.0, 0.0
+        if position is not None:
+            px, py = float(position[0]), float(position[1])
+            lx, ly = float(listener[0]), float(listener[1])
+            distance = math.sqrt((px - lx) ** 2 + (py - ly) ** 2)
+            gain = clamp(1.0 - distance / self.max_distance, 0.0, 1.0)
+            pan = clamp((px - lx) / self.max_distance, -1.0, 1.0)
+        left = float(volume) * gain * (1.0 - max(0.0, pan))
+        right = float(volume) * gain * (1.0 + min(0.0, pan))
+        return {"gain": gain, "pan": pan, "left": clamp(left, 0.0, 1.0), "right": clamp(right, 0.0, 1.0)}
+
+
+class PlayLightSystem:
+    def __init__(self, enabled=True):
+        self.enabled = bool(enabled)
+        self.normal_index = {}
+        self.overlay_cache = {}
+
+    def minute_profile(self, clock=None):
+        current = clock or time.localtime()
+        hour = int(getattr(current, "tm_hour", 12))
+        minute = int(getattr(current, "tm_min", 0))
+        total = hour * 60 + minute
+        daylight = clamp((total - 300) / 120.0, 0.0, 1.0) * clamp((1140 - total) / 120.0, 0.0, 1.0)
+        dusk = max(0.0, 1.0 - abs(total - 1080) / 150.0)
+        dawn = max(0.0, 1.0 - abs(total - 360) / 150.0)
+        warmth = max(dawn, dusk)
+        return {"minute": total, "daylight": daylight, "warmth": warmth, "night": daylight <= 0.02}
+
+    def normal_map(self, height_path, strength=1.0):
+        path = Path(height_path)
+        if not path.exists(): return None
+        try: stamp = (str(path), path.stat().st_mtime_ns, round(float(strength), 3))
+        except OSError: return None
+        cached = self.normal_index.get(stamp)
+        if cached is not None: return cached
+        for key in list(self.normal_index):
+            if key[0] == str(path): self.normal_index.pop(key, None)
+        source = cached_file_image(path)
+        if source is None: return None
+        width, height = source.get_size()
+        scale = min(1.0, 256.0 / max(width, height))
+        sample = scaled_image(source, (max(1, int(width * scale)), max(1, int(height * scale)))) if scale < 1.0 else source
+        result = pygame.Surface(sample.get_size(), pygame.SRCALPHA)
+        sw, sh = sample.get_size()
+        def value(px, py):
+            color = sample.get_at((max(0, min(sw - 1, px)), max(0, min(sh - 1, py))))
+            return (color.r + color.g + color.b) / 3.0
+        for y in range(sh):
+            for x in range(sw):
+                gx = value(x + 1, y) - value(x - 1, y)
+                gy = value(x, y + 1) - value(x, y - 1)
+                nx, ny, nz = -gx * float(strength), -gy * float(strength), 255.0
+                length = max(1.0, math.sqrt(nx * nx + ny * ny + nz * nz))
+                color = (int((nx / length + 1.0) * 127.5), int((ny / length + 1.0) * 127.5), int((nz / length + 1.0) * 127.5), sample.get_at((x, y)).a)
+                result.set_at((x, y), color)
+        self.normal_index[stamp] = result
+        return result
+
+    def source(self, assets, size, clock=None):
+        if not self.enabled: return None
+        profile = self.minute_profile(clock)
+        key = "lighting/moon" if profile["night"] else "lighting/sun"
+        image = assets.image(key)
+        if image is None: return None
+        diameter = max(72, min(240, int(min(size) * 0.18)))
+        result = scaled_image(image, (diameter, diameter))
+        result = result.copy()
+        result.set_alpha(34 if profile["night"] else 28 if profile["warmth"] > 0.05 else 18)
+        return result
+
+    def overlay(self, size, clock=None):
+        if not self.enabled: return None
+        size = (max(1, int(size[0])), max(1, int(size[1])))
+        profile = self.minute_profile(clock)
+        key = (size, profile["minute"])
+        if key in self.overlay_cache: return self.overlay_cache[key]
+        daylight, warmth = profile["daylight"], profile["warmth"]
+        if profile["night"]: color = (190, 210, 255)
+        elif warmth > 0.05: color = (255, 246, 224)
+        else: color = (255, 255, 255)
+        result = pygame.Surface(size)
+        result.fill(color)
+        if len(self.overlay_cache) >= 96: self.overlay_cache.clear()
+        self.overlay_cache[key] = result
+        return result
+
+
 class ContentStore:
     def __init__(self):
         ensure_dirs()
@@ -1953,8 +2094,10 @@ class ContentStore:
         self.logic_files = {}
         self.last_card_errors = []
         stored_profile = read_json(SAVE, {})
-        profile_defaults = {"active_user_id": "", "active_user_folder": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "setup_complete": False}
+        profile_defaults = {"active_user_id": "", "active_user_folder": "", "fullscreen": False, "resolution": "1280x720", "music": True, "sfx": True, "vocals": True, "difficulty": "normal", "playlight_requested": True, "playlight_active": True, "playaudio_requested": True, "playaudio_active": True, "playaudio_max_distance": 420.0, "setup_complete": False}
         self.save_data = {key: stored_profile.get(key, default) for key, default in profile_defaults.items()}
+        self.save_data["playlight_active"] = bool(self.save_data.get("playlight_requested", True))
+        self.save_data["playaudio_active"] = bool(self.save_data.get("playaudio_requested", True))
         self.media = MediaRegistry(ROOT)
         self.narrator_data = {"states": {}}
         for narrator_path in sorted((DATA / "characters" / "narrator" / "catalogs").glob("*.json")):
@@ -1970,6 +2113,7 @@ class ContentStore:
         self.world_team_sessions = {}
         self.rules = read_json(DATA / "rules.json", {})
         DeckRules.configure(self.rules)
+        DuelRules.configure(self.rules)
         self.world = {}
         self.load()
 
@@ -2180,6 +2324,7 @@ class ContentStore:
             self.decks[deck_id] = deck
         self.places = {entry["id"]: self.place_from_entry(entry) for entry in read_json(DATA / "places.json", [])}
         self.teams = {entry["id"]: TeamDef(**self.overlay_runtime_state(entry, "teams", TEAM_RUNTIME_FIELDS)) for entry in team_data}
+        self.media.set_composition_profiles({**{"characters:" + item.id: item.media_composition for item in self.characters.values()}, **{"teams:" + item.id: item.media_composition for item in self.teams.values()}})
         self.seed_relationship_preferences()
         self.ensure_behavior_weights()
         self.world = self.load_world_state()
@@ -2198,6 +2343,7 @@ class ContentStore:
         if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
         self.rules = read_json(DATA / "rules.json", self.rules if isinstance(self.rules, dict) else {})
         DeckRules.configure(self.rules)
+        DuelRules.configure(self.rules)
         self.card_registry_errors = self.validate_card_registry()
         if self.card_registry_errors: raise ValueError("Card registry invalid: " + "; ".join(self.card_registry_errors))
         self.logic = {}
@@ -2368,6 +2514,7 @@ class ContentStore:
         character.out_of_game_until = float(getattr(character, "out_of_game_until", 0.0) or 0.0)
         character.world_status = str(getattr(character, "world_status", "in_playground") or "in_playground")
         if character.world_status not in ["in_playground", "out_of_game"]: character.world_status = "in_playground"
+        character.media_composition = normalize_media_composition(getattr(character, "media_composition", {}))
 
     def normalize_team_profile(self, team):
         team.members = [str(item) for item in self.normalize_profile_list(team.members, set(self.characters), 3)]
@@ -2384,6 +2531,7 @@ class ContentStore:
         if team.formation_state not in ["in_making", "complete", "broken"]: team.formation_state = "complete" if len(team.members) == 3 else "in_making"
         team.formation_requests = list(getattr(team, "formation_requests", []) or [])[-50:]
         for key, value in {"duels": 0, "wins": 0, "losses": 0, "draws": 0}.items(): team.experience.setdefault(key, value)
+        team.media_composition = normalize_media_composition(getattr(team, "media_composition", {}))
 
     def ensure_behavior_weights(self):
         defaults = {"risk_tolerance": 3.0, "learning_value": 5.0, "rematch_desire": 4.0, "reward_value": 5.0, "place_preference": 5.0, "ally_bias": 4.0, "enemy_bias": 6.0, "adaptation": 1.0, "memory": 5.0, "inference": 5.0, "planning": 5.0}
@@ -5489,7 +5637,7 @@ class ContentStore:
         self.save()
         return place
 
-    def create_team(self, name, members, preferred_place="", portrait="", description="", leader="", preferred_places=None, preferred_families=None, preferred_card_kinds=None, preferred_cards=None, logic_graph=""):
+    def create_team(self, name, members, preferred_place="", portrait="", description="", leader="", preferred_places=None, preferred_families=None, preferred_card_kinds=None, preferred_cards=None, logic_graph="", media_composition=None):
         team_id = "team_" + str(int(time.time() * 1000))
         display_name = str(name or "New Team").strip() or "New Team"
         selected = [member for member in dict.fromkeys(members if isinstance(members, list) else []) if member in self.characters][:3]
@@ -5498,8 +5646,9 @@ class ContentStore:
         folder = self.scaffold_entity("teams", team_id, display_name)
         places = list(preferred_places or [])
         if preferred_place: places.insert(0, preferred_place)
-        team = TeamDef(team_id, display_name, selected, leader, [item for item in dict.fromkeys(places) if item in self.places][:20], "community", {}, False, 1, [], folder, "", description or "", self.normalize_profile_list(preferred_families, limit=20), self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10), self.normalize_profile_list(preferred_cards, set(self.cards), 20))
+        team = TeamDef(team_id, display_name, selected, leader, [item for item in dict.fromkeys(places) if item in self.places][:20], "community", {}, False, 1, [], folder, "", description or "", self.normalize_profile_list(preferred_families, limit=20), self.normalize_profile_list(preferred_card_kinds, {"normal", "effect", "spell", "field", "trap", "fusion", "ritual", "legendary"}, 10), self.normalize_profile_list(preferred_cards, set(self.cards), 20), media_composition=normalize_media_composition(media_composition))
         team.logic_graph = str(logic_graph or "")
+        team.media_composition = normalize_media_composition(media_composition)
         self.import_entity_image(portrait, folder)
         self.teams[team_id] = team
         self.normalize_team_profile(team)
@@ -5509,7 +5658,7 @@ class ContentStore:
     def update_character(self, character_id, values):
         character = self.characters.get(character_id)
         if not character: return None
-        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood", "relationship_preferences", "logic_graph"}
+        allowed = {"name", "portrait", "description", "stars", "smartness", "relationship", "preferred_families", "preferred_card_kinds", "preferred_subtypes", "preferred_cards", "preferred_places", "deck_id", "gender", "origin", "best_cards", "technique_profile", "cognition", "learning_policy", "state_rules", "mood", "relationship_preferences", "logic_graph", "media_composition"}
         for key, value in values.items():
             if key not in allowed: continue
             if key == "stars": value = clamp(int(value), 0, 10)
@@ -5520,6 +5669,7 @@ class ContentStore:
             if key == "portrait":
                 self.import_entity_image(value, character.media_folder)
                 value = ""
+            if key == "media_composition": value = normalize_media_composition(value)
             setattr(character, key, value)
         self.normalize_character_profile(character)
         self.ensure_behavior_weights()
@@ -5545,6 +5695,7 @@ class ContentStore:
         if "preferred_cards" in values: team.preferred_cards = values["preferred_cards"]
         if "behavior_weights" in values and isinstance(values["behavior_weights"], dict): team.behavior_weights = dict(values["behavior_weights"])
         if "logic_graph" in values: team.logic_graph = str(values["logic_graph"] or "")
+        if "media_composition" in values: team.media_composition = normalize_media_composition(values["media_composition"])
         self.normalize_team_profile(team)
         self.save()
         return team
@@ -5679,7 +5830,7 @@ class ContentStore:
         normalized = DeckRules.normalized(result, self.cards)
         return normalized if len(normalized) >= DeckRules.minimum else normalized + [item for item in pool if item not in normalized][:max(0, DeckRules.minimum - len(normalized))]
 
-    def create_character(self, name, stars, smartness, family, portrait="", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph="", relationship_preferences=None):
+    def create_character(self, name, stars, smartness, family, portrait="", gender="other", origin="community", deck_id="", description="", preferred_card_kinds=None, preferred_subtypes=None, preferred_cards=None, preferred_places=None, technique_profile=None, logic_graph="", relationship_preferences=None, media_composition=None):
         char_id = "character_" + str(int(time.time() * 1000))
         display_name = str(name or "New Character").strip() or "New Character"
         families = [str(family or "warrior").lower()]
@@ -5690,6 +5841,7 @@ class ContentStore:
         folder = self.scaffold_entity("characters", char_id, display_name)
         char = CharacterDef(id=char_id, name=display_name, portrait="", stars=clamp(int(stars), 0, 10), smartness=clamp(int(smartness), 1, 10), relationship="stranger", preferred_families=families, deck_id=deck_id, mood="neutral", allies=[], enemies=[], history=[], library_cards=DeckRules.all_cards(self.decks[deck_id]), gender=gender or "other", origin=origin or "community", best_cards=list(preferred_cards or [])[:20], borrowed_cards=[], rank=1, media_folder=folder, description=description or "", preferred_card_kinds=list(preferred_card_kinds or []), preferred_subtypes=list(preferred_subtypes or []), preferred_cards=list(preferred_cards or [])[:20], preferred_places=list(preferred_places or []), relationship_preferences=dict(relationship_preferences or {}), technique_profile=dict(technique_profile or {}))
         char.logic_graph = str(logic_graph or "")
+        char.media_composition = normalize_media_composition(media_composition)
         self.import_entity_image(portrait, folder)
         self.characters[char_id] = char
         self.normalize_character_profile(char)
@@ -5975,6 +6127,16 @@ def query_entities(values, query="", sort_mode="name"):
     return items
 
 
+class DuelRules:
+    opening_turn_no_attack = True
+
+    @classmethod
+    def configure(cls, rules):
+        duel = dict((rules or {}).get("duel") or {})
+        opening = dict(duel.get("opening_turn") or {})
+        cls.opening_turn_no_attack = not bool(opening.get("first_player_can_attack", False))
+
+
 class DeckRules:
     minimum = 0
     maximum = 0
@@ -6068,8 +6230,18 @@ class DeckRules:
 
     @classmethod
     def summary(cls, main_cards, fusion_cards, available):
+        kinds = {}
+        for card_id in list(main_cards) + list(fusion_cards):
+            card = available.get(card_id)
+            if card: kinds[card.kind] = kinds.get(card.kind, 0) + 1
+        labels = {"normal": "normal monsters", "effect": "effect monsters", "spell": "spell cards", "trap": "trap cards", "fusion": "Fusion monsters", "ritual": "Ritual monsters", "legendary": "Legendary monsters"}
+        parts = []
+        for kind in ["normal", "effect", "spell", "trap", "fusion", "ritual", "legendary"]:
+            if kind in kinds: parts.append(f"{kinds[kind]} {labels[kind]}")
+        breakdown = " | ".join(parts) if parts else "empty"
         errors = cls.validate(main_cards, fusion_cards, available)
-        return "VALID" if not errors else "INVALID: " + ", ".join(dict.fromkeys(errors))
+        status = "VALID" if not errors else "INVALID: " + ", ".join(dict.fromkeys(errors))
+        return f"{breakdown} | {status}"
 
 
 class CardInstance:
@@ -6356,6 +6528,7 @@ class DuelEngine:
             else: self.duel_mode, self.time_limit = "current", 0.0
         self.watcher_ids = []
         self.phase_index = 0
+        self.phase_advances = 0
         self.turn = 1
         self.events = []
         self.effect_queue = []
@@ -6611,6 +6784,7 @@ class DuelEngine:
 
     def advance(self):
         if self.finished or self.pending_discard: return
+        self.phase_advances += 1
         self.cleanup_continuous_effects("phase_end")
         self.cleanup_control_changes("phase_end")
         self.phase_index += 1
@@ -8814,6 +8988,8 @@ class DuelEngine:
         return self.effective_atk(card, side) if card.battle_position == "attack" else self.effective_defense(card, side)
 
     def resolve_battle(self, attacker_side, attacker, target=None):
+        opening_side = self.player if self.first_side == "player" else self.opponent
+        if DuelRules.opening_turn_no_attack and self.phase_advances > 0 and self.turn == 1 and attacker_side is opening_side: return False, "The player who goes first cannot attack during the opening turn."
         defender_side = self.other(attacker_side)
         targets = [item for item in defender_side.monsters if item]
         if target is not None and target not in targets: return False, "That target is not on the opponent field."
@@ -8903,6 +9079,7 @@ class DuelEngine:
         if self.finished or self.active is not self.player or self.phase != "BATTLE": return False, "Attacks are only available during Battle."
         if card not in self.player.monsters or card is None: return False, "Select a face-up monster."
         if card.attacked or not card.face_up or card.battle_position != "attack": return False, "That monster cannot attack now."
+        if DuelRules.opening_turn_no_attack and self.phase_advances > 0 and self.turn == 1 and self.first_side == "player": return False, "The player who goes first cannot attack during the opening turn."
         return self.resolve_battle(self.player, card, target)
 
     def destroy(self, duelist, card):
@@ -9371,7 +9548,11 @@ class DuelEngine:
                 if self.ai_open_trap_window(attacker): return "pending_trap"
                 targets = [item for item in self.other(actor).monsters if item]
                 target = max(targets, key=lambda item: (self.ai_battle_target_score(attacker, item, actor), self.entity_id(item))) if targets else None
-                return self.resolve_battle(actor, attacker, target)
+                result = self.resolve_battle(actor, attacker, target)
+                if isinstance(result, tuple) and result[0] is False and "opening turn" in str(result[1]).lower():
+                    self.advance()
+                    return "phase_advanced"
+                return result
         self.advance()
         return "phase_advanced"
 
@@ -10959,7 +11140,10 @@ class DuelScene(Scene):
                 selection = self.app.store.media.resolve("watching_in", watcher_id, house_id, relation, "characters", watcher_id, self.place_id, "loop", metadata={"watcher": True})
                 self.watcher_media[watcher_id] = selection
                 self.watcher_seen.add(watcher_id)
-                if selection.audio and self.app.store.save_data.get("vocals", True): self.app.assets.play_reaction_audio(selection.audio, True, 0.7, self.media_scope)
+                if selection.audio and self.app.store.save_data.get("vocals", True):
+                    side = "left" if len(self.watcher_media) <= 3 else "right"
+                    position = (52, 203 + max(0, len(self.watcher_media) - 1) * 112) if side == "left" else (W - 52, 203 + max(0, len(self.watcher_media) - 4) * 112)
+                    self.app.assets.play_reaction_audio(selection.audio, True, 0.7, self.media_scope, position=position)
         for watcher_id in list(self.watcher_media):
             if watcher_id not in watcher_ids: self.watcher_media.pop(watcher_id, None)
 
@@ -10968,7 +11152,10 @@ class DuelScene(Scene):
         self.reaction_player.start(selection)
         self.attack_presentation = dict(selection.presentation) if selection.presentation else None
         enabled = bool(self.app.store.save_data.get("vocals", True))
-        if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8, self.media_scope)
+        position = None
+        if selection.metadata.get("anchor"):
+            position = self.anchor_rect(selection.metadata.get("anchor")).center
+        if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8, self.media_scope, position=position)
 
     def update(self, dt):
         super().update(dt)
@@ -11053,17 +11240,29 @@ class DuelScene(Scene):
             column_index = index if index < 3 else index - 3
             x = 12 if side == "left" else W - 92
             y = 155 + column_index * 112
+            character = self.app.store.characters.get(watcher_id)
+            profile = normalize_media_composition(getattr(character, "media_composition", {}) if character else {})
+            if profile["watch_anchor"] == "top": y = 58 + column_index * 112
+            elif profile["watch_anchor"] == "middle": y = 267 + column_index * 78
+            elif profile["watch_anchor"] == "bottom": y = 390 + column_index * 62
             relation = self.app.store.relationship_for(watcher_id, self.engine.player.character.id)
             accent = COLORS["gold"] if relation == "ally" else COLORS["red"] if relation == "enemy" else COLORS["line"]
             rounded(surface, (x, y, 80, 96), (18, 30, 58, 215), accent, 7, 1)
             selection = self.watcher_media.get(watcher_id)
             image = None
+            frame = None
+            if profile["frame_mode"] == "universal" and profile["frame_asset"]:
+                frame = self.app.assets.image(profile["frame_asset"], (66, 66))
+            elif profile["frame_mode"] == "place":
+                night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
+                frame = self.app.assets.place_visual(self.place_id, profile["place_background_kind"], night, self.time, (66, 66), self.media_scope)
+            if frame: ui_blit(surface, frame, (x + 7, y + 6))
             if selection:
                 frame_index = int(self.time * max(1.0, float(selection.frame_rate or FPS)))
                 if selection.frames: image = self.app.assets.media_image(selection.frames[frame_index % len(selection.frames)], (66, 66), self.media_scope)
                 elif selection.image: image = self.app.assets.media_image(selection.image, (66, 66), self.media_scope)
             if not image: image = self.app.assets.image(character.portrait, (66, 66))
-            if image and side == "right": image = pygame.transform.flip(image, True, False)
+            if image and side == "right" and profile["mirror_right"]: image = pygame.transform.flip(image, True, False)
             if image: ui_blit(surface, image, (x + 7, y + 6))
             draw_text(surface, character.name[:11], (x + 40, y + 76), self.app.assets.font(8, True), COLORS["cream"], "center")
             draw_text(surface, relation.upper(), (x + 40, y + 88), self.app.assets.font(7), COLORS["gold"], "center")
@@ -12146,7 +12345,8 @@ class DeckScene(Scene):
             fusion_count = len(deck.get("fusion_cards", []))
             summary = DeckRules.summary(deck.get("main_cards", []), deck.get("fusion_cards", []), self.app.store.cards)
             owner_marker = "SLOT" if deck.get("owner_id") == owner_id else "SHARED"
-            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | LVL {level}/10 | {summary} | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
+            draw_text(surface, f"MAIN {main_count} + EXTRA {fusion_count} | LVL {level}/10 | {owner_marker} | click to edit", (300, y + 13), self.app.assets.font(10), COLORS["muted"])
+            draw_text(surface, summary, (176, y + 28), self.app.assets.font(9), COLORS["muted"])
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -12241,7 +12441,9 @@ class DeckEditorScene(Scene):
         portrait = self.app.assets.deck_portrait(deck, (86, 48))
         if portrait: ui_blit(surface, portrait, (676, 82))
         self.draw_level_badge(surface, "decks", deck, level, (642, 90), 28)
-        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  LVL {level}/10  |  {status}", (400, 137), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
+        draw_text(surface, f"MAIN {main_count}/{DeckRules.maximum}  |  FUSION/EXTRA {extra_count}/{DeckRules.fusion_maximum}  |  LVL {level}/10  |  {status}", (400, 132), self.app.assets.font(12, True), COLORS["green"] if status == "LEGAL" else COLORS["red"], "center")
+        summary = DeckRules.summary(state["main_cards"], state["fusion_cards"], self.app.store.cards)
+        draw_text(surface, summary, (400, 148), self.app.assets.font(9), COLORS["muted"], "center")
         self.draw_panel(surface, (32, 155, 360, 330), "CURRENT CARDS", COLORS["gold"])
         self.draw_panel(surface, (410, 155, 358, 330), "CARD CATALOG", COLORS["cyan"])
         self.card_buttons = []
@@ -12946,11 +13148,13 @@ class CharacterMakerScene(Scene):
         self.techniques = TextInput((70, 388, 630, 30), ", ".join(f"{key}={value:g}" for key, value in profile.items()) if profile else "aggression=5, control=5, combo=5, defense=5, adaptation=5")
         self.origin = TextInput((70, 426, 300, 30), character.origin if character else "community")
         self.logic = TextInput((400, 426, 300, 30), getattr(character, "logic_graph", "") if character else "")
+        media = normalize_media_composition(getattr(character, "media_composition", {}) if character else {})
+        self.media_composition = TextInput((70, 458, 630, 30), ", ".join(f"{key}={str(value).lower() if isinstance(value, bool) else value}" for key, value in media.items()))
         self.gender = character.gender if character else "other"
         self.stars = int(character.stars) if character else 0
         self.smartness = int(character.smartness) if character else 5
         label = "SAVE CHARACTER" if character else "CREATE CHARACTER"
-        self.buttons = [Button((70, 470, 150, 32), "GENDER: " + self.gender.upper(), lambda: self.cycle_gender(), COLORS["violet"]), Button((236, 470, 140, 32), "EDIT WEIGHTS", lambda: self.open_weights(), COLORS["gold"]), Button((392, 470, 90, 32), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((492, 470, 110, 32), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((70, 510, 210, 36), label, lambda: self.save_character(), COLORS["green"]), Button((300, 510, 180, 36), "EXPORT CHARACTER", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((70, 500, 150, 32), "GENDER: " + self.gender.upper(), lambda: self.cycle_gender(), COLORS["violet"]), Button((236, 500, 140, 32), "EDIT WEIGHTS", lambda: self.open_weights(), COLORS["gold"]), Button((392, 500, 90, 32), "STARS +", lambda: self.change("stars", 1), COLORS["gold"]), Button((492, 500, 110, 32), "SMART +", lambda: self.change("smartness", 1), COLORS["cyan"]), Button((70, 540, 210, 36), label, lambda: self.save_character(), COLORS["green"]), Button((300, 540, 180, 36), "EXPORT CHARACTER", lambda: self.export(), COLORS["violet"]), Button((650, 540, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def change(self, field, amount): setattr(self, field, clamp(getattr(self, field) + amount, 0 if field == "stars" else 1, 10))
 
@@ -12970,18 +13174,18 @@ class CharacterMakerScene(Scene):
         self.app.notify("Exported character package with dependencies and experience: " + path.name)
 
     def save_character(self):
-        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "preferred_families": self.parse_list(self.family.value), "deck_id": self.deck.value.strip(), "preferred_card_kinds": self.parse_list(self.card_kinds.value), "preferred_subtypes": self.parse_list(self.subtypes.value)[:2], "preferred_cards": self.parse_list(self.preferred_cards.value), "preferred_places": self.parse_list(self.preferred_places.value), "relationship_preferences": {"ally": self.parse_list(self.allies.value), "enemy": self.parse_list(self.enemies.value), "stranger": self.parse_list(self.strangers.value)}, "technique_profile": self.parse_map(self.techniques.value), "gender": self.gender, "origin": self.origin.value, "logic_graph": self.logic.value.strip(), "stars": self.stars, "smartness": self.smartness}
+        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "preferred_families": self.parse_list(self.family.value), "deck_id": self.deck.value.strip(), "preferred_card_kinds": self.parse_list(self.card_kinds.value), "preferred_subtypes": self.parse_list(self.subtypes.value)[:2], "preferred_cards": self.parse_list(self.preferred_cards.value), "preferred_places": self.parse_list(self.preferred_places.value), "relationship_preferences": {"ally": self.parse_list(self.allies.value), "enemy": self.parse_list(self.enemies.value), "stranger": self.parse_list(self.strangers.value)}, "technique_profile": self.parse_map(self.techniques.value), "gender": self.gender, "origin": self.origin.value, "logic_graph": self.logic.value.strip(), "stars": self.stars, "smartness": self.smartness, "media_composition": parse_media_composition_text(self.media_composition.value)}
         if self.character_id:
             result = self.app.store.update_character(self.character_id, values)
         else:
-            result = self.app.store.create_character(values["name"], values["stars"], values["smartness"], values["preferred_families"][0] if values["preferred_families"] else "warrior", values["portrait"], values["gender"], values["origin"], values["deck_id"], values["description"], values["preferred_card_kinds"], values["preferred_subtypes"], values["preferred_cards"], values["preferred_places"], values["technique_profile"], values["logic_graph"], values["relationship_preferences"])
+            result = self.app.store.create_character(values["name"], values["stars"], values["smartness"], values["preferred_families"][0] if values["preferred_families"] else "warrior", values["portrait"], values["gender"], values["origin"], values["deck_id"], values["description"], values["preferred_card_kinds"], values["preferred_subtypes"], values["preferred_cards"], values["preferred_places"], values["technique_profile"], values["logic_graph"], values["relationship_preferences"], values["media_composition"])
             if result: self.character_id = result.id
         self.app.store.load()
         self.app.notify("Character definition saved with preferences, cognition inputs, deck linkage, and media structure." if result else "Character definition could not be saved.")
         self.enter()
 
     def handle(self, event):
-        for field in [self.name, self.portrait, self.description, self.family, self.deck, self.card_kinds, self.subtypes, self.preferred_cards, self.preferred_places, self.allies, self.enemies, self.strangers, self.techniques, self.origin, self.logic]: field.handle(event)
+        for field in [self.name, self.portrait, self.description, self.family, self.deck, self.card_kinds, self.subtypes, self.preferred_cards, self.preferred_places, self.allies, self.enemies, self.strangers, self.techniques, self.origin, self.logic, self.media_composition]: field.handle(event)
         super().handle(event)
 
     def draw(self, surface):
@@ -12990,9 +13194,11 @@ class CharacterMakerScene(Scene):
         draw_text(surface, "Identity, deck preferences, relationships-ready fields, cognition inputs, technique weights, and media roots remain separately authored.", (36, 62), self.app.assets.font(11), COLORS["muted"])
         self.draw_panel(surface, (42, 100, 720, 370), "CHARACTER DEFINITION", COLORS["violet"])
         for field, label in [(self.name, "Name"), (self.portrait, "Portrait key"), (self.description, "Description"), (self.family, "Preferred families"), (self.deck, "Deck id"), (self.card_kinds, "Preferred card kinds"), (self.subtypes, "Preferred monster subtypes, max 2"), (self.preferred_cards, "Preferred / best cards"), (self.preferred_places, "Preferred places"), (self.allies, "Authored ally preferences"), (self.enemies, "Authored enemy preferences"), (self.strangers, "Authored stranger preferences"), (self.techniques, "Technique weights key=value"), (self.origin, "Origin"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
-        draw_text(surface, f"STARS {self.stars}/10   SMARTNESS {self.smartness}/10   GENDER {self.gender.upper()}", (400, 470), self.app.assets.font(12, True), COLORS["cream"], "center")
-        draw_text(surface, "Authored preferences seed relationship choices; runtime trust, history, knowledge, and experience remain dynamic.", (400, 486), self.app.assets.font(9), COLORS["gold"], "center")
-        self.draw_buttons(surface, 12)
+        self.media_composition.draw(surface, self.app.assets.font(9), "Media: frame_mode=frameless|universal|place, frame_asset=key, mirror_right=true, sync_mode=hang|loop|strict-sync, watch_anchor=auto|top|middle|bottom, place_view=up|down")
+        draw_text(surface, f"STARS {self.stars}/10   SMARTNESS {self.smartness}/10   GENDER {self.gender.upper()}", (400, 482), self.app.assets.font(12, True), COLORS["cream"], "center")
+        draw_text(surface, "Framing is frameless, universal-frame, or place day/night; the selected sync mode pairs frame folders with their matching audio variant.", (400, 496), self.app.assets.font(8), COLORS["gold"], "center")
+        draw_text(surface, "Authored preferences seed relationship choices; runtime trust, history, knowledge, and experience remain dynamic.", (400, 510), self.app.assets.font(8), COLORS["muted"], "center")
+        self.draw_buttons(surface, 10)
         self.app.draw_notice(surface)
 
 
@@ -13202,8 +13408,10 @@ class TeamMakerScene(Scene):
         self.kinds = TextInput((400, 268, 300, 28), ", ".join(getattr(team, "preferred_card_kinds", [])) if team else "")
         self.cards = TextInput((400, 300, 300, 28), ", ".join(getattr(team, "preferred_cards", [])) if team else "")
         self.logic = TextInput((70, 332, 630, 28), getattr(team, "logic_graph", "") if team else "")
+        media = normalize_media_composition(getattr(team, "media_composition", {}) if team else {})
+        self.media_composition = TextInput((70, 366, 630, 28), ", ".join(f"{key}={str(value).lower() if isinstance(value, bool) else value}" for key, value in media.items()))
         label = "SAVE TEAM" if team else "CREATE TEAM"
-        self.buttons = [Button((70, 390, 210, 38), label, lambda: self.save_team(), COLORS["green"]), Button((294, 390, 224, 38), "EXPORT TEAM", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((70, 420, 210, 38), label, lambda: self.save_team(), COLORS["green"]), Button((294, 420, 224, 38), "EXPORT TEAM", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def export(self):
         if not self.team_id:
@@ -13214,18 +13422,18 @@ class TeamMakerScene(Scene):
 
     def save_team(self):
         members = [field.value.strip() for field in self.members if field.value.strip()]
-        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "members": members, "leader": self.leader.value.strip(), "preferred_places": self.parse_list(self.place.value), "preferred_families": self.parse_list(self.families.value), "preferred_card_kinds": self.parse_list(self.kinds.value), "preferred_cards": self.parse_list(self.cards.value), "logic_graph": self.logic.value.strip()}
+        values = {"name": self.name.value, "portrait": self.portrait.value, "description": self.description.value, "members": members, "leader": self.leader.value.strip(), "preferred_places": self.parse_list(self.place.value), "preferred_families": self.parse_list(self.families.value), "preferred_card_kinds": self.parse_list(self.kinds.value), "preferred_cards": self.parse_list(self.cards.value), "logic_graph": self.logic.value.strip(), "media_composition": parse_media_composition_text(self.media_composition.value)}
         if self.team_id:
             result = self.app.store.update_team(self.team_id, values)
         else:
-            result = self.app.store.create_team(values["name"], values["members"], values["preferred_places"][0] if values["preferred_places"] else "", values["portrait"], values["description"], values["leader"], values["preferred_places"], values["preferred_families"], values["preferred_card_kinds"], values["preferred_cards"], values["logic_graph"])
+            result = self.app.store.create_team(values["name"], values["members"], values["preferred_places"][0] if values["preferred_places"] else "", values["portrait"], values["description"], values["leader"], values["preferred_places"], values["preferred_families"], values["preferred_card_kinds"], values["preferred_cards"], values["logic_graph"], values["media_composition"])
             if result: self.team_id = result.id
         self.app.store.load()
         self.app.notify("Team definition saved with ordered members, leader, preferences, and media structure." if result else "Team requires at least one registered member and valid fields.")
         self.enter()
 
     def handle(self, event):
-        for field in [self.name, self.portrait, self.description, self.place, self.leader, self.families, self.kinds, self.cards, self.logic] + self.members: field.handle(event)
+        for field in [self.name, self.portrait, self.description, self.place, self.leader, self.families, self.kinds, self.cards, self.logic, self.media_composition] + self.members: field.handle(event)
         super().handle(event)
 
     def draw(self, surface):
@@ -13234,8 +13442,9 @@ class TeamMakerScene(Scene):
         draw_text(surface, "Teams are three ordered characters with explicit leadership, identity, preferences, effects, and member media dependencies.", (36, 62), self.app.assets.font(11), COLORS["muted"])
         self.draw_panel(surface, (42, 100, 720, 390), "TEAM DEFINITION", COLORS["violet"])
         for field, label in [(self.name, "Team name"), (self.portrait, "Team portrait key"), (self.description, "Description"), (self.place, "Preferred places"), (self.leader, "Leader character id"), (self.families, "Preferred families"), (self.kinds, "Preferred card kinds"), (self.cards, "Preferred cards"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
+        self.media_composition.draw(surface, self.app.assets.font(9), "Media: frame_mode=frameless|universal|place, frame_asset=key, mirror_right=true, sync_mode=hang|loop|strict-sync, watch_anchor=auto|top|middle|bottom, place_view=up|down")
         for index, field in enumerate(self.members): field.draw(surface, self.app.assets.font(10), f"Ordered member {index + 1} id")
-        draw_text(surface, "Member order is preserved for team duel rotation and team media staging. Use ids from the Characters list.", (400, 455), self.app.assets.font(10), COLORS["gold"], "center")
+        draw_text(surface, "Member order is preserved for team duel rotation and team media staging. Use ids from the Characters list.", (400, 462), self.app.assets.font(9), COLORS["gold"], "center")
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 
@@ -13467,7 +13676,7 @@ class PlaceMakerScene(Scene):
 class SettingsScene(Scene):
     def enter(self):
         self.scroll = 0
-        self.option_rows = [("GRAPHICS", "WINDOW SIZE", lambda: self.app.cycle_resolution()), ("GRAPHICS", "FULLSCREEN", lambda: self.app.toggle_fullscreen()), ("AUDIO", "MUSIC", lambda: self.app.toggle_music()), ("AUDIO", "SFX", lambda: self.app.toggle_sfx()), ("AUDIO", "VOICE", lambda: self.app.toggle_vocals()), ("GAMEPLAY", "DIFFICULTY", lambda: self.app.cycle_difficulty())]
+        self.option_rows = [("GRAPHICS", "WINDOW SIZE", lambda: self.app.cycle_resolution()), ("GRAPHICS", "FULLSCREEN", lambda: self.app.toggle_fullscreen()), ("PLAYLIGHT", "PlayLight", lambda: self.app.toggle_playlight()), ("PLAYAUDIO", "PlayAudio", lambda: self.app.toggle_playaudio()), ("AUDIO", "MUSIC", lambda: self.app.toggle_music()), ("AUDIO", "SFX", lambda: self.app.toggle_sfx()), ("AUDIO", "VOICE", lambda: self.app.toggle_vocals()), ("GAMEPLAY", "DIFFICULTY", lambda: self.app.cycle_difficulty())]
         self.refresh_buttons()
 
     def refresh_buttons(self):
@@ -13487,6 +13696,8 @@ class SettingsScene(Scene):
     def setting_value(self, label):
         data = self.app.store.save_data
         keys = {"WINDOW SIZE": "resolution", "FULLSCREEN": "fullscreen", "MUSIC": "music", "SFX": "sfx", "VOICE": "vocals", "DIFFICULTY": "difficulty"}
+        if label == "PlayLight": return f"REQUEST {str(data.get('playlight_requested', True)).upper()} / ACTIVE {str(data.get('playlight_active', True)).upper()}"
+        if label == "PlayAudio": return f"REQUEST {str(data.get('playaudio_requested', True)).upper()} / ACTIVE {str(data.get('playaudio_active', True)).upper()}"
         value = data.get(keys[label], "")
         return str(value).upper()
 
@@ -13976,10 +14187,18 @@ class TeamWatchScene(Scene):
 
     def refresh(self):
         self.battle = next((item for item in self.app.store.world.setdefault("active_battles", []) if item.get("id") == self.battle_id), self.battle)
-        self.buttons = [Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.bracket_page = max(0, int(getattr(self, "bracket_page", 0)))
+        self.buttons = [Button((38, 530, 130, 38), "ADVANCE 1 SEC", lambda: self.advance(1), COLORS["cyan"]), Button((180, 530, 130, 38), "ADVANCE 5 SEC", lambda: self.advance(5), COLORS["gold"]), Button((324, 530, 86, 38), "TREE <", lambda: self.change_bracket_page(-1), COLORS["violet"]), Button((416, 530, 86, 38), "TREE >", lambda: self.change_bracket_page(1), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def advance(self, seconds):
         self.app.store.advance_world(seconds)
+        self.refresh()
+
+    def change_bracket_page(self, amount):
+        snapshot = self.app.store.championship_bracket_snapshot(self.battle.get("championship_id", "")) if self.battle.get("championship_id") else None
+        pair_count = len(snapshot.get("rounds", [{}])[0].get("pairs", [])) if snapshot and snapshot.get("rounds") else 0
+        page_count = max(1, (pair_count + 3) // 4)
+        self.bracket_page = (self.bracket_page + amount) % page_count
         self.refresh()
 
     def team_name(self, team_id):
@@ -13997,51 +14216,98 @@ class TeamWatchScene(Scene):
         status = str(team_snapshot.get("status", "active"))
         color = COLORS["muted"] if status == "eliminated" else accent
         rounded(surface, box, (18, 27, 51, 225), color, 8, 2)
-        crest = [(box.x + 25, box.y + 4), (box.x + 46, box.y + 38), (box.x + 4, box.y + 38)]
+        crest = [(box.x + 21, box.y + 3), (box.x + 38, box.y + 25), (box.x + 4, box.y + 25)]
         pygame.draw.polygon(surface, (44, 61, 95), crest)
         pygame.draw.lines(surface, color, True, crest, 1)
         if team:
-            portrait = self.app.assets.team_portrait(team, (30, 30))
-            if portrait: ui_blit(surface, portrait, (box.x + 10, box.y + 10))
+            portrait = self.app.assets.team_portrait(team, (18, 18))
+            if portrait: ui_blit(surface, portrait, (box.x + 12, box.y + 5))
         if status == "eliminated":
             fade = ui_surface(box.size, pygame.SRCALPHA)
             fade.fill((0, 0, 0, 145 + int(35 * (0.5 + 0.5 * math.sin(self.time * 5.0)))))
             ui_blit(surface, fade, box.topleft)
-        label = str(team_snapshot.get("name", team_id))[:13]
-        if status == "eliminated": label = "K.O. " + label[:9]
-        draw_text(surface, label, (box.x + 50, box.y + 12), self.app.assets.font(8, True), COLORS["cream"] if status != "eliminated" else COLORS["muted"])
-        draw_text(surface, "T" + str(team_snapshot.get("team_level", 0)), (box.right - 6, box.y + 12), self.app.assets.font(8, True), color, "topright")
+        label = str(team_snapshot.get("name", team_id))[:9]
+        if status == "eliminated": label = "K.O. " + label[:5]
+        draw_text(surface, label, (box.x + 34, box.y + 6), self.app.assets.font(7, True), COLORS["cream"] if status != "eliminated" else COLORS["muted"])
+        draw_text(surface, "TL" + str(team_snapshot.get("team_level", 0)), (box.right - 4, box.y + 5), self.app.assets.font(6, True), color, "topright")
         for index, member in enumerate(list(team_snapshot.get("members", []))[:3]):
             character = self.app.store.characters.get(member.get("id", ""))
-            x = box.x + 8 + index * max(24, (box.width - 52) // 3)
-            y = box.y + 31
+            x = box.x + 5 + index * 37
+            y = box.y + 28
             if character:
-                portrait = self.app.assets.character_portrait(character, (20, 20))
+                portrait = self.app.assets.character_portrait(character, (13, 13))
                 if portrait: ui_blit(surface, portrait, (x, y))
             deck_id = member.get("deck_id", "")
             deck = self.app.store.decks.get(deck_id, {}) if deck_id else {}
-            self.draw_level_badge(surface, "decks", deck, member.get("deck_level", 0), (x + 10, y - 6), 14)
+            self.draw_level_badge(surface, "decks", deck, member.get("deck_level", 0), (x + 8, y - 4), 10)
     def draw_bracket(self, surface, snapshot, rect):
         box = pygame.Rect(rect)
         self.draw_panel(surface, box, "CHAMPIONSHIP TREE", COLORS["gold"])
-        draw_text(surface, "LEVEL " + str(snapshot.get("level", 1)) + "  |  TIER " + str(snapshot.get("tier", 0)) + "-TEAM", (box.centerx, box.y + 58), self.app.assets.font(10, True), COLORS["cyan"], "center")
         rounds = list(snapshot.get("rounds", []) or [])
-        visible = rounds[-3:]
-        if not visible:
+        if not rounds:
             draw_text(surface, "Waiting for qualified teams", (box.centerx, box.centery), self.app.assets.font(11), COLORS["muted"], "center")
             return
-        column_width = max(116, (box.width - 24) // len(visible))
-        for column, round_data in enumerate(visible):
-            x = box.x + 12 + column * column_width
-            draw_text(surface, str(round_data.get("stage", "round")).upper(), (x + column_width // 2 - 4, box.y + 82), self.app.assets.font(9, True), COLORS["gold"], "center")
-            pairs = list(round_data.get("pairs", []) or [])[:3]
-            for row, pair in enumerate(pairs):
-                y = box.y + 106 + row * 112
-                pair_teams = list(pair.get("teams", []) or [])
-                for offset, team_snapshot in enumerate(pair_teams[:2]):
-                    self.draw_team_bracket_card(surface, team_snapshot, (x, y + offset * 58, column_width - 14, 54), COLORS["cyan"] if offset == 0 else COLORS["red"])
+        first_pairs = list(rounds[0].get("pairs", []) or [])
+        page_count = max(1, (len(first_pairs) + 3) // 4)
+        self.bracket_page = self.bracket_page % page_count
+        page_size = 4
+        page_start = self.bracket_page * page_size
+        page_end = min(len(first_pairs), page_start + page_size)
+        draw_text(surface, "LEVEL " + str(snapshot.get("level", 1)) + "  |  TIER " + str(snapshot.get("tier", 0)) + "-TEAM", (box.centerx, box.y + 57), self.app.assets.font(9, True), COLORS["cyan"], "center")
+        draw_text(surface, "OLYMPIC TREE  " + str(self.bracket_page + 1) + "/" + str(page_count), (box.centerx, box.y + 73), self.app.assets.font(7, True), COLORS["gold"], "center")
+        inner_top, inner_bottom = box.y + 104, box.bottom - 18
+        step = (inner_bottom - inner_top) / max(1, page_size)
+        card_width, card_height = 118, 44
+        left_x, right_x, final_x = box.x + 16, box.right - 134, box.centerx - card_width // 2
+        positions = {}
+        visible_pairs = {}
+        for round_index, round_data in enumerate(rounds):
+            raw_pairs = list(round_data.get("pairs", []) or [])
+            divisor = 2 ** round_index
+            start_pair = page_start // divisor
+            end_pair = max(start_pair, (page_end + divisor - 1) // divisor)
+            visible_pairs[round_index] = list(range(start_pair, min(len(raw_pairs), end_pair)))
+            stage = str(round_data.get("stage", "round")).upper()
+            if round_index == len(rounds) - 1:
+                draw_text(surface, stage, (final_x + card_width // 2, box.y + 92), self.app.assets.font(7, True), COLORS["gold"], "center")
+            else:
+                draw_text(surface, stage, (left_x + card_width // 2, box.y + 92), self.app.assets.font(7, True), COLORS["gold"], "center")
+                draw_text(surface, stage, (right_x + card_width // 2, box.y + 92), self.app.assets.font(7, True), COLORS["gold"], "center")
+            for pair_index in visible_pairs[round_index]:
+                pair = raw_pairs[pair_index]
+                global_center = pair_index * divisor + divisor / 2.0
+                local = (global_center - page_start) / max(1, page_size)
+                center_y = inner_top + local * (inner_bottom - inner_top)
+                if round_index == len(rounds) - 1:
+                    x = final_x
+                else:
+                    x = left_x if global_center < page_start + page_size / 2 else right_x
+                team_snapshots = list(pair.get("teams", []) or [])
+                for member_index, team_snapshot in enumerate(team_snapshots[:2]):
+                    y = int(center_y - card_height + 3 + member_index * (card_height + 2))
+                    node_rect = pygame.Rect(x, y, card_width, card_height)
+                    positions[(round_index, pair_index, member_index)] = node_rect
+                    self.draw_team_bracket_card(surface, team_snapshot, node_rect, COLORS["cyan"] if member_index == 0 else COLORS["red"])
                 if pair.get("resolved") and not pair.get("ko"):
-                    draw_text(surface, "RESOLVED", (x + column_width - 18, y + 48), self.app.assets.font(6, True), COLORS["muted"], "topright")
+                    draw_text(surface, "RESOLVED", (x + card_width, int(center_y + card_height // 2)), self.app.assets.font(6, True), COLORS["muted"], "midright")
+        for round_index in range(len(rounds) - 1):
+            for pair_index in visible_pairs.get(round_index, []):
+                target_index = pair_index // 2
+                if target_index not in visible_pairs.get(round_index + 1, []): continue
+                source_a = positions.get((round_index, pair_index, 0))
+                source_b = positions.get((round_index, pair_index, 1))
+                target_a = positions.get((round_index + 1, target_index, 0))
+                if not source_a or not target_a: continue
+                source_side_right = source_a.centerx > box.centerx
+                target_side_right = target_a.centerx > box.centerx
+                start_a = (source_a.left if source_side_right else source_a.right, source_a.centery)
+                end_a = (target_a.right if target_side_right else target_a.left, target_a.centery)
+                ui_draw_line(surface, COLORS["line"], start_a, end_a, 1)
+                if source_b:
+                    start_b = (source_b.left if source_side_right else source_b.right, source_b.centery)
+                    ui_draw_line(surface, COLORS["line"], start_b, end_a, 1)
+        if snapshot.get("winner"):
+            draw_text(surface, "CHAMPION  " + self.team_name(snapshot.get("winner", ""))[:18], (box.centerx, box.bottom - 7), self.app.assets.font(8, True), COLORS["gold"], "midbottom")
     def media_preview(self, selection, size):
         if not isinstance(selection, dict): return None
         path = selection.get("image", "")
@@ -14199,8 +14465,13 @@ class Application:
         self.screen = pygame.display.set_mode(self.window_size(), pygame.FULLSCREEN if self.store.save_data.get("fullscreen", False) else pygame.RESIZABLE)
         self.render_surface = pygame.Surface((RENDER_W, RENDER_H))
         self.assets = AssetBank()
+        self.assets.play_audio_active = bool(self.store.save_data.get("playaudio_active", True))
+        self.assets.play_audio_max_distance = float(self.store.save_data.get("playaudio_max_distance", 420.0) or 420.0)
+        self.assets.play_audio.enabled = self.assets.play_audio_active
+        self.assets.play_audio.max_distance = self.assets.play_audio_max_distance
         self.assets.load_images()
         self.assets.load_sounds()
+        self.playlight = PlayLightSystem(self.store.save_data.get("playlight_active", True))
         self.scenes = []
         self.running = True
         self.notice = ""
@@ -14282,6 +14553,16 @@ class Application:
         self.store.save_data["sfx"] = not self.store.save_data.get("sfx", True)
         self.store.save()
 
+    def toggle_playlight(self):
+        self.store.save_data["playlight_requested"] = not self.store.save_data.get("playlight_requested", True)
+        self.store.save()
+        self.notify("PlayLight will use the requested setting after restart.")
+
+    def toggle_playaudio(self):
+        self.store.save_data["playaudio_requested"] = not self.store.save_data.get("playaudio_requested", True)
+        self.store.save()
+        self.notify("PlayAudio will use the requested setting after restart.")
+
     def cycle_difficulty(self):
         levels = ["normal", "hard", "extreme"]
         current = self.store.save_data.get("difficulty", "normal")
@@ -14310,6 +14591,10 @@ class Application:
             render_surface.fill((0, 0, 0))
             if self.scenes: self.scenes[-1].draw(render_surface)
             scene_mouse = self.window_to_scene(pygame.mouse.get_pos())
+            light_overlay = self.playlight.overlay(render_surface.get_size(), time.localtime())
+            if light_overlay: render_surface.blit(light_overlay, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            light_source = self.playlight.source(self.assets, render_surface.get_size(), time.localtime())
+            if light_source: render_surface.blit(light_source, (render_surface.get_width() - light_source.get_width() - 72, 34))
             if scene_mouse != (-1, -1):
                 cursor, hotspot = self.assets.cursor(cursor_pressed(pygame.mouse.get_pressed()))
                 if cursor: ui_blit(render_surface, cursor, (scene_mouse[0] - hotspot[0], scene_mouse[1] - hotspot[1]))

@@ -19,6 +19,31 @@
       "research_basis": "The official contemporary rulebook reference used for this project specifies an Extra Deck maximum of 15 and treats Fusion Monsters as a separate collection. This is a researched project choice, not a claim that the historic Power of Chaos executable enforced this exact cap."
     }
   },
+  "duel": {
+    "opening_turn": {
+      "first_player_can_attack": false,
+      "scope": "the designated first side only, during turn 1"
+    }
+  },
+  "PlayLight": {
+    "default_enabled": true,
+    "apply_after_restart": true,
+    "clock_source": "computer-local-minute",
+    "day_period": ["06:00", "18:00"],
+    "night_tint": [190, 210, 255],
+    "normal_map_cache": "memory-indexed-by-path-mtime-strength",
+    "normal_map_source": "optional height-map files beside authored visual assets",
+    "lighting_model": "soft global scene tint with authored visual assets; no hardcoded rays"
+  },
+  "PlayAudio": {
+    "default_enabled": true,
+    "apply_after_restart": true,
+    "distance_model": "linear",
+    "max_distance": 420.0,
+    "pan_axis": "horizontal-right-left",
+    "listener": "scene-center",
+    "scope": "reaction-and-watcher-audio"
+  },
   "legendary": {
     "registry_type": "legendary",
     "required_stars": 11,
