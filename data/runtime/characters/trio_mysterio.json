@@ -3,17 +3,124 @@
   "id": "trio_mysterio",
   "category": "characters",
   "state": {
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {
-        "rival_echo": {
-          "cards": {},
-          "effects": {},
-          "sightings": 0
-        }
+    "activity": "idle",
+    "allies": [],
+    "availability": "free",
+    "behavior_weights": {
+      "risk_tolerance": 3.0,
+      "learning_value": 5.0,
+      "rematch_desire": 4.0,
+      "reward_value": 5.0,
+      "place_preference": 5.0,
+      "ally_bias": 4.0,
+      "enemy_bias": 6.0,
+      "adaptation": 1.6,
+      "family_weights": {
+        "warrior": 0.0,
+        "aqua": 0.0,
+        "machine": 0.0,
+        "fiend": 2.0,
+        "spell": 0.0,
+        "trap": 0.0,
+        "god_of_cards": 2.0,
+        "field": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "spellcaster": 0.0,
+        "insect": 0.0,
+        "plant": 0.0,
+        "beast": 0.0,
+        "dragon": 0.0,
+        "zombie": 0.0,
+        "thunder": 0.0,
+        "winged_beast": 0.0,
+        "rock": 0.0,
+        "pyro": 0.0
       },
-      "effects": {}
+      "state_weights": {
+        "stranger": 1.0,
+        "ally": 0.5,
+        "enemy": 2.0,
+        "opponent": 1.0
+      },
+      "phase_weights": {
+        "MAIN 1": 1.0,
+        "MAIN 2": 1.0,
+        "BATTLE": 1.0
+      },
+      "duel": {
+        "summon_bias": 1.0,
+        "set_bias": 1.0,
+        "activation_bias": 1.0,
+        "removal_bias": 1.0,
+        "defense_bias": 1.0,
+        "attack_bias": 1.0,
+        "trap_threshold": 0.0
+      },
+      "memory": 5.0,
+      "inference": 5.0,
+      "planning": 5.0,
+      "card_kind_weights": {
+        "normal": 0.0,
+        "effect": 0.0,
+        "spell": 0.0,
+        "field": 0.0,
+        "trap": 0.0,
+        "fusion": 0.0,
+        "ritual": 0.0,
+        "legendary": 0.0
+      },
+      "subtype_weights": {}
     },
+    "borrowed_cards": [],
+    "cooldown_until": 0.0,
+    "current_place": "",
+    "destination": "",
+    "enemies": [],
+    "experience": {
+      "duels": 2,
+      "wins": 2,
+      "losses": 0,
+      "draws": 0,
+      "techniques": {
+        "rival_echo": {
+          "observed_cards": [],
+          "last_result": "win",
+          "turns": 1,
+          "updated": 1787704341.4750571
+        }
+      }
+    },
+    "goals": [
+      {
+        "id": "master_god_of_cards",
+        "kind": "master_family",
+        "target": "god_of_cards",
+        "progress": 0.0,
+        "priority": 1.0
+      },
+      {
+        "id": "build_trust",
+        "kind": "build_relationship",
+        "target": "ally",
+        "progress": 0.0,
+        "priority": 0.8
+      },
+      {
+        "id": "earn_rank",
+        "kind": "reach_rank",
+        "target": 2,
+        "progress": 3.0,
+        "priority": 0.7
+      },
+      {
+        "id": "challenge_enemy",
+        "kind": "challenge_enemy",
+        "target": "enemy",
+        "progress": 0.0,
+        "priority": 0.4
+      }
+    ],
     "history": [
       {
         "opponent": "rival_echo",
@@ -69,12 +176,29 @@
         "time": 1787704349.4785066
       }
     ],
-    "availability": "free",
-    "activity": "dueling",
-    "persona_state": {
-      "reputation": 0.4,
-      "trust": {},
-      "confidence": 0.8
+    "idle_cue_count": 0,
+    "idle_elapsed": 0.0,
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {
+        "rival_echo": {
+          "cards": {},
+          "effects": {},
+          "sightings": 0
+        }
+      },
+      "effects": {}
+    },
+    "learned_cards": {},
+    "learned_opponents": {
+      "rival_echo": 2
+    },
+    "learning_state": {
+      "observations": 0,
+      "updates": 2,
+      "last_update": 1787704341.4750032,
+      "last_memory_decay_sim_time": 0.0,
+      "decay_passes": 0
     },
     "library_cards": [
       "trio_relic",
@@ -187,143 +311,21 @@
         "sim_time": 30.0
       }
     ],
-    "out_of_game_until": 0.0,
-    "cooldown_until": 0.0,
-    "learned_cards": {},
-    "movement_progress": 0.0,
-    "rank": 5,
-    "idle_cue_count": 0,
-    "borrowed_cards": [],
-    "destination": "",
-    "relationship": "stranger",
-    "idle_elapsed": 0.0,
-    "allies": [],
-    "enemies": [],
-    "behavior_weights": {
-      "risk_tolerance": 3.0,
-      "learning_value": 5.0,
-      "rematch_desire": 4.0,
-      "reward_value": 5.0,
-      "place_preference": 5.0,
-      "ally_bias": 4.0,
-      "enemy_bias": 6.0,
-      "adaptation": 1.6,
-      "family_weights": {
-        "warrior": 0.0,
-        "aqua": 0.0,
-        "machine": 0.0,
-        "fiend": 2.0,
-        "spell": 0.0,
-        "trap": 0.0,
-        "god_of_cards": 2.0,
-        "field": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "spellcaster": 0.0,
-        "insect": 0.0,
-        "plant": 0.0,
-        "beast": 0.0,
-        "dragon": 0.0,
-        "zombie": 0.0,
-        "thunder": 0.0,
-        "winged_beast": 0.0,
-        "rock": 0.0,
-        "pyro": 0.0
-      },
-      "state_weights": {
-        "stranger": 1.0,
-        "ally": 0.5,
-        "enemy": 2.0,
-        "opponent": 1.0
-      },
-      "phase_weights": {
-        "MAIN 1": 1.0,
-        "MAIN 2": 1.0,
-        "BATTLE": 1.0
-      },
-      "duel": {
-        "summon_bias": 1.0,
-        "set_bias": 1.0,
-        "activation_bias": 1.0,
-        "removal_bias": 1.0,
-        "defense_bias": 1.0,
-        "attack_bias": 1.0,
-        "trap_threshold": 0.0
-      },
-      "memory": 5.0,
-      "inference": 5.0,
-      "planning": 5.0,
-      "card_kind_weights": {
-        "normal": 0.0,
-        "effect": 0.0,
-        "spell": 0.0,
-        "field": 0.0,
-        "trap": 0.0,
-        "fusion": 0.0,
-        "ritual": 0.0,
-        "legendary": 0.0
-      },
-      "subtype_weights": {}
-    },
     "mood": "mysterious",
-    "experience": {
-      "duels": 2,
-      "wins": 2,
-      "losses": 0,
-      "draws": 0,
-      "techniques": {
-        "rival_echo": {
-          "observed_cards": [],
-          "last_result": "win",
-          "turns": 1,
-          "updated": 1787704341.4750571
-        }
-      }
-    },
     "mood_state": {
       "current": "mysterious",
       "intensity": 0.0
     },
-    "learned_opponents": {
-      "rival_echo": 2
+    "movement_progress": 0.0,
+    "out_of_game_until": 0.0,
+    "persona_state": {
+      "reputation": 0.4,
+      "trust": {},
+      "confidence": 0.8
     },
+    "rank": 5,
+    "relationship": "stranger",
     "relationship_history": [],
-    "goals": [
-      {
-        "id": "master_god_of_cards",
-        "kind": "master_family",
-        "target": "god_of_cards",
-        "progress": 0.0,
-        "priority": 1.0
-      },
-      {
-        "id": "build_trust",
-        "kind": "build_relationship",
-        "target": "ally",
-        "progress": 0.0,
-        "priority": 0.8
-      },
-      {
-        "id": "earn_rank",
-        "kind": "reach_rank",
-        "target": 2,
-        "progress": 3.0,
-        "priority": 0.7
-      },
-      {
-        "id": "challenge_enemy",
-        "kind": "challenge_enemy",
-        "target": "enemy",
-        "progress": 0.0,
-        "priority": 0.4
-      }
-    ],
-    "world_status": "in_playground",
-    "learning_state": {
-      "observations": 0,
-      "updates": 2,
-      "last_update": 1787704341.4750032
-    },
-    "current_place": ""
+    "world_status": "in_playground"
   }
 }

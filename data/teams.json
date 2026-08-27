@@ -21,7 +21,16 @@
     "preferred_card_kinds": [],
     "preferred_cards": [],
     "logic_graph": "",
-    "distribution": {}
+    "distribution": {},
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "trio_team",
@@ -54,6 +63,15 @@
         "team_win"
       ],
       "one_grant_per_character_per_card": true
+    },
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
     }
   },
   {
@@ -78,7 +96,16 @@
     "preferred_card_kinds": [],
     "preferred_cards": [],
     "logic_graph": "",
-    "distribution": {}
+    "distribution": {},
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "aqua_archives",
@@ -101,6 +128,15 @@
     "preferred_card_kinds": [],
     "preferred_cards": [],
     "logic_graph": "",
-    "distribution": {}
+    "distribution": {},
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   }
 ]

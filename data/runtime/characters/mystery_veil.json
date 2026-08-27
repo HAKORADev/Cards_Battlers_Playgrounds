@@ -3,69 +3,9 @@
   "id": "mystery_veil",
   "category": "characters",
   "state": {
-    "knowledge_state": {
-      "cards": {},
-      "opponents": {},
-      "effects": {}
-    },
-    "history": [
-      {
-        "event": "request_sent",
-        "request_id": "request_1787704349453_7",
-        "to": "pearl_guard",
-        "intent": "stranger",
-        "reason": "goal pursuit: master_family",
-        "time": 1787704349.4541886
-      }
-    ],
-    "availability": "free",
     "activity": "idle",
-    "persona_state": {
-      "reputation": 0.0,
-      "trust": {},
-      "confidence": 0.0
-    },
-    "library_cards": [
-      "void_titan",
-      "void_titan",
-      "sky_archer",
-      "solar_burst",
-      "repair_matrix"
-    ],
-    "memories": [
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_06",
-          "recipient": "aqua_scribe",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      },
-      {
-        "event": "trio_card_given",
-        "payload": {
-          "card": "trio_mysterio_card_06",
-          "recipient": "rival_echo",
-          "team": "trio_team",
-          "trigger": "team_win"
-        },
-        "sim_time": 0.0
-      }
-    ],
-    "out_of_game_until": 0.0,
-    "cooldown_until": 0.0,
-    "learned_cards": {},
-    "movement_progress": 0.0,
-    "rank": 3,
-    "idle_cue_count": 5,
-    "borrowed_cards": [],
-    "destination": "",
-    "relationship": "stranger",
-    "idle_elapsed": 10.0,
     "allies": [],
-    "enemies": [],
+    "availability": "free",
     "behavior_weights": {
       "risk_tolerance": 3.0,
       "learning_value": 5.0,
@@ -132,7 +72,11 @@
       },
       "subtype_weights": {}
     },
-    "mood": "watchful",
+    "borrowed_cards": [],
+    "cooldown_until": 0.0,
+    "current_place": "",
+    "destination": "",
+    "enemies": [],
     "experience": {
       "duels": 0,
       "wins": 0,
@@ -140,12 +84,6 @@
       "draws": 0,
       "techniques": {}
     },
-    "mood_state": {
-      "current": "watchful",
-      "intensity": 0.0
-    },
-    "learned_opponents": {},
-    "relationship_history": [],
     "goals": [
       {
         "id": "master_trap",
@@ -176,12 +114,76 @@
         "priority": 0.4
       }
     ],
-    "world_status": "in_playground",
+    "history": [
+      {
+        "event": "request_sent",
+        "request_id": "request_1787704349453_7",
+        "to": "pearl_guard",
+        "intent": "stranger",
+        "reason": "goal pursuit: master_family",
+        "time": 1787704349.4541886
+      }
+    ],
+    "idle_cue_count": 5,
+    "idle_elapsed": 10.0,
+    "knowledge_state": {
+      "cards": {},
+      "opponents": {},
+      "effects": {}
+    },
+    "learned_cards": {},
+    "learned_opponents": {},
     "learning_state": {
       "observations": 0,
       "updates": 0,
-      "last_update": 0.0
+      "last_update": 0.0,
+      "last_memory_decay_sim_time": 0.0,
+      "decay_passes": 0
     },
-    "current_place": ""
+    "library_cards": [
+      "void_titan",
+      "void_titan",
+      "sky_archer",
+      "solar_burst",
+      "repair_matrix"
+    ],
+    "memories": [
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_06",
+          "recipient": "aqua_scribe",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      },
+      {
+        "event": "trio_card_given",
+        "payload": {
+          "card": "trio_mysterio_card_06",
+          "recipient": "rival_echo",
+          "team": "trio_team",
+          "trigger": "team_win"
+        },
+        "sim_time": 0.0
+      }
+    ],
+    "mood": "watchful",
+    "mood_state": {
+      "current": "watchful",
+      "intensity": 0.0
+    },
+    "movement_progress": 0.0,
+    "out_of_game_until": 0.0,
+    "persona_state": {
+      "reputation": 0.0,
+      "trust": {},
+      "confidence": 0.0
+    },
+    "rank": 3,
+    "relationship": "stranger",
+    "relationship_history": [],
+    "world_status": "in_playground"
   }
 }

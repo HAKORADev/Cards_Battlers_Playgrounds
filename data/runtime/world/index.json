@@ -10,7 +10,13 @@
   },
   "place_occupancy": {
     "neon_playground": 0,
-    "mystery_void": 0
+    "mystery_void": 0,
+    "championship_tier_1": 0,
+    "championship_tier_2": 0,
+    "championship_tier_3": 0,
+    "championship_tier_4": 0,
+    "championship_tier_5": 0,
+    "championship_tier_6": 0
   },
   "clock_epoch": 1787666817,
   "last_wall_time": 1001.0,
@@ -28,6 +34,9 @@
     "achievements",
     "histories",
     "card_discoveries",
+    "card_provenance",
+    "traders_pool",
+    "bets",
     "ranks",
     "simulation_time",
     "active_battles",
@@ -35,6 +44,7 @@
     "last_ai_request_time",
     "last_ai_trade_time",
     "last_ai_borrow_time",
+    "last_ai_bet_time",
     "out_of_game",
     "dice_sequence",
     "duel_sequence",

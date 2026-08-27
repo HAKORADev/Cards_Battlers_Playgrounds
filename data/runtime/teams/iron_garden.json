@@ -3,9 +3,22 @@
   "id": "iron_garden",
   "category": "teams",
   "state": {
-    "knowledge_state": {},
-    "team_effect": {},
-    "relationship": "neutral",
+    "behavior_weights": {
+      "coordination": 5.0,
+      "risk": 5.0,
+      "resource": 5.0,
+      "switching": 5.0,
+      "adaptation": 5.0
+    },
+    "effect_locked": false,
+    "experience": {
+      "duels": 0,
+      "wins": 0,
+      "losses": 0,
+      "draws": 0
+    },
+    "formation_requests": [],
+    "formation_state": "complete",
     "history": [
       {
         "event": "duel_completed",
@@ -284,23 +297,10 @@
         "time": 1787702813.817601
       }
     ],
-    "formation_state": "complete",
-    "behavior_weights": {
-      "coordination": 5.0,
-      "risk": 5.0,
-      "resource": 5.0,
-      "switching": 5.0,
-      "adaptation": 5.0
-    },
-    "experience": {
-      "duels": 0,
-      "wins": 0,
-      "losses": 0,
-      "draws": 0
-    },
-    "formation_requests": [],
-    "rank": 1,
+    "knowledge_state": {},
     "learning_state": {},
-    "effect_locked": false
+    "rank": 1,
+    "relationship": "neutral",
+    "team_effect": {}
   }
 }

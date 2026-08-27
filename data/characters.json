@@ -19,6 +19,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -67,7 +72,16 @@
       "rival_storm_deck",
       "rival_oath_deck",
       "rival_bridge_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "trio_mysterio",
@@ -89,6 +103,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -131,9 +150,16 @@
       "preferred_state": "stranger"
     },
     "logic_graph": "",
-    "deck_slots": [
-      "trio_deck"
-    ]
+    "deck_slots": [],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "mystery_veil",
@@ -155,6 +181,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -197,9 +228,16 @@
       "preferred_state": "stranger"
     },
     "logic_graph": "",
-    "deck_slots": [
-      "trio_deck"
-    ]
+    "deck_slots": [],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "mystery_arc",
@@ -221,6 +259,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -263,9 +306,16 @@
       "preferred_state": "stranger"
     },
     "logic_graph": "",
-    "deck_slots": [
-      "trio_deck"
-    ]
+    "deck_slots": [],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "ember_sage",
@@ -286,6 +336,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 7.0,
       "defense": 5.0,
@@ -330,7 +385,16 @@
     "logic_graph": "",
     "deck_slots": [
       "ember_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "tide_courier",
@@ -351,6 +415,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -395,7 +464,16 @@
     "logic_graph": "",
     "deck_slots": [
       "tide_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "iron_mason",
@@ -416,6 +494,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 7.0,
@@ -460,7 +543,16 @@
     "logic_graph": "",
     "deck_slots": [
       "iron_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "moss_keeper",
@@ -481,6 +573,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 7.0,
@@ -525,7 +622,16 @@
     "logic_graph": "",
     "deck_slots": [
       "moss_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "forge_watcher",
@@ -546,6 +652,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 7.0,
       "defense": 5.0,
@@ -590,7 +701,16 @@
     "logic_graph": "",
     "deck_slots": [
       "forge_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "aqua_scribe",
@@ -611,6 +731,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -656,7 +781,16 @@
     "logic_graph": "",
     "deck_slots": [
       "aqua_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "pearl_guard",
@@ -677,6 +811,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 7.0,
@@ -721,7 +860,16 @@
     "logic_graph": "",
     "deck_slots": [
       "pearl_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   },
   {
     "id": "coral_scout",
@@ -742,6 +890,11 @@
     "preferred_subtypes": [],
     "preferred_cards": [],
     "preferred_places": [],
+    "relationship_preferences": {
+      "ally": [],
+      "enemy": [],
+      "stranger": []
+    },
     "technique_profile": {
       "aggression": 5.0,
       "defense": 5.0,
@@ -786,6 +939,15 @@
     "logic_graph": "",
     "deck_slots": [
       "coral_deck"
-    ]
+    ],
+    "media_composition": {
+      "frame_mode": "frameless",
+      "frame_asset": "",
+      "place_background_kind": "background",
+      "mirror_right": true,
+      "sync_mode": "hang",
+      "watch_anchor": "auto",
+      "place_view": "up"
+    }
   }
 ]

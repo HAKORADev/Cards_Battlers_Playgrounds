@@ -2402,7 +2402,7 @@ class ContentStore:
         return {key: value for key, value in entity.__dict__.items() if key not in runtime_fields}
 
     def runtime_entry(self, entity, runtime_fields):
-        return {key: getattr(entity, key) for key in runtime_fields if hasattr(entity, key)}
+        return {key: getattr(entity, key) for key in sorted(runtime_fields) if hasattr(entity, key)}
 
     def place_from_entry(self, entry):
         values = dict(entry)
@@ -2531,11 +2531,10 @@ class ContentStore:
         character = self.characters.get(character_id)
         if not character: return []
         configured = list(getattr(character, "deck_slots", []) or [])
-        if configured:
-            return [deck_id for deck_id in configured if deck_id in self.decks and isinstance(self.decks[deck_id], dict) and self.decks[deck_id].get("owner_id") == character_id][:DECK_SLOT_COUNT]
-        candidates = []
-        for deck_id in [getattr(character, "deck_id", "")]:
-            if deck_id in self.decks and deck_id not in candidates: candidates.append(deck_id)
+        valid = [deck_id for deck_id in configured if deck_id in self.decks and isinstance(self.decks[deck_id], dict) and self.decks[deck_id].get("owner_id") == character_id]
+        candidates = list(dict.fromkeys(valid))
+        deck_id = getattr(character, "deck_id", "")
+        if deck_id in self.decks and isinstance(self.decks[deck_id], dict) and self.decks[deck_id].get("owner_id") == character_id and deck_id not in candidates: candidates.append(deck_id)
         for deck_id, deck in self.decks.items():
             if isinstance(deck, dict) and deck.get("owner_id") == character_id and deck_id not in candidates: candidates.append(deck_id)
         return candidates[:DECK_SLOT_COUNT]
@@ -4148,6 +4147,7 @@ class ContentStore:
                 character.activity = "idle"
                 character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
         self.world_sessions.pop(battle["id"], None)
+        self.world["active_battles"] = [item for item in self.world.setdefault("active_battles", []) if item.get("id") != battle.get("id")]
         self.world.setdefault("simulation_events", []).append({"type": "battle_completed", "battle": battle["id"], "winner": winner_id or "draw", "loser": loser_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
 
     def _simulation_action(self, battle):
@@ -4226,6 +4226,7 @@ class ContentStore:
                     character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
         self.release_place(battle.get("place", ""))
         self.world_team_sessions.pop(battle.get("id", ""), None)
+        self.world["active_battles"] = [item for item in self.world.setdefault("active_battles", []) if item.get("id") != battle.get("id")]
         completion_event = {"type": "team_battle_completed", "battle": battle.get("id", ""), "winner": winner_id or "draw", "loser": loser_id, "championship": championship_id, "watchers": list(battle.get("watchers", [])), "sim_time": float(self.world.get("simulation_time", 0.0))}
         self.world.setdefault("simulation_events", []).append(completion_event)
 

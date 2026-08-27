@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "category": "world_collection",
+  "id": "traders_pool",
+  "value": {
+    "schema": 1,
+    "inventory": [],
+    "ledger": [],
+    "daily_deposits": {}
+  }
+}

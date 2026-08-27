@@ -7,5 +7,10 @@
   "sfx": true,
   "vocals": true,
   "difficulty": "normal",
+  "playlight_requested": true,
+  "playlight_active": true,
+  "playaudio_requested": true,
+  "playaudio_active": true,
+  "playaudio_max_distance": 420.0,
   "setup_complete": false
 }
