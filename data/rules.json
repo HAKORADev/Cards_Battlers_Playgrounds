@@ -129,6 +129,25 @@
       "argue"
     ]
   },
+  "traders_pool": {
+    "schema": 1,
+    "max_daily_deposit_cards": 5,
+    "max_bet_cards": 5,
+    "bet_formats": ["1v1", "1vTEAM", "TEAMv1", "TEAMvTEAM"],
+    "bet_scope": "current_duel",
+    "stake_locks_on_confirmation": true,
+    "winner_replacement_multiplier": 2,
+    "trade_return_per_deposited_card": 1,
+    "replacement_quality_weights": {"lower": 0.5, "same": 0.2, "higher": 0.3},
+    "replacement_kind_weights": {"normal": 0.6, "effect": 0.1, "spell": 0.1, "trap": 0.1, "fusion": 0.05, "ritual": 0.03, "legendary": 0.02},
+    "house_margin": 0.08,
+    "risk_band_thresholds": {"low": 0.35, "balanced": 0.55, "volatile": 0.75, "reckless": 1.0},
+    "seed_fields": ["battle_id", "bettor_id", "side", "stake_count", "simulation_time", "pool_sequence"],
+    "history_scope": "traders_pool_ledger",
+    "reveal_variant_count": 10,
+    "reveal_steps": [{"id": "body", "duration": 0.48}, {"id": "level", "duration": 0.42}, {"id": "name", "duration": 0.58}, {"id": "image", "duration": 0.82}, {"id": "description", "duration": 0.72}],
+    "notes": "Fictional card-only wagering. No currency, payment, sportsbook, or external account integration. Exact scores remain internal while the bettor receives only a broad risk band and match difficulty summary."
+  },
   "trio_distribution": {
     "enabled": true,
     "opportunity": 0.6,

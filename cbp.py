@@ -639,6 +639,32 @@ class AssetBank:
         if image is None: return None
         return nine_slice(image, size, 180, brightness)
 
+    def ownership_badge(self, badge_name, size=(42, 18)):
+        key = "new" if str(badge_name).upper() == "NEW" else "plus9" if str(badge_name) == "+9" else str(badge_name)
+        image = self.image("badges/ownership/" + key)
+        return scaled_image(image, size) if image is not None and size else image
+
+    def reveal_asset(self, step, variant, size=None):
+        variant = max(1, min(10, int(variant or 1)))
+        image = self.image("betting/reveal/" + str(step) + "/" + str(variant))
+        return scaled_image(image, size) if image is not None and size else image
+
+    def play_reveal_sound(self, step, variant, enabled=True, volume=0.45):
+        if not enabled or not pygame.mixer.get_init(): return False
+        variant = max(1, min(10, int(variant or 1)))
+        key = "reveal-" + str(step) + "-" + str(variant)
+        path = UNIVERSAL_MAIN / "betting" / "reveal" / str(step) / (str(variant) + ".wav")
+        if not path.exists(): return False
+        try:
+            sound = self.sounds.get(key)
+            if sound is None:
+                sound = pygame.mixer.Sound(str(path))
+                self.sounds[key] = sound
+            sound.set_volume(volume)
+            sound.play()
+            return True
+        except pygame.error: return False
+
     def play_button_sound(self, kind="in", enabled=True, volume=0.35):
         if not enabled or not pygame.mixer.get_init(): return False
         key = "button-" + ("out" if kind == "out" else "in")
@@ -2074,7 +2100,7 @@ class ContentStore:
         stored = read_json(RUNTIME_WORLD_INDEX, {}) if RUNTIME_WORLD_INDEX.exists() else {}
         state = stored.get("state", stored) if isinstance(stored, dict) else {}
         state = dict(state) if isinstance(state, dict) else {}
-        for key in ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "distribution_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]:
+        for key in ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "card_provenance", "traders_pool", "bets", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "last_ai_bet_time", "out_of_game", "dice_sequence", "duel_sequence", "distribution_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]:
             path = RUNTIME_WORLD_COLLECTIONS / f"{key}.json"
             if not path.exists(): continue
             payload = read_json(path, {})
@@ -2164,9 +2190,10 @@ class ContentStore:
         except (TypeError, ValueError): self.world["last_wall_time"] = 0.0
         if self.world["last_wall_time"] <= 0.0: self.world["last_wall_time"] = time.time()
         self.world["clock_mode"] = "wall_clock"
-        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("distribution_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0), ("last_wall_time", 0.0), ("clock_mode", "wall_clock")]: self.world.setdefault(key, default)
+        for key, default in [("requests", []), ("orders", []), ("team_requests", []), ("team_effect_requests", []), ("place_effects", {}), ("championships", []), ("trades", []), ("borrows", []), ("achievements", []), ("histories", []), ("card_discoveries", []), ("card_provenance", []), ("traders_pool", {}), ("bets", []), ("ranks", {}), ("simulation_time", 0.0), ("active_battles", []), ("simulation_events", []), ("last_ai_request_time", 0.0), ("last_ai_trade_time", 0.0), ("last_ai_borrow_time", 0.0), ("last_ai_bet_time", 0.0), ("place_occupancy", {}), ("out_of_game", []), ("dice_sequence", 0), ("duel_sequence", 0), ("distribution_sequence", 0), ("request_sequence", 0), ("order_sequence", 0), ("team_request_sequence", 0), ("last_wall_time", 0.0), ("clock_mode", "wall_clock")]: self.world.setdefault(key, default)
         occupancy = self.world.get("place_occupancy", {}) if isinstance(self.world, dict) else {}
         for place in self.places.values(): place.current_duels = int(occupancy.get(place.id, place.current_duels) or 0)
+        self.normalize_card_provenance()
         self.reconcile_runtime_world()
         if not isinstance(self.world.get("last_ai_request_time"), (int, float)): self.world["last_ai_request_time"] = 0.0
         self.rules = read_json(DATA / "rules.json", self.rules if isinstance(self.rules, dict) else {})
@@ -2571,8 +2598,8 @@ class ContentStore:
             for team in self.teams.values(): write_json(self.runtime_path("teams", team.id), {"schema": 2, "id": team.id, "category": "teams", "state": self.runtime_entry(team, TEAM_RUNTIME_FIELDS)})
         if "runtime_world" in requested:
             self.sync_place_runtime()
-            world_keys = ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "out_of_game", "dice_sequence", "duel_sequence", "distribution_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]
-            defaults = {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "histories": [], "card_discoveries": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "distribution_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": time.time(), "clock_mode": "wall_clock"}
+            world_keys = ["requests", "orders", "team_requests", "team_effect_requests", "place_effects", "championships", "trades", "borrows", "interactions", "achievements", "histories", "card_discoveries", "card_provenance", "traders_pool", "bets", "ranks", "simulation_time", "active_battles", "simulation_events", "last_ai_request_time", "last_ai_trade_time", "last_ai_borrow_time", "last_ai_bet_time", "out_of_game", "dice_sequence", "duel_sequence", "distribution_sequence", "request_sequence", "order_sequence", "team_request_sequence", "last_wall_time", "clock_mode"]
+            defaults = {"requests": [], "orders": [], "team_requests": [], "team_effect_requests": [], "place_effects": {}, "championships": [], "trades": [], "borrows": [], "interactions": [], "achievements": [], "histories": [], "card_discoveries": [], "card_provenance": [], "traders_pool": {}, "bets": [], "ranks": {}, "simulation_time": 0.0, "active_battles": [], "simulation_events": [], "last_ai_request_time": 0.0, "last_ai_trade_time": 0.0, "last_ai_borrow_time": 0.0, "last_ai_bet_time": 0.0, "out_of_game": [], "dice_sequence": 0, "duel_sequence": 0, "distribution_sequence": 0, "request_sequence": 0, "order_sequence": 0, "team_request_sequence": 0, "last_wall_time": time.time(), "clock_mode": "wall_clock"}
             for key in world_keys: write_json(RUNTIME_WORLD_COLLECTIONS / f"{key}.json", {"schema": 2, "category": "world_collection", "id": key, "value": self.world.get(key, defaults[key])})
             write_json(RUNTIME_WORLD_INDEX, {"schema": 3, "category": "world_index", "roles": self.world.get("roles", {}), "place_occupancy": self.world.get("place_occupancy", {}), "clock_epoch": self.world.get("clock_epoch", int(self.clock.epoch)), "last_wall_time": float(self.world.get("last_wall_time", time.time())), "clock_mode": "wall_clock", "collections": world_keys})
         if "profile" in requested: write_json(SAVE, self.save_data)
@@ -3073,17 +3100,21 @@ class ContentStore:
         reward = self.normalize_duel_reward(policy)
         source_id = reward.get("giver_id") or loser_id
         if source_id == winner_id or reward.get("trigger") == "placer_loss" and source_id != loser_id: return []
+        self.normalize_card_provenance()
         selected = self.select_duel_reward_cards(loser_id, reward, sequence)
         winner, loser = self.characters[winner_id], self.characters[source_id]
         transferred = []
+        records = []
         for card_id in selected:
             if card_id in loser.library_cards:
+                record = next((item for item in self._provenance(source_id, card_id, {"library", "deck"}) if item.get("card_id") == card_id), None)
                 loser.library_cards.remove(card_id)
                 winner.library_cards.append(card_id)
+                if record: self._record_card_move(record, winner_id, "library", "duel_reward", str(sequence), source_id, source_id, True, False); records.append(record["instance_id"])
                 transferred.append(card_id)
         if transferred:
-            self.world.setdefault("simulation_events", []).append({"type": "duel_reward_transfer", "winner": winner_id, "loser": loser_id, "cards": list(transferred), "policy": reward, "sim_time": float(self.world.get("simulation_time", 0.0))})
-            self.queue_interaction_media("duel_reward", "reward_transfer", winner_id, loser_id, self.relationship_for(winner_id, loser_id), "characters", winner_id, {"cards": list(transferred)})
+            self.world.setdefault("simulation_events", []).append({"type": "duel_reward_transfer", "winner": winner_id, "loser": loser_id, "cards": list(transferred), "instances": records, "policy": reward, "sim_time": float(self.world.get("simulation_time", 0.0))})
+            self.queue_interaction_media("duel_reward", "reward_transfer", winner_id, loser_id, self.relationship_for(winner_id, loser_id), "characters", winner_id, {"cards": list(transferred), "instances": records})
         return transferred
 
     def choose_ai_order(self, character_id):
@@ -3144,9 +3175,20 @@ class ContentStore:
         house_cards = choose(house, terms.get("house_cards"), seed)
         guest_cards = choose(guest, terms.get("guest_cards"), seed + 31)
         if house_cards is None or guest_cards is None: return None
+        self.normalize_card_provenance()
+        stake_instances = {}
+        for owner_id, cards in [(house_id, house_cards), (guest_id, guest_cards)]:
+            stake_instances[owner_id] = []
+            used = set()
+            for card_id in cards:
+                record = next((item for item in self._provenance(owner_id, card_id, {"library"}) if item.get("instance_id") not in used), None)
+                if record:
+                    used.add(record.get("instance_id"))
+                    self._record_card_move(record, owner_id, "gamble_wager", "gamble_stake", str(self.world.get("duel_sequence", 0)), owner_id, owner_id, False, False)
+                    stake_instances[owner_id].append(record.get("instance_id"))
         for card_id in house_cards: house.library_cards.remove(card_id)
         for card_id in guest_cards: guest.library_cards.remove(card_id)
-        prepared = {"mode": "gamble", "format": "1v1", "wager_count": count, "pools": {house_id: list(house_cards), guest_id: list(guest_cards)}, "house": house_id, "guest": guest_id, "selected_card": "", "revealed": [], "returned": [], "state": "reserved", "settled": False}
+        prepared = {"mode": "gamble", "format": "1v1", "wager_count": count, "pools": {house_id: list(house_cards), guest_id: list(guest_cards)}, "stake_instances": stake_instances, "house": house_id, "guest": guest_id, "selected_card": "", "revealed": [], "returned": [], "state": "reserved", "settled": False}
         return prepared
 
     def settle_gamble_terms(self, winner_id, loser_id, state, selected_card=""):
@@ -3159,14 +3201,25 @@ class ContentStore:
         chosen = str(selected_card or "")
         loser_pool = pools.get(loser_id, [])
         if chosen not in loser_pool: chosen = ""
-        for card_id in pools.get(house_id, []): house.library_cards.append(card_id)
-        for card_id in pools.get(guest_id, []): guest.library_cards.append(card_id)
+        self.normalize_card_provenance()
+        for owner_id, cards in [(house_id, pools.get(house_id, [])), (guest_id, pools.get(guest_id, []))]:
+            owner = self.characters.get(owner_id)
+            if owner:
+                for card_id in cards: owner.library_cards.append(card_id)
         transferred = []
         if chosen:
             if chosen not in loser.library_cards: return None
             loser.library_cards.remove(chosen)
             winner.library_cards.append(chosen)
             transferred.append(chosen)
+        stake_instances = dict(state.get("stake_instances", {}) or {})
+        for owner_id, cards in pools.items():
+            for index, card_id in enumerate(cards):
+                instance_id = (stake_instances.get(owner_id, []) or [])[index] if index < len(stake_instances.get(owner_id, []) or []) else ""
+                record = self._pool_record(instance_id) if instance_id else next((item for item in self._provenance(owner_id, card_id, {"gamble_wager"}) if item.get("card_id") == card_id), None)
+                if record:
+                    if card_id == chosen and owner_id == loser_id: self._record_card_move(record, winner_id, "library", "gamble_win", chosen, winner_id, loser_id, True, False)
+                    else: self._record_card_move(record, owner_id, "library", "gamble_return", chosen, owner_id, winner_id, False, False)
         state.update({"selected_card": chosen, "revealed": list(dict.fromkeys(pools.get(house_id, []) + pools.get(guest_id, []))), "returned": [card_id for pool in pools.values() for card_id in pool if card_id != chosen], "transferred": transferred, "state": "settled", "settled": True})
         if chosen:
             self.world.setdefault("simulation_events", []).append({"type": "gamble_card_selected", "winner": winner_id, "loser": loser_id, "card": chosen, "sim_time": float(self.world.get("simulation_time", 0.0))})
@@ -3192,12 +3245,329 @@ class ContentStore:
         state = dict(state or {})
         if state.get("settled"): return state
         pools = dict(state.get("pools", {}))
+        self.normalize_card_provenance()
+        stake_instances = dict(state.get("stake_instances", {}) or {})
         for owner_id, cards in pools.items():
             owner = self.characters.get(owner_id)
             if owner:
-                for card_id in cards: owner.library_cards.append(card_id)
+                for index, card_id in enumerate(cards):
+                    owner.library_cards.append(card_id)
+                    instance_id = (stake_instances.get(owner_id, []) or [])[index] if index < len(stake_instances.get(owner_id, []) or []) else ""
+                    record = self._pool_record(instance_id) if instance_id else next((item for item in self._provenance(owner_id, card_id, {"gamble_wager"}) if item.get("card_id") == card_id), None)
+                    if record: self._record_card_move(record, owner_id, "library", "gamble_return", "", owner_id, owner_id, False, False)
         state.update({"revealed": [card_id for cards in pools.values() for card_id in cards], "returned": [card_id for cards in pools.values() for card_id in cards], "state": "returned", "settled": True})
         return state
+
+    def _traders_pool_rules(self):
+        rules = self.rules.get("traders_pool", {}) if isinstance(self.rules, dict) else {}
+        return dict(rules) if isinstance(rules, dict) else {}
+
+    def _ensure_traders_pool(self):
+        pool = self.world.setdefault("traders_pool", {})
+        if not isinstance(pool, dict): pool = {}; self.world["traders_pool"] = pool
+        pool.setdefault("schema", 1)
+        pool.setdefault("inventory", [])
+        pool.setdefault("ledger", [])
+        pool.setdefault("daily_deposits", {})
+        pool["inventory"] = list(dict.fromkeys(str(item) for item in pool.get("inventory", []) if str(item)))
+        pool["ledger"] = list(pool.get("ledger", []) or [])[-2000:]
+        return pool
+
+    def _provenance(self, owner_id="", card_id="", states=None):
+        wanted = set(states or [])
+        return [item for item in self.world.setdefault("card_provenance", []) if (not owner_id or item.get("current_owner") == owner_id) and (not card_id or item.get("card_id") == card_id) and (not wanted or item.get("state") in wanted)]
+
+    def _next_provenance_id(self):
+        index = self.world.setdefault("card_provenance", [])
+        return "card_copy_" + str(len(index) + 1)
+
+    def normalize_card_provenance(self):
+        index = self.world.setdefault("card_provenance", [])
+        known = {str(item.get("instance_id")) for item in index if isinstance(item, dict) and item.get("instance_id")}
+        for item in index:
+            if not isinstance(item, dict): continue
+            item.setdefault("instance_id", self._next_provenance_id())
+            item.setdefault("card_id", "")
+            item.setdefault("first_owner", "trio_mysterio")
+            item.setdefault("current_owner", "")
+            item.setdefault("state", "library")
+            item.setdefault("borrowed", False)
+            item.setdefault("new_to_owner", False)
+            item.setdefault("origin_type", "initial_library")
+            item.setdefault("origin_id", "")
+            item.setdefault("origin_actor", "trio_mysterio")
+            item.setdefault("counterparty", "")
+            item.setdefault("created_at", float(self.world.get("clock_epoch", time.time())))
+            item.setdefault("history", [])
+        for character in self.characters.values():
+            current = {(item.get("card_id"), item.get("state")): 0 for item in index if item.get("current_owner") == character.id}
+            for card_id in list(character.library_cards):
+                records = [item for item in index if item.get("current_owner") == character.id and item.get("card_id") == card_id and item.get("state") in ["library", "deck", "borrowed", "active"]]
+                if len(records) >= character.library_cards.count(card_id): continue
+                record = {"instance_id": self._next_provenance_id(), "card_id": card_id, "first_owner": "trio_mysterio", "current_owner": character.id, "state": "library", "borrowed": False, "new_to_owner": False, "origin_type": "initial_library", "origin_id": "", "origin_actor": "trio_mysterio", "counterparty": "", "created_at": float(self.world.get("clock_epoch", time.time())), "history": []}
+                index.append(record)
+        self._ensure_traders_pool()
+        return index
+
+    def _deck_reserved_count(self, owner_id, card_id):
+        reserved = 0
+        for deck_id in self.deck_slot_ids(owner_id):
+            deck = self.decks.get(deck_id, {})
+            reserved += sum(1 for item in DeckRules.all_cards(deck) if item == card_id)
+        return reserved
+
+    def _free_library_records(self, owner_id, card_id=""):
+        self.normalize_card_provenance()
+        records = [item for item in self._provenance(owner_id, card_id, {"library"}) if item.get("card_id") in self.cards]
+        result = []
+        by_card = {}
+        for item in records: by_card.setdefault(item.get("card_id"), []).append(item)
+        character = self.characters.get(owner_id)
+        if not character: return []
+        for key, values in by_card.items():
+            reserved = self._deck_reserved_count(owner_id, key)
+            available = max(0, character.library_cards.count(key) - reserved)
+            result.extend(values[reserved:reserved + available])
+        return [item for item in result if not item.get("borrowed")]
+
+    def _take_free_library_records(self, owner_id, card_ids):
+        character = self.characters.get(owner_id)
+        requested = [str(item) for item in list(card_ids or [])]
+        if not character or not requested: return []
+        available = self._free_library_records(owner_id)
+        selected = []
+        for card_id in requested:
+            record = next((item for item in available if item.get("card_id") == card_id and item not in selected), None)
+            if not record: return []
+            selected.append(record)
+        for record in selected:
+            character.library_cards.remove(record.get("card_id"))
+        return selected
+
+    def _record_card_move(self, record, owner_id, state, origin_type, origin_id="", actor_id="", counterparty="", new_to_owner=False, borrowed=False):
+        record["current_owner"] = str(owner_id)
+        record["state"] = str(state)
+        record["origin_type"] = str(origin_type)
+        record["origin_id"] = str(origin_id or "")
+        record["origin_actor"] = str(actor_id or "")
+        record["counterparty"] = str(counterparty or "")
+        record["borrowed"] = bool(borrowed)
+        record["new_to_owner"] = bool(new_to_owner)
+        history = record.setdefault("history", [])
+        history.append({"owner": str(owner_id), "state": str(state), "origin_type": str(origin_type), "origin_id": str(origin_id or ""), "actor": str(actor_id or ""), "counterparty": str(counterparty or ""), "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+        record["history"] = history[-40:]
+        return record
+
+    def _return_record_to_library(self, record, owner_id, origin_type, origin_id="", actor_id="", counterparty="", new_to_owner=False):
+        character = self.characters.get(owner_id)
+        if not character or record.get("card_id") not in self.cards: return False
+        character.library_cards.append(record.get("card_id"))
+        self._record_card_move(record, owner_id, "library", origin_type, origin_id, actor_id, counterparty, new_to_owner, False)
+        return True
+
+    def card_origin_details(self, owner_id, card_id):
+        self.normalize_card_provenance()
+        character = self.characters.get(owner_id)
+        records = [dict(item) for item in self._provenance(owner_id, card_id) if item.get("state") in ["library", "deck", "borrowed", "active"]]
+        return {"card_id": str(card_id), "owner": str(owner_id), "copies": len(records), "badge": self.card_ownership_badge(owner_id, card_id), "records": records}
+
+    def card_ownership_badge(self, owner_id, card_id):
+        records = self._provenance(owner_id, card_id, {"library", "deck", "borrowed", "active"})
+        if any(item.get("new_to_owner") for item in records): return "NEW"
+        count = len(records)
+        return "+9" if count > 9 else str(count) if count else ""
+
+    def mark_card_examined(self, owner_id, card_id):
+        changed = False
+        for record in self._provenance(owner_id, card_id, {"library", "deck", "borrowed", "active"}):
+            if record.get("new_to_owner"):
+                record["new_to_owner"] = False
+                changed = True
+        if changed:
+            self.world.setdefault("simulation_events", []).append({"type": "card_examined", "owner": owner_id, "card": card_id, "sim_time": float(self.world.get("simulation_time", 0.0))})
+            self.record_history("character", owner_id, "card_examined", {"card": card_id})
+            self.save()
+        return changed
+
+    def _card_pool_value(self, card_id):
+        card = self.cards.get(card_id)
+        if not card: return 0.0
+        monster = card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
+        value = float(card.atk + card.defense + card.stars * 150) if monster else 900.0
+        if card.kind == "legendary" or card.legendary: value += 3500.0
+        if card.kind == "fusion": value += 700.0
+        if card.kind == "ritual": value += 500.0
+        if card.effects: value += min(2500.0, len(card.effects) * 350.0)
+        return max(100.0, value)
+
+    def _battle_side_snapshot(self, battle, side):
+        prefix = "player" if side == "player" else "opponent"
+        character_ids = []
+        team_id = battle.get("player_team", "") if prefix == "player" else battle.get("opponent_team", "")
+        team = self.teams.get(team_id)
+        if team: character_ids = [item for item in team.members if item in self.characters]
+        else:
+            single = battle.get("from", "") if prefix == "player" else battle.get("to", "")
+            if single in self.characters: character_ids = [single]
+        hp = battle.get("team_lp", {}).get(prefix, 8000) if isinstance(battle.get("team_lp", {}), dict) else battle.get("hp", {}).get(battle.get("from" if prefix == "player" else "to", ""), 8000)
+        decks = battle.get("player_deck_choices", {}) if prefix == "player" else battle.get("opponent_deck_choices", {})
+        if not decks:
+            decks = {item: getattr(self.characters[item], "deck_id", "") for item in character_ids}
+        levels = [self.deck_level(deck_id) for deck_id in decks.values() if deck_id in self.decks]
+        character_levels = [int(self.characters[item].rank) for item in character_ids if item in self.characters]
+        histories = []
+        for item in character_ids:
+            histories.extend([entry for entry in self.characters[item].history if entry.get("event") in ["duel_completed", "team_duel_completed"]][-5:])
+        return {"side": prefix, "team_id": team_id, "character_ids": character_ids, "hp": int(hp or 0), "deck_levels": levels, "character_levels": character_levels, "recent_duels": histories[-5:], "deck_cards": sum(len(DeckRules.all_cards(self.decks.get(deck_id, {}))) for deck_id in decks.values())}
+
+    def traders_pool_bet_quote(self, battle, side):
+        rules = self._traders_pool_rules()
+        chosen = self._battle_side_snapshot(battle, side)
+        other = self._battle_side_snapshot(battle, "opponent" if side == "player" else "player")
+        def strength(snapshot):
+            hp = clamp(snapshot["hp"] / 8000.0, 0.0, 1.0)
+            deck = sum(snapshot["deck_levels"]) / max(1.0, len(snapshot["deck_levels"]) * 10.0)
+            level = sum(snapshot["character_levels"]) / max(1.0, len(snapshot["character_levels"]) * 10.0)
+            history = sum(1.0 if item.get("result") in ["win", "team_win"] else 0.0 for item in snapshot["recent_duels"]) / 5.0
+            return 0.48 * hp + 0.22 * deck + 0.18 * level + 0.12 * history
+        own, rival = strength(chosen), strength(other)
+        probability = clamp((own + 0.04) / max(0.08, own + rival + 0.08), 0.08, 0.92)
+        margin = clamp(float(rules.get("house_margin", 0.08) or 0.08), 0.0, 0.4)
+        posted = clamp(probability * (1.0 - margin), 0.05, 0.95)
+        thresholds = dict(rules.get("risk_band_thresholds", {}) or {})
+        risk = 1.0 - posted
+        band = "reckless" if risk > float(thresholds.get("volatile", 0.75)) else "volatile" if risk > float(thresholds.get("balanced", 0.55)) else "balanced" if risk > float(thresholds.get("low", 0.35)) else "low"
+        return {"side": side, "public": {"risk_band": band, "match_difficulty": "high" if abs(own - rival) < 0.12 else "medium" if abs(own - rival) < 0.28 else "low", "hint": "favored" if posted >= 0.6 else "uncertain" if posted > 0.4 else "underdog"}, "internal_probability": probability, "internal_score": own - rival, "house_margin": margin, "snapshot": {"side": chosen, "opponent": other}}
+
+    def traders_pool_snapshot(self):
+        pool = self._ensure_traders_pool()
+        return {"card_count": len(pool.get("inventory", [])), "ledger_count": len(pool.get("ledger", [])), "daily_deposit_limit": int(self._traders_pool_rules().get("max_daily_deposit_cards", 5) or 5)}
+
+    def deposit_traders_pool_cards(self, owner_id, card_ids):
+        rules = self._traders_pool_rules()
+        requested = [str(item) for item in list(card_ids or [])]
+        limit = max(1, int(rules.get("max_daily_deposit_cards", 5) or 5))
+        if not requested or len(requested) > limit: return {"ok": False, "error": "deposit_limit", "accepted": []}
+        day = str(int(time.time() // 86400))
+        pool = self._ensure_traders_pool()
+        used = int(pool.get("daily_deposits", {}).get(owner_id, {}).get(day, 0) or 0)
+        if used + len(requested) > limit: return {"ok": False, "error": "daily_limit", "accepted": []}
+        selected = self._take_free_library_records(owner_id, requested)
+        if len(selected) != len(requested): return {"ok": False, "error": "unassigned_library_copy_required", "accepted": []}
+        for record in selected:
+            self._record_card_move(record, "traders_pool", "pool", "traders_pool_deposit", "", owner_id, owner_id, False, False)
+            record["pool_role"] = "deposit"
+            pool["inventory"].append(record["instance_id"])
+        pool.setdefault("daily_deposits", {}).setdefault(owner_id, {})[day] = used + len(selected)
+        entry = {"type": "deposit", "owner": owner_id, "cards": [item["card_id"] for item in selected], "instances": [item["instance_id"] for item in selected], "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()}
+        pool["ledger"].append(entry)
+        self.world.setdefault("simulation_events", []).append({"type": "traders_pool_deposit", "owner": owner_id, "count": len(selected), "sim_time": entry["sim_time"]})
+        self.record_history("character", owner_id, "traders_pool_deposit", {"cards": list(entry["cards"]), "instances": list(entry["instances"]), "pool_count": len(pool.get("inventory", []))})
+        self.save()
+        return {"ok": True, "accepted": list(entry["cards"]), "instances": list(entry["instances"]), "pool": self.traders_pool_snapshot()}
+
+    def place_traders_pool_bet(self, bettor_id, battle_id, side, card_ids):
+        rules = self._traders_pool_rules()
+        requested = [str(item) for item in list(card_ids or [])]
+        battle = next((item for item in self.world.setdefault("active_battles", []) if item.get("id") == battle_id and item.get("status") == "active"), None)
+        max_cards = max(1, int(rules.get("max_bet_cards", 5) or 5))
+        if not battle or side not in ["player", "opponent"] or not requested or len(requested) > max_cards: return None
+        participants = set()
+        for key in ["from", "to", "solo_player_character", "solo_opponent_character"]: participants.add(str(battle.get(key, "")))
+        for key in ["player_team", "opponent_team"]:
+            team = self.teams.get(battle.get(key, ""))
+            if team: participants.update(team.members)
+        if bettor_id in participants: return None
+        if any(item.get("state") == "accepted" and item.get("battle_id") == battle_id and item.get("bettor") == bettor_id for item in self.world.setdefault("bets", [])): return None
+        selected = self._take_free_library_records(bettor_id, requested)
+        if len(selected) != len(requested): return None
+        sequence = len(self.world.setdefault("bets", [])) + 1
+        bet_id = "pool_bet_" + str(int(time.time() * 1000)) + "_" + str(sequence)
+        quote = self.traders_pool_bet_quote(battle, side)
+        pool = self._ensure_traders_pool()
+        for record in selected:
+            self._record_card_move(record, "traders_pool", "pool", "traders_pool_bet", bet_id, bettor_id, bettor_id, False, False)
+            record["pool_role"] = "bet_stake"
+            record["bet_id"] = bet_id
+            pool["inventory"].append(record["instance_id"])
+        bet = {"id": bet_id, "battle_id": battle_id, "bettor": bettor_id, "side": side, "stake_count": len(selected), "stake_card_ids": [item["card_id"] for item in selected], "stake_instance_ids": [item["instance_id"] for item in selected], "state": "accepted", "opened_sim_time": float(self.world.get("simulation_time", 0.0)), "public_quote": dict(quote["public"]), "internal_probability": quote["internal_probability"], "internal_score": quote["internal_score"], "house_margin": quote["house_margin"], "match_snapshot": quote["snapshot"], "reveal_queue": [], "replacement_instance_ids": [], "replacement_card_ids": []}
+        self.world["bets"].append(bet)
+        pool["ledger"].append({"type": "bet_stake", "bet_id": bet_id, "bettor": bettor_id, "battle_id": battle_id, "side": side, "cards": list(bet["stake_card_ids"]), "instances": list(bet["stake_instance_ids"]), "sim_time": bet["opened_sim_time"], "time": time.time()})
+        self.world.setdefault("simulation_events", []).append({"type": "traders_pool_bet_accepted", "bet": bet_id, "battle": battle_id, "bettor": bettor_id, "side": side, "stake_count": len(selected), "public_quote": dict(quote["public"]), "sim_time": bet["opened_sim_time"]})
+        self.record_history("character", bettor_id, "traders_pool_bet_opened", {"bet_id": bet_id, "battle_id": battle_id, "side": side, "stake_cards": list(bet["stake_card_ids"]), "public_quote": dict(quote["public"])})
+        self.save()
+        return {"id": bet_id, "battle_id": battle_id, "bettor": bettor_id, "side": side, "stake_count": len(selected), "public_quote": dict(quote["public"]), "state": "accepted"}
+
+    def _pool_record(self, instance_id):
+        return next((item for item in self.world.setdefault("card_provenance", []) if item.get("instance_id") == instance_id), None)
+
+    def _select_pool_replacements(self, bet, excluded):
+        rules = self._traders_pool_rules()
+        pool = self._ensure_traders_pool()
+        candidates = [self._pool_record(item) for item in pool.get("inventory", [])]
+        candidates = [item for item in candidates if item and item.get("instance_id") not in excluded and item.get("state") == "pool" and item.get("pool_role") != "bet_stake" and item.get("card_id") in self.cards]
+        if not candidates: return []
+        stakes = [self._card_pool_value(item.get("card_id")) for item in [self._pool_record(key) for key in bet.get("stake_instance_ids", [])] if item]
+        target = sum(stakes) / max(1, len(stakes))
+        seed = int(hashlib.sha256((bet.get("id", "") + str(len(candidates))).encode("utf-8")).hexdigest()[:12], 16)
+        rng = random.Random(seed)
+        quality = dict(rules.get("replacement_quality_weights", {}) or {})
+        kind_weights = dict(rules.get("replacement_kind_weights", {}) or {})
+        selected = []
+        count = min(len(candidates), int(bet.get("stake_count", 0) or 0) * max(1, int(rules.get("winner_replacement_multiplier", 2) or 2)))
+        for _ in range(count):
+            remaining = [item for item in candidates if item not in selected]
+            if not remaining: break
+            roll = rng.random()
+            threshold = float(quality.get("lower", 0.5))
+            band = "lower" if roll < threshold else "same" if roll < threshold + float(quality.get("same", 0.2)) else "higher"
+            band_items = [item for item in remaining if (self._card_pool_value(item.get("card_id")) < target if band == "lower" else self._card_pool_value(item.get("card_id")) > target if band == "higher" else abs(self._card_pool_value(item.get("card_id")) - target) <= target * 0.2)]
+            if not band_items: band_items = remaining
+            weighted = [(item, max(0.01, float(kind_weights.get(self.cards[item.get("card_id")].kind, 0.01)))) for item in band_items]
+            total = sum(weight for _, weight in weighted)
+            pick = rng.random() * total
+            chosen = weighted[-1][0]
+            for item, weight in weighted:
+                pick -= weight
+                if pick <= 0: chosen = item; break
+            selected.append(chosen)
+        return selected
+
+    def settle_traders_pool_bet(self, bet_id, result="", winner_side="", draw=False, void=False):
+        bet = next((item for item in self.world.setdefault("bets", []) if item.get("id") == bet_id), None)
+        if not bet or bet.get("state") != "accepted": return None
+        pool = self._ensure_traders_pool()
+        stake_ids = list(bet.get("stake_instance_ids", []) or [])
+        if draw or void or not winner_side:
+            for instance_id in stake_ids:
+                record = self._pool_record(instance_id)
+                if record:
+                    if instance_id in pool["inventory"]: pool["inventory"].remove(instance_id)
+                    self._return_record_to_library(record, bet.get("bettor", ""), "bet_return", bet_id, "traders_pool", bet.get("bettor", ""), False)
+            bet.update({"state": "returned", "result": "draw" if draw else "void", "returned_instance_ids": stake_ids, "settled_sim_time": float(self.world.get("simulation_time", 0.0))})
+        elif winner_side == bet.get("side"):
+            selected = self._select_pool_replacements(bet, set(stake_ids))
+            replacements = []
+            for record in selected:
+                if record["instance_id"] in pool["inventory"]: pool["inventory"].remove(record["instance_id"])
+                self._return_record_to_library(record, bet.get("bettor", ""), "traders_pool_win", bet_id, "traders_pool", "traders_pool", True)
+                replacements.append(record)
+            bet.update({"state": "won", "result": result or "win", "replacement_instance_ids": [item["instance_id"] for item in replacements], "replacement_card_ids": [item["card_id"] for item in replacements], "reveal_queue": [{"card_id": item["card_id"], "instance_id": item["instance_id"], "steps": ["body", "level", "name", "image", "description"], "state": "facedown"} for item in replacements], "settled_sim_time": float(self.world.get("simulation_time", 0.0))})
+        else:
+            bet.update({"state": "lost", "result": result or "loss", "replacement_instance_ids": [], "replacement_card_ids": [], "reveal_queue": [], "settled_sim_time": float(self.world.get("simulation_time", 0.0))})
+        pool["ledger"].append({"type": "bet_settlement", "bet_id": bet_id, "bettor": bet.get("bettor", ""), "battle_id": bet.get("battle_id", ""), "state": bet.get("state"), "result": bet.get("result", ""), "winner_side": winner_side, "stake_cards": list(bet.get("stake_card_ids", [])), "replacement_cards": list(bet.get("replacement_card_ids", [])), "sim_time": float(self.world.get("simulation_time", 0.0)), "time": time.time()})
+        self.world.setdefault("simulation_events", []).append({"type": "traders_pool_bet_settled", "bet": bet_id, "state": bet.get("state"), "result": bet.get("result", ""), "replacement_cards": list(bet.get("replacement_card_ids", [])), "sim_time": float(self.world.get("simulation_time", 0.0))})
+        self.record_history("character", bet.get("bettor", ""), "traders_pool_bet_settled", {"bet_id": bet_id, "battle_id": bet.get("battle_id", ""), "state": bet.get("state", ""), "result": bet.get("result", ""), "stake_cards": list(bet.get("stake_card_ids", [])), "replacement_cards": list(bet.get("replacement_card_ids", []))})
+        self.save()
+        return dict(bet)
+
+    def settle_traders_pool_bets_for_battle(self, battle_id, winner_side="", draw=False, void=False, result=""):
+        settled = []
+        for bet in list(self.world.setdefault("bets", [])):
+            if bet.get("battle_id") == battle_id and bet.get("state") == "accepted":
+                item = self.settle_traders_pool_bet(bet.get("id", ""), result, winner_side, draw, void)
+                if item: settled.append(item)
+        return settled
 
     def interaction_expiry(self, family="request"):
         configured = self.rules.get("transactions", {}).get("interaction_expiry_seconds", 10800) if isinstance(self.rules, dict) else 10800
@@ -3453,6 +3823,9 @@ class ContentStore:
     def _complete_world_battle(self, battle, session):
         winner_id = session.winner.character.id if session.winner else ""
         loser_id = session.other(session.winner).character.id if session.winner else ""
+        winner_side = "player" if session.winner is session.player else "opponent" if session.winner is session.opponent else ""
+        pool_settlements = self.settle_traders_pool_bets_for_battle(battle.get("id", ""), winner_side, not winner_side, False, winner_id or "draw")
+        battle["traders_pool_settlements"] = pool_settlements
         battle["status"] = "completed"
         battle["phase"] = "post_duel"
         battle["result"] = winner_id
@@ -3537,7 +3910,9 @@ class ContentStore:
         winner_id = session.winner.id if session.winner else ""
         loser_id = session.opponent_team.id if session.winner is session.player_team else session.player_team.id if session.winner else ""
         active_player, active_opponent = session.active_members()
-        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "format": session.format_name, "turn": session.round, "rounds": list(session.results), "transfer_events": list(session.transfer_events), "media_states": list(session.media_states), "selected_deck_choices": list(session.selected_deck_choices), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
+        winner_side = "player" if session.winner is session.player_team else "opponent" if session.winner is session.opponent_team else ""
+        pool_settlements = self.settle_traders_pool_bets_for_battle(battle.get("id", ""), winner_side, not winner_side, False, winner_id or "draw")
+        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "format": session.format_name, "traders_pool_settlements": pool_settlements, "turn": session.round, "rounds": list(session.results), "transfer_events": list(session.transfer_events), "media_states": list(session.media_states), "selected_deck_choices": list(session.selected_deck_choices), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
         championship_id = battle.get("championship_id", "")
         championship = self.championship_by_id(championship_id) if championship_id else None
         if championship:
@@ -3652,6 +4027,38 @@ class ContentStore:
             state["last_memory_decay_sim_time"] = simulation_time
             state["decay_passes"] = int(state.get("decay_passes", 0) or 0) + 1
 
+    def _advance_traders_pool(self):
+        now = float(self.world.get("simulation_time", 0.0))
+        if now < float(self.world.get("last_ai_bet_time", 0.0) or 0.0) + 30.0: return
+        self.world["last_ai_bet_time"] = now
+        player_id = self.role_config().get("player_character", "")
+        for character in sorted(self.characters.values(), key=lambda item: item.id):
+            if character.id == player_id or character.world_status == "out_of_game" or character.availability != "free": continue
+            battles = [item for item in self.world.setdefault("active_battles", []) if item.get("status") == "active"]
+            if not battles: return
+            ranked = []
+            for battle in battles:
+                participants = {str(battle.get(key, "")) for key in ["from", "to", "solo_player_character", "solo_opponent_character"]}
+                for team_key in ["player_team", "opponent_team"]:
+                    team = self.teams.get(battle.get(team_key, ""))
+                    if team: participants.update(team.members)
+                if character.id in participants: continue
+                if any(item.get("state") == "accepted" and item.get("battle_id") == battle.get("id") and item.get("bettor") == character.id for item in self.world.setdefault("bets", [])): continue
+                for side in ["player", "opponent"]:
+                    quote = self.traders_pool_bet_quote(battle, side)
+                    ranked.append((float(quote.get("internal_probability", 0.0)), battle, side, quote))
+            if not ranked: continue
+            ranked.sort(key=lambda item: (item[0], item[1].get("id", ""), item[2]), reverse=True)
+            probability, battle, side, quote = ranked[0]
+            tolerance = clamp(float(character.behavior_weights.get("risk_tolerance", 3.0) or 3.0) / 10.0, 0.0, 1.0)
+            threshold = 0.66 - tolerance * 0.24
+            if probability < threshold: continue
+            cards = self._free_library_records(character.id)
+            if not cards: continue
+            preferred = sorted(cards, key=lambda item: (self._card_pool_value(item.get("card_id")), item.get("card_id", "")))
+            stake = [preferred[0].get("card_id")]
+            self.place_traders_pool_bet(character.id, battle.get("id", ""), side, stake)
+
     def advance_world(self, seconds=None):
         if seconds is None:
             current_wall_time = time.time()
@@ -3684,6 +4091,7 @@ class ContentStore:
             self._ai_request_tick()
             self._ai_trade_tick()
             self._ai_borrow_tick()
+            self._advance_traders_pool()
             self.world["simulation_events"] = self.world.setdefault("simulation_events", [])[-200:]
             self.dirty_domains.update({"runtime_characters", "runtime_teams", "runtime_world"})
             self.world_checkpoint_elapsed += seconds
@@ -4163,7 +4571,7 @@ class ContentStore:
 
     def _ai_borrow_tick(self):
         now = float(self.world.get("simulation_time", 0.0))
-        if now < float(self.world.get("last_ai_borrow_time", 0.0)) + 20.0: return
+        if now < float(self.world.get("last_ai_borrow_time", 0.0) or 0.0) + 20.0: return
         self.world["last_ai_borrow_time"] = now
         for record in list(self.world.setdefault("borrows", [])):
             if record.get("state") != "requested": continue
@@ -10094,6 +10502,7 @@ class DuelScene(Scene):
         self.card_list_scroller_rect = None
         self.card_list_offset = 0
         self.card_info_overlay = None
+        self.reward_reveal = None
         self.player_deck_rect = self.layout.side_well_rect("player", "deck")
         self.hp_display = {"player": 8000, "opponent": 8000}
         self.hp_delta = {"player": 0, "opponent": 0}
@@ -10151,6 +10560,10 @@ class DuelScene(Scene):
         self.app.assets.play_duel_music(self.place_id, self.app.store.save_data.get("music", True), 0.35, self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night", state)
 
     def handle(self, event):
+        if self.reward_reveal:
+            self.reward_reveal.handle(event)
+            if self.reward_reveal.dismissed: self.reward_reveal = None
+            return
         if self.card_info_overlay:
             if self.card_info_overlay.handle(event): return
             self.card_info_overlay = None
@@ -10600,6 +11013,9 @@ class DuelScene(Scene):
         self.sync_watcher_media()
         self.attack_preview_clock = self.attack_preview_clock + dt if self.engine.selected_monster and not self.engine.finished else 0.0
         self.sync_duel_music()
+        if self.engine.finished and self.stage == "post" and not self.engine.gamble_selection_pending and self.engine.winner is self.engine.player and self.engine.transferred_card in self.app.store.cards and self.reward_reveal is None:
+            self.reward_reveal = CardRevealOverlay(self.app, self.app.store.cards[self.engine.transferred_card], "DUEL REWARD  |  TAKE CARD")
+        if self.reward_reveal: self.reward_reveal.update(dt)
         if self.engine.finished and self.stage == "battle":
             if self.place_reserved:
                 self.app.store.release_place(self.place_id)
@@ -10626,6 +11042,7 @@ class DuelScene(Scene):
         self.draw_card_list_popup(surface)
         if self.engine.finished: self.draw_result(surface)
         if self.card_info_overlay: self.card_info_overlay.draw(surface)
+        if self.reward_reveal: self.reward_reveal.draw(surface)
 
     def draw_watchers(self, surface):
         watcher_ids = list(self.watched_battle.get("watchers", [])) if self.spectator else list(getattr(self.engine, "watcher_ids", []))
@@ -11214,6 +11631,103 @@ class EffectDescriber:
         return ". ".join(parts).rstrip(".") + "."
 
 
+class CardRevealOverlay:
+    def __init__(self, app, card, title="CARD REWARD"):
+        self.app = app
+        self.card = getattr(card, "card", card)
+        self.title = str(title)
+        rules = app.store._traders_pool_rules()
+        configured = list(rules.get("reveal_steps", []) or [])
+        self.steps = []
+        for item in configured:
+            if not isinstance(item, dict): continue
+            step_id = str(item.get("id", "")).lower()
+            if step_id not in ["body", "level", "name", "image", "description"]: continue
+            try: duration = max(0.05, float(item.get("duration", 0.5)))
+            except (TypeError, ValueError): duration = 0.5
+            self.steps.append({"id": step_id, "duration": duration})
+        if not self.steps: self.steps = [{"id": item, "duration": 0.5} for item in ["body", "level", "name", "image", "description"]]
+        variant_count = max(1, int(rules.get("reveal_variant_count", 10) or 10))
+        self.variant = (sum(ord(item) for item in str(getattr(self.card, "id", ""))) % variant_count) + 1
+        self.index = -1
+        self.clock = 0.0
+        self.finished = False
+        self.dismissed = False
+        self.advance()
+
+    def advance(self):
+        self.index += 1
+        self.clock = 0.0
+        if self.index >= len(self.steps):
+            self.finished = True
+            return
+        step = self.steps[self.index]
+        self.app.assets.play_reveal_sound(step["id"], self.variant, self.app.store.save_data.get("sfx", True), 0.5)
+
+    def update(self, dt):
+        if self.finished or self.dismissed: return
+        self.clock += max(0.0, float(dt))
+        while not self.finished and self.clock >= self.steps[self.index]["duration"]:
+            self.clock -= self.steps[self.index]["duration"]
+            self.advance()
+
+    def handle(self, event):
+        if event.type == pygame.KEYDOWN and event.key in [pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE]:
+            self.dismissed = True
+            return True
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button in [2, 3]:
+            self.dismissed = True
+            self.app.assets.play_button_sound("out", self.app.store.save_data.get("sfx", True))
+            return True
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.finished: self.dismissed = True
+            else: self.clock = self.steps[self.index]["duration"]
+            return True
+        return True
+
+    def state(self):
+        if self.finished: return {"active": True, "step": "complete", "variant": self.variant, "clock": 0.0, "duration": 0.0, "card_id": getattr(self.card, "id", "")}
+        step = self.steps[self.index]
+        return {"active": True, "step": step["id"], "variant": self.variant, "clock": round(self.clock, 3), "duration": round(step["duration"], 3), "progress": round(clamp(self.clock / step["duration"], 0.0, 1.0), 3), "card_id": getattr(self.card, "id", "")}
+
+    def draw(self, surface):
+        veil = ui_surface((W, H), pygame.SRCALPHA)
+        veil.fill((10, 12, 24, 208))
+        ui_blit(surface, veil, (0, 0))
+        panel = pygame.Rect(118, 42, 564, 516)
+        rounded(surface, panel, (236, 225, 188), (235, 188, 77), 16, 3)
+        draw_text(surface, self.title, (panel.centerx, panel.y + 24), self.app.assets.font(20, True), COLORS["ink"], "midtop")
+        state = self.state()
+        step = state["step"]
+        progress = float(state.get("progress", 1.0))
+        card_rect = pygame.Rect(300, 112, 200, 300)
+        if step == "complete": progress = 1.0
+        if step == "body" and progress < 0.5:
+            back = self.app.assets.image("placeholder/card_back") or self.app.assets.critical_image(card_rect.size)
+            back = pygame.transform.rotate(back, 90)
+            blit_aspect(surface, back, pygame.Rect(card_rect.centerx - 150, card_rect.centery - 100, 300, 200))
+        else:
+            card_surface = pygame.Surface(card_rect.size, pygame.SRCALPHA)
+            render_engine_card(card_surface, card_surface.get_rect(), self.card, self.app.assets, self.app.store.media, True, False, getattr(self.card, "art_variant", ""), False)
+            if step == "body": card_surface.set_alpha(int(255 * clamp(progress * 2.0, 0.0, 1.0)))
+            ui_blit(surface, card_surface, card_rect.topleft)
+            cover = pygame.Surface(card_rect.size, pygame.SRCALPHA)
+            cover.fill((25, 30, 48, 0))
+            if step in ["level", "name", "image", "description"]: cover.fill((25, 30, 48, int(220 * (1.0 - progress))))
+            ui_blit(surface, cover, card_rect.topleft)
+            zones = {"level": (0, 44, card_rect.width, 30), "name": (0, 0, card_rect.width, 40), "image": (8, 62, card_rect.width - 16, 132), "description": (8, 196, card_rect.width - 16, 72)}
+            if step in zones:
+                zone = pygame.Rect(zones[step])
+                mask = pygame.Surface(zone.size, pygame.SRCALPHA)
+                mask.fill((25, 30, 48, int(230 * (1.0 - progress))))
+                ui_blit(surface, mask, (card_rect.x + zone.x, card_rect.y + zone.y))
+        asset = self.app.assets.reveal_asset(step if step != "complete" else "description", self.variant, (190, 34))
+        if asset: ui_blit(surface, asset, (panel.centerx - asset.get_width() // 2, 78))
+        label = "CARD FACE DOWN  |  CLICK TO ACCELERATE" if step == "body" and progress < 0.5 else "REVEALING: " + str(step).upper() if step != "complete" else "REVEAL COMPLETE"
+        draw_text(surface, label, (panel.centerx, 438), self.app.assets.font(11, True), COLORS["ink"], "center")
+        draw_text(surface, "Each reveal stage is synchronized to its own optional cue. Click to advance; RMB or Esc closes.", (panel.centerx, 466), self.app.assets.font(9), COLORS["ink"], "center")
+
+
 class CardInfoOverlay:
     def __init__(self, app, card, known=True):
         self.app = app
@@ -11318,10 +11832,12 @@ class LibraryScene(Scene):
             for rect, card_id in self.card_rects:
                 if rect.collidepoint(event.pos):
                     self.card_info_overlay = CardInfoOverlay(self.app, self.app.store.cards[card_id], card_id in known)
+                    if card_id in known: self.app.store.mark_card_examined(self.app.store.role_config()["player_character"], card_id)
                     return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for rect, card_id in self.card_rects:
                 if rect.collidepoint(event.pos):
+                    self.app.store.mark_card_examined(self.app.store.role_config()["player_character"], card_id)
                     self.app.push(CardDetailScene(self.app, card_id))
                     return
 
@@ -11352,6 +11868,9 @@ class LibraryScene(Scene):
             draw_text(surface, "Not owned or studied", (x + 105, y + 151), self.app.assets.font(11), COLORS["muted"], "center")
             return
         render_engine_card(surface, (x + 8, y + 8, 194, 159), card, self.app.assets, self.app.store.media, True, False, card.art_variant, False)
+        badge_name = self.app.store.card_ownership_badge(self.app.store.role_config()["player_character"], card.id)
+        badge = self.app.assets.ownership_badge(badge_name, (42, 18)) if badge_name else None
+        if badge: ui_blit(surface, badge, (x + 12, y + 142))
 
 
 class CardJournalScene(Scene):
@@ -12995,10 +13514,87 @@ class TradingScene(Scene):
         self.selected_id = ""
         self.composer_mode = ""
         self.list_filter = "all"
+        self.pool_mode = False
+        self.pool_battle_index = 0
+        self.pool_side = "player"
+        self.pool_card_index = 0
+        self.pool_stake_ids = []
         self.refresh()
 
     def player_id(self):
         return self.app.store.role_config()["player_character"]
+
+    def pool_battles(self):
+        return [item for item in self.app.store.world.setdefault("active_battles", []) if item.get("status") == "active"]
+
+    def pool_battle(self):
+        battles = self.pool_battles()
+        if not battles: return None
+        self.pool_battle_index %= len(battles)
+        return battles[self.pool_battle_index]
+
+    def pool_cards(self):
+        return [item for item in self.app.store._free_library_records(self.player_id()) if item.get("card_id") in self.app.store.cards]
+
+    def pool_card(self):
+        cards = self.pool_cards()
+        if not cards: return None
+        self.pool_card_index %= len(cards)
+        return cards[self.pool_card_index]
+
+    def enter_pool(self):
+        self.pool_mode = True
+        self.composer_mode = ""
+        self.pool_stake_ids = []
+        self.refresh()
+
+    def exit_pool(self):
+        self.pool_mode = False
+        self.pool_stake_ids = []
+        self.refresh()
+
+    def cycle_pool_battle(self):
+        battles = self.pool_battles()
+        if battles: self.pool_battle_index = (self.pool_battle_index + 1) % len(battles)
+        else: self.app.notify("No active duel is currently open for Traders Pool betting.")
+        self.refresh()
+
+    def cycle_pool_side(self):
+        self.pool_side = "opponent" if self.pool_side == "player" else "player"
+        self.refresh()
+
+    def cycle_pool_card(self):
+        cards = self.pool_cards()
+        if cards: self.pool_card_index = (self.pool_card_index + 1) % len(cards)
+        else: self.app.notify("No free, unassigned library copy is available to stake.")
+        self.refresh()
+
+    def toggle_pool_stake(self):
+        record = self.pool_card()
+        if not record: return
+        instance_id = record.get("instance_id", "")
+        if instance_id in self.pool_stake_ids: self.pool_stake_ids.remove(instance_id)
+        elif len(self.pool_stake_ids) < int(self.app.store._traders_pool_rules().get("max_bet_cards", 5) or 5): self.pool_stake_ids.append(instance_id)
+        else: self.app.notify("The authored Traders Pool wager limit is five cards.")
+        self.refresh()
+
+    def deposit_pool_card(self):
+        record = self.pool_card()
+        if not record: return
+        result = self.app.store.deposit_traders_pool_cards(self.player_id(), [record.get("card_id", "")])
+        self.app.notify("Card deposited into Traders Pool." if result.get("ok") else "Deposit rejected: " + str(result.get("error", "ownership rule")))
+        self.pool_stake_ids = []
+        self.refresh()
+
+    def place_pool_bet(self):
+        battle = self.pool_battle()
+        if not battle: self.app.notify("Choose an active duel before placing a bet."); return
+        selected = [self.app.store._pool_record(item) for item in self.pool_stake_ids]
+        selected = [item.get("card_id") for item in selected if item]
+        result = self.app.store.place_traders_pool_bet(self.player_id(), battle.get("id", ""), self.pool_side, selected)
+        self.app.notify("Traders Pool bet accepted with a locked stake." if result else "Bet rejected: choose free cards and a battle you are not participating in.")
+        self.pool_stake_ids = []
+        self.refresh()
 
     def refresh(self):
         player_id = self.player_id()
@@ -13122,10 +13718,12 @@ class TradingScene(Scene):
         self.refresh()
 
     def refresh_buttons(self):
-        if self.composer_mode:
+        if self.pool_mode:
+            self.buttons = [Button((26, 530, 96, 38), "BATTLE", self.cycle_pool_battle, COLORS["cyan"]), Button((128, 530, 96, 38), "SIDE", self.cycle_pool_side, COLORS["orange"]), Button((230, 530, 96, 38), "CARD", self.cycle_pool_card, COLORS["gold"]), Button((332, 530, 96, 38), "STAKE", self.toggle_pool_stake, COLORS["violet"]), Button((434, 530, 96, 38), "DEPOSIT", self.deposit_pool_card, COLORS["green"]), Button((536, 530, 104, 38), "BET", self.place_pool_bet, COLORS["red"]), Button((650, 530, 110, 38), "BACK", self.exit_pool, COLORS["muted"])]
+        elif self.composer_mode:
             self.buttons = [Button((34, 530, 100, 38), "RECIPIENT", self.cycle_recipient, COLORS["cyan"]), Button((140, 530, 100, 38), "OFFER", self.cycle_offer, COLORS["orange"]), Button((246, 530, 100, 38), "TOGGLE", self.toggle_offer, COLORS["orange"]), Button((352, 530, 100, 38), "REQUEST", self.cycle_request, COLORS["gold"]), Button((458, 530, 100, 38), "SELECT", self.toggle_request, COLORS["gold"]), Button((564, 530, 90, 38), "MODE", self.cycle_mode, COLORS["violet"]), Button((660, 530, 94, 38), "SEND", self.send_composer, COLORS["green"]), Button((650, 575, 110, 24), "CLOSE", lambda: self.close_composer(), COLORS["muted"])]
         else:
-            self.buttons = [Button((26, 530, 96, 38), "NEW OFFER", lambda: self.begin_composer("trade"), COLORS["orange"]), Button((128, 530, 96, 38), "NEW LOAN", lambda: self.begin_composer("borrow"), COLORS["cyan"]), Button((230, 530, 80, 38), "ACCEPT", self.accept, COLORS["green"]), Button((316, 530, 80, 38), "COUNTER", self.counter, COLORS["gold"]), Button((402, 530, 80, 38), "TALK", self.talk, COLORS["cyan"]), Button((488, 530, 80, 38), "ARGUE", self.argue, COLORS["red"]), Button((574, 530, 80, 38), "CANCEL", self.cancel, COLORS["red"]), Button((660, 530, 94, 38), "FILTER", self.cycle_filter, COLORS["muted"]), Button((574, 575, 70, 24), "DUEL", self.escalate, COLORS["red"]), Button((650, 575, 110, 24), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+            self.buttons = [Button((26, 530, 96, 38), "NEW OFFER", lambda: self.begin_composer("trade"), COLORS["orange"]), Button((128, 530, 96, 38), "NEW LOAN", lambda: self.begin_composer("borrow"), COLORS["cyan"]), Button((230, 530, 80, 38), "ACCEPT", self.accept, COLORS["green"]), Button((316, 530, 80, 38), "COUNTER", self.counter, COLORS["gold"]), Button((402, 530, 80, 38), "TALK", self.talk, COLORS["cyan"]), Button((488, 530, 80, 38), "ARGUE", self.argue, COLORS["red"]), Button((574, 530, 80, 38), "CANCEL", self.cancel, COLORS["red"]), Button((660, 530, 94, 38), "FILTER", self.cycle_filter, COLORS["muted"]), Button((488, 575, 70, 24), "POOL", self.enter_pool, COLORS["orange"]), Button((566, 575, 78, 24), "DUEL", self.escalate, COLORS["red"]), Button((650, 575, 110, 24), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def close_composer(self):
         self.composer_mode = ""
@@ -13184,6 +13782,37 @@ class TradingScene(Scene):
             for index, (kind, item) in enumerate(self.rows[-4:]):
                 if pygame.Rect(46, 125 + index * 90, 708, 68).collidepoint(event.pos): self.selected_id = item["id"]
 
+    def draw_pool(self, surface):
+        self.draw_panel(surface, (34, 104, 732, 396), "TRADERS POOL  |  CARD-ONLY RISK", COLORS["orange"])
+        pool = self.app.store.traders_pool_snapshot()
+        draw_text(surface, f"POOL INVENTORY: {pool['card_count']} cards  |  YOUR DAILY DEPOSIT LIMIT: {pool['daily_deposit_limit']}", (58, 140), self.app.assets.font(12, True), COLORS["gold"])
+        battle = self.pool_battle()
+        if not battle:
+            draw_text(surface, "No active duel is available. Background duels become wagerable while they are running.", (400, 218), self.app.assets.font(14, True), COLORS["muted"], "center")
+            draw_text(surface, "BATTLE cycles the active duel; CARD selects a free library copy; DEPOSIT feeds the common pool.", (400, 258), self.app.assets.font(11), COLORS["cream"], "center")
+            self.draw_buttons(surface, 11)
+            self.app.draw_notice(surface)
+            return
+        quote = self.app.store.traders_pool_bet_quote(battle, self.pool_side)
+        side_snapshot = quote["snapshot"]["side"]
+        other_snapshot = quote["snapshot"]["opponent"]
+        draw_text(surface, f"BATTLE {battle.get('id', '')[:28]}  |  {battle.get('format', '1v1')}  |  PLACE: {battle.get('place', '')}", (58, 172), self.app.assets.font(11, True), COLORS["cream"])
+        draw_text(surface, f"BET ON: {self.pool_side.upper()}  |  {side_snapshot.get('team_id') or ', '.join(side_snapshot.get('character_ids', []))}  vs  {other_snapshot.get('team_id') or ', '.join(other_snapshot.get('character_ids', []))}", (58, 198), self.app.assets.font(11), COLORS["cyan"] if self.pool_side == "player" else COLORS["red"])
+        public = quote["public"]
+        draw_text(surface, f"PUBLIC READ: {public['hint'].upper()}  |  RISK BAND: {public['risk_band'].upper()}  |  DIFFICULTY: {public['match_difficulty'].upper()}", (58, 224), self.app.assets.font(12, True), COLORS["orange"])
+        draw_text(surface, "Exact odds stay hidden. The pool resolves only from the authoritative battle result.", (58, 250), self.app.assets.font(10), COLORS["muted"])
+        record = self.pool_card()
+        card_label = self.app.store.cards[record.get("card_id")].name if record and record.get("card_id") in self.app.store.cards else "none available"
+        selected_records = [self.app.store._pool_record(item) for item in self.pool_stake_ids]
+        selected_names = self.app.store.card_names([item.get("card_id") for item in selected_records if item]) if selected_records else "none"
+        draw_text(surface, "CARD CURSOR: " + card_label, (58, 292), self.app.assets.font(12, True), COLORS["cream"])
+        draw_text(surface, f"LOCKED STAKE ({len(self.pool_stake_ids)} / {int(self.app.store._traders_pool_rules().get('max_bet_cards', 5) or 5)}): {selected_names}", (58, 318), self.app.assets.font(11), COLORS["gold"])
+        recent = [item for item in self.app.store.world.setdefault("bets", []) if item.get("bettor") == self.player_id()][-3:]
+        for index, item in enumerate(recent): draw_text(surface, f"BET {item.get('state', '').upper()}  {item.get('stake_count', 0)} card(s)  |  {item.get('public_quote', {}).get('risk_band', 'n/a').upper()}", (58, 352 + index * 22), self.app.assets.font(10), COLORS["green"] if item.get("state") == "won" else COLORS["red"] if item.get("state") == "lost" else COLORS["muted"])
+        draw_text(surface, "Stake cards leave your library only after confirmation. A draw or void returns the exact copies.", (400, 466), self.app.assets.font(10), COLORS["cream"], "center")
+        self.draw_buttons(surface, 11)
+        self.app.draw_notice(surface)
+
     def draw_composer(self, surface):
         self.draw_panel(surface, (34, 110, 732, 390), "TRANSACTION COMPOSER", COLORS["cyan"] if self.composer_mode == "borrow" else COLORS["orange"])
         recipient = self.recipient()
@@ -13205,6 +13834,10 @@ class TradingScene(Scene):
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "TRADING", (34, 28), self.app.assets.font(28, True), COLORS["orange"])
+        if self.pool_mode:
+            draw_text(surface, "Risky card wagering: hidden exact odds, common pool, authoritative results.", (36, 65), self.app.assets.font(13), COLORS["muted"])
+            self.draw_pool(surface)
+            return
         if self.composer_mode:
             draw_text(surface, "Compose a real transaction without default recipients or hidden card substitution.", (36, 65), self.app.assets.font(13), COLORS["muted"])
             self.draw_composer(surface)
