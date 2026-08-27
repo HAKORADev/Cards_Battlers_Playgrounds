@@ -8081,6 +8081,8 @@ class DuelEngine:
             self.log(f"{attacker.card.name} attacks directly for {damage}.")
             self.react("direct_damage", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "direct": True})
             self.react("attack", attacker_side.character.id, defender_side.character.id, "opponent", metadata={"amount": damage, "direct": True})
+            self.card_react("damage-dealt", attacker, attacker_side, defender_side, {"amount": damage, "direct": True, "cause": "battle"})
+            self.card_react("direct-damage", attacker, attacker_side, defender_side, {"amount": damage, "direct": True, "cause": "battle"})
             self.check_end()
             return True, ""
         if not target.face_up:
@@ -8088,6 +8090,7 @@ class DuelEngine:
             self.log(f"{target.card.name} flips face-up.")
             self.emit_event("flip", defender_side, source=target, target=target, metadata={"position": target.battle_position})
             self.card_react("flip", target, defender_side, attacker_side, {"revealed_by_attack": True, "position": target.battle_position})
+            self.card_react("flip-reveal", target, defender_side, attacker_side, {"revealed_by_attack": True, "position": target.battle_position, "card_id": target.card.id})
             self.store.discover_card(attacker_side.character.id, target.card.id, "duel", defender_side.character.id, {"duel": True, "visibility": "public", "trigger": "flip"})
             self.react("flip_reveal", defender_side.character.id, attacker_side.character.id, "opponent", metadata={"card_id": target.card.id, "position": target.battle_position})
             self.resolve(target, "flip", actor=defender_side, target=attacker)
@@ -8159,6 +8162,7 @@ class DuelEngine:
         duelist.graveyard.append(card)
         self.emit_event("destroy", duelist, source=card, target=card, metadata={"from_zone": from_zone, "to_zone": "graveyard", "owner": duelist.character.id})
         self.emit_event("movement", duelist, source=card, target=card, metadata={"from_zone": from_zone, "to_zone": "graveyard", "owner": duelist.character.id})
+        self.card_react("destroyed", card, duelist, self.other(duelist), {"from_zone": from_zone, "to_zone": "graveyard", "cause": "destroy"})
 
     def advance_clock(self, seconds):
         if self.finished or self.duel_mode != "timed" or self.time_expired: return
