@@ -110,6 +110,7 @@
     }
   },
   "transactions": {
+    "interaction_expiry_seconds": 10800,
     "max_offered_cards": 3,
     "max_requested_cards": 3,
     "max_counter_depth": 3,

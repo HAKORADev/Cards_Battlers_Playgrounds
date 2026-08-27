@@ -2043,8 +2043,14 @@ class ContentStore:
     def reconcile_runtime_world(self):
         simulation_time = float(self.world.get("simulation_time", 0.0))
         for request in self.world.setdefault("requests", []):
-            if request.get("status") in ["open", "queued"] and simulation_time >= float(request.get("expires_sim_time", 0.0) or 0.0):
+            if request.get("status") in ["open", "queued"] and self.interaction_expired(request):
                 self.transition_interaction("request", request, "expired", "world", "expired")
+        for request in self.world.setdefault("team_requests", []):
+            if request.get("state") in ["in_making", "open", "reshaping"] and self.interaction_expired(request):
+                self.transition_interaction("team_request", request, "expired", "world", "expired")
+        for request in self.world.setdefault("team_effect_requests", []):
+            if request.get("state") == "open" and self.interaction_expired(request):
+                self.transition_interaction("team_effect_request", request, "expired", "world", "expired")
         active = [battle for battle in self.world.setdefault("active_battles", []) if battle.get("status") == "active" and battle.get("place") in self.places]
         self.world["active_battles"] = active
         occupancy = {place_id: 0 for place_id in self.places}
@@ -2771,7 +2777,7 @@ class ContentStore:
         self.world["team_request_sequence"] = sequence
         request_id = "team_effect_request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
-        request = {"id": request_id, "team_id": team_id, "requester": requester_id, "target": target_id, "effect": effect, "approvals": {requester_id: True, target_id: False}, "state": "open", "created_sim_time": now, "events": [{"status": "open", "actor": requester_id, "action": "opened", "sim_time": now}]}
+        request = {"id": request_id, "team_id": team_id, "requester": requester_id, "target": target_id, "effect": effect, "approvals": {requester_id: True, target_id: False}, "state": "open", "created_sim_time": now, "expires_sim_time": now + self.interaction_expiry("team_effect_request"), "events": [{"status": "open", "actor": requester_id, "action": "opened", "sim_time": now}]}
         self.world.setdefault("team_effect_requests", []).append(request)
         self.register_interaction("team_effect_request", request)
         self.record_history("team", team_id, "effect_request_opened", {"request_id": request_id, "requester": requester_id, "target": target_id, "effect": effect})
@@ -2781,6 +2787,10 @@ class ContentStore:
     def respond_team_effect_request(self, request_id, actor_id, decision):
         request = next((item for item in self.world.setdefault("team_effect_requests", []) if item.get("id") == request_id), None)
         if not request or request.get("state") != "open" or actor_id != request.get("target"): return False
+        if self.interaction_expired(request):
+            self.transition_interaction("team_effect_request", request, "expired", actor_id, "expired")
+            self.save()
+            return False
         decision = str(decision or "").lower()
         now = float(self.world.get("simulation_time", 0.0))
         if decision in ["deny", "ignore"]:
@@ -2815,7 +2825,7 @@ class ContentStore:
         self.world["team_request_sequence"] = sequence
         request_id = "team_request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
-        request = {"id": request_id, "leader": leader_id, "participants": participants, "name": str(name or "New Team").strip() or "New Team", "preferred_place": preferred_place, "reason": str(reason or "ally_team"), "approvals": {leader_id: True, **{item: False for item in participants if item != leader_id}}, "state": "in_making", "created_sim_time": now, "events": [{"status": "in_making", "actor": leader_id, "action": "opened", "sim_time": now}]}
+        request = {"id": request_id, "leader": leader_id, "participants": participants, "name": str(name or "New Team").strip() or "New Team", "preferred_place": preferred_place, "reason": str(reason or "ally_team"), "approvals": {leader_id: True, **{item: False for item in participants if item != leader_id}}, "state": "in_making", "created_sim_time": now, "expires_sim_time": now + self.interaction_expiry("team_request"), "events": [{"status": "in_making", "actor": leader_id, "action": "opened", "sim_time": now}]}
         self.world.setdefault("team_requests", []).append(request)
         self.register_interaction("team_request", request)
         self.record_history("character", leader_id, "team_request_opened", {"request_id": request_id, "participants": participants})
@@ -2826,6 +2836,10 @@ class ContentStore:
         request = next((item for item in self.world.setdefault("team_requests", []) if item.get("id") == request_id), None)
         decision = str(decision or "").lower()
         if not request or request.get("state") not in ["in_making", "open"] or actor_id not in request.get("participants", []): return False
+        if self.interaction_expired(request):
+            self.transition_interaction("team_request", request, "expired", actor_id, "expired")
+            self.save()
+            return False
         if decision in ["deny", "cancel"]:
             if decision == "cancel" and actor_id != request.get("leader"): return False
             request["state"] = "denied" if decision == "deny" else "canceled"
@@ -2882,7 +2896,7 @@ class ContentStore:
         request_id = "team_reshape_request_" + str(int(time.time() * 1000)) + "_" + str(sequence)
         now = float(self.world.get("simulation_time", 0.0))
         approvers = [item for item in desired if item != requester_id]
-        request = {"id": request_id, "kind": "reshape", "team_id": team_id, "leader": requester_id, "current_members": current, "desired_members": desired, "add_members": [item for item in desired if item not in current], "remove_members": removed, "name": str(name or team.name).strip() or team.name, "approvals": {requester_id: True, **{item: False for item in approvers}}, "state": "reshaping", "created_sim_time": now, "events": [{"status": "reshaping", "actor": requester_id, "action": "opened", "sim_time": now}]}
+        request = {"id": request_id, "kind": "reshape", "team_id": team_id, "leader": requester_id, "current_members": current, "desired_members": desired, "add_members": [item for item in desired if item not in current], "remove_members": removed, "name": str(name or team.name).strip() or team.name, "approvals": {requester_id: True, **{item: False for item in approvers}}, "state": "reshaping", "created_sim_time": now, "expires_sim_time": now + self.interaction_expiry("team_request"), "events": [{"status": "reshaping", "actor": requester_id, "action": "opened", "sim_time": now}]}
         self.world.setdefault("team_requests", []).append(request)
         self.register_interaction("team_request", request)
         self.record_history("team", team_id, "reshape_request_opened", {"request_id": request_id, "current_members": current, "desired_members": desired})
@@ -2892,6 +2906,10 @@ class ContentStore:
     def respond_team_reshape_request(self, request_id, actor_id, decision):
         request = next((item for item in self.world.setdefault("team_requests", []) if item.get("id") == request_id and item.get("kind") == "reshape"), None)
         if not request or request.get("state") != "reshaping" or actor_id not in request.get("desired_members", []): return False
+        if self.interaction_expired(request):
+            self.transition_interaction("team_request", request, "expired", actor_id, "expired")
+            self.save()
+            return False
         decision = str(decision or "").lower()
         now = float(self.world.get("simulation_time", 0.0))
         if decision in ["deny", "cancel"]:
@@ -3096,6 +3114,17 @@ class ContentStore:
                 for card_id in cards: owner.library_cards.append(card_id)
         state.update({"revealed": [card_id for cards in pools.values() for card_id in cards], "returned": [card_id for cards in pools.values() for card_id in cards], "state": "returned", "settled": True})
         return state
+
+    def interaction_expiry(self, family="request"):
+        configured = self.rules.get("transactions", {}).get("interaction_expiry_seconds", 10800) if isinstance(self.rules, dict) else 10800
+        if isinstance(configured, dict): configured = configured.get(family, configured.get("default", 10800))
+        try: return max(1.0, float(configured))
+        except (TypeError, ValueError): return 10800.0
+
+    def interaction_expired(self, record):
+        try: expiry = float(record.get("expires_sim_time", 0.0) or 0.0)
+        except (TypeError, ValueError): expiry = 0.0
+        return expiry > 0.0 and float(self.world.get("simulation_time", 0.0)) >= expiry
 
     def add_request(self, from_id, to_id, reason, kind="duel", format_name="1v1", preferred_place=None, relationship_intent="stranger", deck_id="", reward_policy="random_card", expires_in=10800, reward=None, duel_mode="current", time_limit=180.0, wager_count=0, house_cards=None, guest_cards=None):
         preferred_place = preferred_place or self.role_config()["default_place"]
