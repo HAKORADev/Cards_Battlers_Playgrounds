@@ -473,10 +473,10 @@ class DuelLayout:
     duel_frame: pygame.Rect = field(default_factory=lambda: pygame.Rect(124, 89, 552, 422))
     field: pygame.Rect = field(default_factory=lambda: pygame.Rect(200, 100, 400, 400))
     center_y: int = 300
-    left_rail_x: int = 140
-    right_rail_x: int = 612
+    left_rail_x: int = 136
+    right_rail_x: int = 604
     hand_center_x: int = 400
-    phase_x: int = 90
+    phase_x: int = 76
     opponent_hand_y: int = 6
     player_hand_y: int = 486
     monster_card_size: tuple = (60, 78)
@@ -11562,34 +11562,34 @@ class DuelScene(Scene):
             if not character: continue
             side = "left" if index < 3 else "right"
             column_index = index if index < 3 else index - 3
-            x = 4 if side == "left" else W - 84
-            y = [112, 247, 382][column_index]
+            x = 8 if side == "left" else W - 80
+            y = [118, 258, 398][column_index]
             character = self.app.store.characters.get(watcher_id)
             profile = normalize_media_composition(getattr(character, "media_composition", {}) if character else {})
-            if profile["watch_anchor"] == "top": y = 112
-            elif profile["watch_anchor"] == "middle": y = 247
-            elif profile["watch_anchor"] == "bottom": y = 382
+            if profile["watch_anchor"] == "top": y = 118
+            elif profile["watch_anchor"] == "middle": y = 258
+            elif profile["watch_anchor"] == "bottom": y = 398
             relation = self.app.store.relationship_for(watcher_id, self.engine.player.character.id)
             accent = COLORS["gold"] if relation == "ally" else COLORS["red"] if relation == "enemy" else COLORS["line"]
-            rounded(surface, (x, y, 80, 96), (18, 30, 58, 215), accent, 7, 1)
+            rounded(surface, (x, y, 64, 84), (18, 30, 58, 215), accent, 7, 1)
             selection = self.watcher_media.get(watcher_id)
             image = None
             frame = None
             if profile["frame_mode"] == "universal" and profile["frame_asset"]:
-                frame = self.app.assets.image(profile["frame_asset"], (66, 66))
+                frame = self.app.assets.image(profile["frame_asset"], (52, 52))
             elif profile["frame_mode"] == "place":
                 night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
-                frame = self.app.assets.place_visual(self.place_id, profile["place_background_kind"], night, self.time, (66, 66), self.media_scope)
-            if frame: ui_blit(surface, frame, (x + 7, y + 6))
+                frame = self.app.assets.place_visual(self.place_id, profile["place_background_kind"], night, self.time, (52, 52), self.media_scope)
+            if frame: ui_blit(surface, frame, (x + 6, y + 6))
             if selection:
                 frame_index = int(self.time * max(1.0, float(selection.frame_rate or FPS)))
-                if selection.frames: image = self.app.assets.media_image(selection.frames[frame_index % len(selection.frames)], (66, 66), self.media_scope)
-                elif selection.image: image = self.app.assets.media_image(selection.image, (66, 66), self.media_scope)
-            if not image: image = self.app.assets.image(character.portrait, (66, 66))
+                if selection.frames: image = self.app.assets.media_image(selection.frames[frame_index % len(selection.frames)], (52, 52), self.media_scope)
+                elif selection.image: image = self.app.assets.media_image(selection.image, (52, 52), self.media_scope)
+            if not image: image = self.app.assets.image(character.portrait, (52, 52))
             if image and side == "right" and profile["mirror_right"]: image = pygame.transform.flip(image, True, False)
-            if image: ui_blit(surface, image, (x + 7, y + 6))
-            draw_text(surface, character.name[:11], (x + 40, y + 76), self.app.assets.font(8, True), COLORS["cream"], "center")
-            draw_text(surface, relation.upper(), (x + 40, y + 88), self.app.assets.font(7), COLORS["gold"], "center")
+            if image: ui_blit(surface, image, (x + 6, y + 6))
+            draw_text(surface, character.name[:9], (x + 32, y + 65), self.app.assets.font(7, True), COLORS["cream"], "center")
+            draw_text(surface, relation.upper(), (x + 32, y + 77), self.app.assets.font(6), COLORS["gold"], "center")
 
     def draw_duel_backdrop(self, surface):
         night = self.app.store.clock.period(float(self.app.store.world.get("simulation_time", 0.0))) == "night"
@@ -11747,7 +11747,7 @@ class DuelScene(Scene):
             rect = self.layout.phase_rect(index)
             active = phase_name == self.engine.phase
             draw_asset_button(surface, self.app.assets, rect, "", self.app.assets.font(9, True), False, active)
-            draw_vertical_label(surface, short_label, rect, self.app.assets.font(9, True), COLORS["ink"])
+            draw_text(surface, short_label, rect.center, self.app.assets.font(9, True), COLORS["ink"], "center")
 
     def draw_hover_cloud(self, surface):
         if self.question: return
@@ -11915,10 +11915,14 @@ class DuelScene(Scene):
     def draw_pile_label(self, surface, label, count, rect, rotation, layers=1):
         font = self.app.assets.duel_font(6, "white", True)
         text = font.render(f"{label[:6]} {count}", True, COLORS["white"])
-        if render_factor(surface) != (1.0, 1.0): text = scaled_image(text, render_size(surface, text.get_size()))
+        scale = render_factor(surface)[0]
+        if scale != 1.0: text = scaled_image(text, render_size(surface, text.get_size()))
         spread = min(4, max(0, int(layers) - 1))
         stack_rect = pygame.Rect(rect.x, rect.y, rect.width + spread, rect.height + spread)
         label_y = stack_rect.y - 8 if rotation else min(stack_rect.bottom + 5, H - 9)
+        chip_width = min(92, max(38, int(text.get_width() / max(1.0, scale)) + 10))
+        chip = pygame.Rect(stack_rect.centerx - chip_width // 2, label_y - 7, chip_width, 14)
+        rounded(surface, chip, (22, 31, 38, 205), COLORS["line"], 3, 1)
         target = text.get_rect(center=render_point(surface, (stack_rect.centerx, label_y)))
         surface.blit(text, target)
 
