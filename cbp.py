@@ -9173,27 +9173,36 @@ class BattleScene(Scene):
         if self.tab == "free":
             if self.duel_format in ["1v1", "TEAMv1"]:
                 player_id = self.app.store.role_config()["player_character"]
-                self.items = [(char.name, char.id, char.relationship, char.stars, char.smartness, None) for char in self.app.store.characters.values() if char.id != player_id and char.availability == "free" and (not place_id or char.current_place == place_id)]
+                self.items = [(char.name, char.id, char.relationship, char.stars, char.smartness, None, "free") for char in self.app.store.characters.values() if char.id != player_id and char.availability == "free" and (not place_id or char.current_place == place_id)]
             else:
                 player_team_id = self.app.store.role_config()["default_player_team"]
-                self.items = [(team.name, team.id, team.relationship, team.rank, len(team.members), None) for team in self.app.store.teams.values() if team.id != player_team_id and len(team.members) == 3 and all(self.app.store.characters.get(member) and self.app.store.characters[member].availability == "free" and (not place_id or self.app.store.characters[member].current_place == place_id) for member in team.members)]
+                self.items = [(team.name, team.id, team.relationship, team.rank, len(team.members), None, "free") for team in self.app.store.teams.values() if team.id != player_team_id and len(team.members) == 3 and all(self.app.store.characters.get(member) and self.app.store.characters[member].availability == "free" and (not place_id or self.app.store.characters[member].current_place == place_id) for member in team.members)]
         elif self.tab == "requests":
-            self.items = [(entry.get("title", "Request"), entry.get("from", ""), entry.get("status", "open"), 5, 7, entry.get("id")) for entry in self.app.store.world.get("requests", []) if entry.get("status") in ["open", "queued", "active"]]
+            player_id = self.app.store.role_config()["player_character"]
+            self.items = [(entry.get("title", "Request"), entry.get("from", ""), entry.get("status", "open"), 5, 7, entry.get("id"), "duel") for entry in self.app.store.world.get("requests", []) if entry.get("status") in ["open", "queued", "active"] and player_id in [entry.get("from"), entry.get("to")]]
+            for entry in self.app.store.world.get("team_requests", []):
+                if entry.get("state") not in ["in_making", "open", "reshaping"] or player_id not in entry.get("participants", entry.get("desired_members", [])): continue
+                kind = "team_reshape" if entry.get("kind") == "reshape" else "team_request"
+                title = "Team reshape: " + str(entry.get("name", "team")) if kind == "team_reshape" else "Team formation: " + str(entry.get("name", "team"))
+                self.items.append((title, entry.get("leader", ""), entry.get("state", "open"), 0, len(entry.get("desired_members", entry.get("participants", []))), entry.get("id"), kind))
+            for entry in self.app.store.world.get("team_effect_requests", []):
+                if entry.get("state") != "open" or player_id not in [entry.get("requester"), entry.get("target")]: continue
+                self.items.append(("Team effect approval", entry.get("team_id", ""), "open", 0, 0, entry.get("id"), "team_effect"))
         elif self.tab == "orders":
-            self.items = [(entry.get("title", "Order"), entry.get("taker", ""), entry.get("reward", {}).get("label", entry.get("reward_policy", "random")), 5, 7, entry.get("id")) for entry in self.app.store.world.get("orders", []) if entry.get("status") == "open"]
+            self.items = [(entry.get("title", "Order"), entry.get("taker", ""), entry.get("reward", {}).get("label", entry.get("reward_policy", "random")), 5, 7, entry.get("id"), "order") for entry in self.app.store.world.get("orders", []) if entry.get("status") == "open"]
         elif self.tab == "championship":
             player_id = self.app.store.role_config()["player_character"]
             for level in range(1, 6):
                 report = self.app.store.championship_host_requirement_report(player_id, level)
                 status = "READY" if report.get("eligible") else "BLOCKED: " + (str(report.get("reasons", ["not qualified"])[0])[:54] if report.get("reasons") else "not qualified")
-                self.items.append((f"Level {level} championship", "host", status, level, report.get("free_library_cards", 0), level))
+                self.items.append((f"Level {level} championship", "host", status, level, report.get("free_library_cards", 0), level, "champ_host"))
             for championship in self.app.store.world.get("championships", []):
                 active = [battle for battle in self.app.store.world.get("active_battles", []) if battle.get("status") == "active" and battle.get("championship_id") == championship.get("id")]
                 place_id = championship.get("tier_place", "") or "unassigned tier place"
                 watcher_text = f"watchers {len(championship.get('watchers', []))}/{championship.get('watcher_limit', 6)}"
                 match_text = f"live matches {len(active)}" if active else "no live match"
                 status = f"{championship.get('state', 'waiting').upper()} | {place_id} | {match_text} | {watcher_text}"
-                self.items.append((f"{championship.get('difficulty', 'level')} championship", "championship", status, championship.get("level", 1), len(championship.get("enrolled", [])), championship.get("id")))
+                self.items.append((f"{championship.get('difficulty', 'level')} championship", "championship", status, championship.get("level", 1), len(championship.get("enrolled", [])), championship.get("id"), "champ"))
         else:
             self.items = []
             for battle in sorted((item for item in self.app.store.world.get("active_battles", []) if item.get("status") == "active" and (not place_id or item.get("place") == place_id)), key=lambda item: str(item.get("id", ""))):
@@ -9203,25 +9212,37 @@ class BattleScene(Scene):
                 guest = self.app.store.characters.get(guest_id) or self.app.store.teams.get(guest_id)
                 house_name = house.name if house else house_id
                 guest_name = guest.name if guest else guest_id
-                self.items.append((f"Live duel: {house_name} vs {guest_name}", "watch", str(battle.get("phase", "active")), int(battle.get("turn", 1) or 1), len(battle.get("actions", [])), battle.get("id")))
+                self.items.append((f"Live duel: {house_name} vs {guest_name}", "watch", str(battle.get("phase", "active")), int(battle.get("turn", 1) or 1), len(battle.get("actions", [])), battle.get("id"), "watch"))
         self.buttons = list(self.nav_buttons) + [self.utility_button, self.format_button, self.place_button]
         self.row_button_offset = len(self.buttons)
         self.request_button_indices = []
         for index, item in enumerate(self.items):
             target = item[1]
+            kind = item[6]
             action = "WATCH" if self.tab == "watch" else "ACCEPT" if self.tab == "requests" else "TAKE" if self.tab == "orders" else "HOST" if self.tab == "championship" and target == "host" else "VIEW" if self.tab == "championship" else "DUEL"
             if self.tab == "requests":
                 request = self.app.store.request_by_id(item[5])
                 main_index = None
                 ignore_index = None
-                if request and request.get("status") == "open":
-                    is_cancel = request.get("from") == self.app.store.role_config()["player_character"]
-                    row_action = "CANCEL" if is_cancel else action
-                    main_index = len(self.buttons)
-                    self.buttons.append(Button((600, 205 + index * 78 + 17, 78, 36), row_action, lambda entry_id=item[5], is_cancel=is_cancel: self.select_opponent("cancel" if is_cancel else "accept", entry_id)))
-                    if not is_cancel:
+                if kind == "duel":
+                    request = self.app.store.request_by_id(item[5])
+                    if request and request.get("status") == "open":
+                        is_cancel = request.get("from") == self.app.store.role_config()["player_character"]
+                        row_action = "CANCEL" if is_cancel else action
+                        main_index = len(self.buttons)
+                        self.buttons.append(Button((600, 205 + index * 78 + 17, 78, 36), row_action, lambda entry_id=item[5], is_cancel=is_cancel: self.select_opponent("cancel" if is_cancel else "accept", entry_id)))
+                        if not is_cancel:
+                            ignore_index = len(self.buttons)
+                            self.buttons.append(Button((684, 205 + index * 78 + 17, 54, 36), "IGNORE", lambda entry_id=item[5]: self.select_opponent("ignore", entry_id), COLORS["muted"]))
+                elif kind in ["team_request", "team_reshape", "team_effect"]:
+                    request = next((entry for entry in self.app.store.world.get("team_requests", []) + self.app.store.world.get("team_effect_requests", []) if entry.get("id") == item[5]), None)
+                    player_id = self.app.store.role_config()["player_character"]
+                    actionable = bool(request and ((kind == "team_effect" and request.get("target") == player_id) or (kind != "team_effect" and player_id != request.get("leader"))))
+                    if actionable:
+                        main_index = len(self.buttons)
+                        self.buttons.append(Button((600, 205 + index * 78 + 17, 78, 36), "ACCEPT", lambda entry_id=item[5], request_kind=kind: self.select_opponent("accept", entry_id, request_kind)))
                         ignore_index = len(self.buttons)
-                        self.buttons.append(Button((684, 205 + index * 78 + 17, 54, 36), "IGNORE", lambda entry_id=item[5]: self.select_opponent("ignore", entry_id), COLORS["muted"]))
+                        self.buttons.append(Button((684, 205 + index * 78 + 17, 54, 36), "DENY", lambda entry_id=item[5], request_kind=kind: self.select_opponent("deny", entry_id, request_kind), COLORS["muted"]))
                 self.request_button_indices.append((main_index, ignore_index))
             else: self.buttons.append(Button((640, 205 + index * 78 + 17, 80, 36), action, lambda target=target, entry_id=item[5]: self.select_opponent(target, entry_id)))
         self.buttons.append(self.back_button)
@@ -9238,13 +9259,14 @@ class BattleScene(Scene):
         for button in self.buttons[:4]: button.draw(surface, self.app.assets.font(12, True), assets=self.app.assets)
         self.draw_panel(surface, (34, 142, 732, 382), self.tab.upper() + " BOARD", COLORS["cyan"])
         for index, item in enumerate(self.items):
-            name, target, relation, stars, smartness, entry_id = item
+            name, target, relation, stars, smartness, entry_id, kind = item
             y = 205 + index * 78
             accent = COLORS["red"] if target == self.app.store.role_config()["default_opponent_character"] else COLORS["cyan"]
             rounded(surface, (62, y, 676, 70), (132, 94, 73), COLORS["line"], 8, 1)
             draw_text(surface, name, (82, y + 14), self.app.assets.font(16, True), COLORS["cream"])
             status_text = f"Status: {relation}   |   Star level: {stars}   |   Smartness: {smartness}/10"
             if self.tab == "orders": status_text = "Reward: " + str(relation)
+            if self.tab == "requests" and kind in ["team_request", "team_reshape", "team_effect"]: status_text = "State: " + str(relation) + "   |   approval workflow"
             draw_text(surface, status_text, (82, y + 42), self.app.assets.font(12), COLORS["muted"])
             if self.tab == "requests":
                 main_index, ignore_index = self.request_button_indices[index]
@@ -9265,7 +9287,7 @@ class BattleScene(Scene):
             self.app.store.add_request(roles["player_character"], roles["default_opponent_character"], "friendly duel", kind="duel", format_name="1v1", preferred_place=roles["default_place"], relationship_intent="stranger")
         self.refresh_content()
 
-    def select_opponent(self, target, entry_id=None):
+    def select_opponent(self, target, entry_id=None, request_kind="duel"):
         if self.tab == "championship" and entry_id:
             player_id = self.app.store.role_config()["player_character"]
             if target == "host":
@@ -9281,9 +9303,20 @@ class BattleScene(Scene):
             self.refresh_content()
             return
         if self.tab == "requests" and entry_id:
-            decision = "ignore" if target == "ignore" else "cancel" if target == "cancel" else "accept"
-            if self.app.store.respond_request(entry_id, self.app.store.role_config()["player_character"], decision):
-                self.app.notify("Request moved to " + ("the real-time queue." if decision == "accept" else decision + "."))
+            player_id = self.app.store.role_config()["player_character"]
+            if request_kind == "team_effect":
+                decision = "accept" if target == "accept" else "deny"
+                result = self.app.store.respond_team_effect_request(entry_id, player_id, decision)
+            elif request_kind == "team_reshape":
+                decision = "accept" if target == "accept" else "deny"
+                result = self.app.store.respond_team_reshape_request(entry_id, player_id, decision)
+            elif request_kind == "team_request":
+                decision = "accept" if target == "accept" else "deny"
+                result = self.app.store.respond_team_request(entry_id, player_id, decision)
+            else:
+                decision = "ignore" if target == "ignore" else "cancel" if target == "cancel" else "accept"
+                result = self.app.store.respond_request(entry_id, player_id, decision)
+            if result: self.app.notify("Request moved to " + ("the real-time queue." if decision == "accept" and request_kind == "duel" else decision + "."))
             self.refresh_content()
             return
         if self.tab == "orders" and entry_id:
