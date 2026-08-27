@@ -1161,6 +1161,7 @@ class PlaceDef:
     day_night: bool
     media_folder: str = ""
     effects: list = field(default_factory=list)
+    effect_catalog: list = field(default_factory=list)
     event_window_policies: dict = field(default_factory=dict)
     trigger_order_policies: dict = field(default_factory=dict)
     logic_graph: str = ""
@@ -2733,7 +2734,7 @@ class ContentStore:
         if not place: return None
         occupants = [character.id for character in self.characters.values() if character.current_place == place_id and character.world_status == "in_playground"]
         teams = [team.id for team in self.teams.values() if place_id in team.preferred_places]
-        return {"id": place.id, "name": place.name, "description": getattr(place, "description", ""), "background": place.background, "capacity": place.capacity, "current_duels": place.current_duels, "day_night": place.day_night, "effects": list(place.effects), "team_effect": dict(self.world.setdefault("place_effects", {}).get(place_id, {})), "occupants": occupants, "linked_teams": teams, "history": list(getattr(place, "history", []))[-20:]}
+        return {"id": place.id, "name": place.name, "description": getattr(place, "description", ""), "background": place.background, "capacity": place.capacity, "current_duels": place.current_duels, "day_night": place.day_night, "effects": list(place.effects), "effect_catalog": [dict(item) for item in getattr(place, "effect_catalog", []) if isinstance(item, dict)], "team_effect": dict(self.world.setdefault("place_effects", {}).get(place_id, {})), "occupants": occupants, "linked_teams": teams, "history": list(getattr(place, "history", []))[-20:]}
 
     def craft_place_effect(self, team_id, place_id, sacrifices):
         team = self.teams.get(team_id)
@@ -2751,7 +2752,16 @@ class ContentStore:
         for owner, card_id in zip(owners, sacrifices): owner.library_cards.remove(card_id)
         families = [self.cards[card_id].family for card_id in sacrifices if card_id in self.cards]
         family = max(set(families), key=families.count) if families else "any"
-        effect = {"team_id": team_id, "place_id": place_id, "candidates": [{"kind": "place_family_boost", "family": family, "atk": 300, "target": "team_members"}, {"kind": "place_opponent_debuff", "amount": 300, "target": "opponents"}, {"kind": "place_heal", "amount": 500, "target": "team_members"}], "selected": None, "sacrifices": sacrifices, "locked": False, "created_sim_time": float(self.world.get("simulation_time", 0.0))}
+        authored = list(getattr(place, "effect_catalog", []) or [])
+        if not authored: authored = list(self.rules.get("place_effect_templates", []) or [])
+        candidates = []
+        for entry in authored:
+            if not isinstance(entry, dict) or not entry.get("kind"): continue
+            candidate = dict(entry)
+            if str(candidate.get("family", "")).lower() == "sacrifice_family": candidate["family"] = family
+            candidates.append(candidate)
+        if not candidates: return None
+        effect = {"team_id": team_id, "place_id": place_id, "candidates": candidates, "selected": None, "sacrifices": sacrifices, "locked": False, "created_sim_time": float(self.world.get("simulation_time", 0.0))}
         self.world.setdefault("place_effects", {})[place_id] = effect
         self.record_history("place", place_id, "effect_candidates_created", {"team_id": team_id, "sacrifices": sacrifices})
         self.record_history("team", team_id, "place_effect_candidates_created", {"place_id": place_id, "sacrifices": sacrifices})
@@ -4861,6 +4871,7 @@ class ContentStore:
         if "background" in values and values["background"]: place.background = str(values["background"])
         if "day_night" in values: place.day_night = bool(values["day_night"])
         if "effects" in values and isinstance(values["effects"], list): place.effects = list(values["effects"])
+        if "effect_catalog" in values and isinstance(values["effect_catalog"], list): place.effect_catalog = [dict(item) for item in values["effect_catalog"] if isinstance(item, dict) and item.get("kind")]
         if "event_window_policies" in values and isinstance(values["event_window_policies"], dict): place.event_window_policies = dict(values["event_window_policies"])
         if "trigger_order_policies" in values and isinstance(values["trigger_order_policies"], dict): place.trigger_order_policies = dict(values["trigger_order_policies"])
         if "logic_graph" in values: place.logic_graph = str(values["logic_graph"] or "")
@@ -12523,11 +12534,12 @@ class PlaceMakerScene(Scene):
         self.capacity = TextInput((400, 122, 300, 30), str(place.capacity if place else 3))
         self.background = TextInput((70, 160, 630, 30), place.background if place else "")
         self.effects = TextInput((70, 198, 630, 30), ", ".join(place.effects if place else []))
-        self.windows = TextInput((70, 236, 630, 30), json.dumps(place.event_window_policies if place else {}, separators=(",", ":")))
-        self.logic = TextInput((70, 274, 630, 30), getattr(place, "logic_graph", "") if place else "")
+        self.catalog = TextInput((70, 236, 630, 30), json.dumps(getattr(place, "effect_catalog", []) if place else [], separators=(",", ":")))
+        self.windows = TextInput((70, 274, 630, 30), json.dumps(place.event_window_policies if place else {}, separators=(",", ":")))
+        self.logic = TextInput((70, 312, 630, 30), getattr(place, "logic_graph", "") if place else "")
         self.day_night = place.day_night if place else True
         label = "SAVE PLACE" if place else "CREATE PLACE"
-        self.buttons = [Button((70, 330, 150, 36), "DAY/NIGHT: " + ("ON" if self.day_night else "OFF"), lambda: self.toggle_day_night(), COLORS["cyan"]), Button((236, 330, 210, 36), label, lambda: self.save_place(), COLORS["green"]), Button((462, 330, 210, 36), "EXPORT PLACE", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
+        self.buttons = [Button((70, 370, 150, 36), "DAY/NIGHT: " + ("ON" if self.day_night else "OFF"), lambda: self.toggle_day_night(), COLORS["cyan"]), Button((236, 370, 210, 36), label, lambda: self.save_place(), COLORS["green"]), Button((462, 370, 210, 36), "EXPORT PLACE", lambda: self.export(), COLORS["violet"]), Button((650, 530, 110, 38), "BACK", lambda: self.app.pop(), COLORS["muted"])]
 
     def toggle_day_night(self):
         self.day_night = not self.day_night
@@ -12543,7 +12555,10 @@ class PlaceMakerScene(Scene):
     def save_place(self):
         try: capacity = int(self.capacity.value)
         except (TypeError, ValueError): capacity = 3
-        values = {"name": self.name.value, "capacity": capacity, "background": self.background.value, "day_night": self.day_night, "effects": self.parse_list(self.effects.value), "event_window_policies": self.parse_json(self.windows.value), "logic_graph": self.logic.value.strip()}
+        try: catalog = json.loads(self.catalog.value)
+        except (TypeError, ValueError): catalog = []
+        if not isinstance(catalog, list): catalog = []
+        values = {"name": self.name.value, "capacity": capacity, "background": self.background.value, "day_night": self.day_night, "effects": self.parse_list(self.effects.value), "effect_catalog": [dict(item) for item in catalog if isinstance(item, dict) and item.get("kind")], "event_window_policies": self.parse_json(self.windows.value), "logic_graph": self.logic.value.strip()}
         if self.place_id:
             result = self.app.store.update_place(self.place_id, values)
         else:
@@ -12556,16 +12571,16 @@ class PlaceMakerScene(Scene):
         self.enter()
 
     def handle(self, event):
-        for field in [self.name, self.capacity, self.background, self.effects, self.windows, self.logic]: field.handle(event)
+        for field in [self.name, self.capacity, self.background, self.effects, self.catalog, self.windows, self.logic]: field.handle(event)
         super().handle(event)
 
     def draw(self, surface):
         surface.fill(COLORS["deep"])
         draw_text(surface, "PLACE MAKER / EDITOR", (34, 28), self.app.assets.font(27, True), COLORS["green"])
         draw_text(surface, "Places bind field media, day/night presentation, capacity, event windows, effects, and live occupancy.", (36, 62), self.app.assets.font(11), COLORS["muted"])
-        self.draw_panel(surface, (42, 100, 720, 340), "PLACE DEFINITION", COLORS["green"])
-        for field, label in [(self.name, "Place name"), (self.capacity, "Capacity, 1 to 10"), (self.background, "Field/background asset key"), (self.effects, "Place effect ids, comma-separated"), (self.windows, "Event-window policy JSON"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
-        draw_text(surface, "The engine scaffolds day/night visuals, music, pre-duel, duel, post-duel, and landscape folders for this place.", (400, 470), self.app.assets.font(10), COLORS["gold"], "center")
+        self.draw_panel(surface, (42, 100, 720, 380), "PLACE DEFINITION", COLORS["green"])
+        for field, label in [(self.name, "Place name"), (self.capacity, "Capacity, 1 to 10"), (self.background, "Field/background asset key"), (self.effects, "Place effect ids, comma-separated"), (self.catalog, "Effect candidates JSON list"), (self.windows, "Event-window policy JSON"), (self.logic, "Logic graph id")]: field.draw(surface, self.app.assets.font(10), label)
+        draw_text(surface, "The engine scaffolds day/night visuals, music, pre-duel, duel, post-duel, and landscape folders for this place.", (400, 500), self.app.assets.font(10), COLORS["gold"], "center")
         self.draw_buttons(surface, 12)
         self.app.draw_notice(surface)
 

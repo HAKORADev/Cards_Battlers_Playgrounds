@@ -7,6 +7,7 @@
     "day_night": true,
     "media_folder": "places/neon_playground",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {},
     "trigger_order_policies": {},
     "logic_graph": "",
@@ -21,6 +22,7 @@
     "day_night": false,
     "media_folder": "places/mystery_void",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {},
     "trigger_order_policies": {},
     "logic_graph": "",
@@ -35,6 +37,7 @@
     "day_night": true,
     "media_folder": "places/championship_tier_1",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
       "simultaneous_matches": 1
@@ -53,6 +56,7 @@
     "day_night": true,
     "media_folder": "places/championship_tier_2",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
       "simultaneous_matches": 1
@@ -71,6 +75,7 @@
     "day_night": true,
     "media_folder": "places/championship_tier_3",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
       "simultaneous_matches": 2
@@ -89,6 +94,7 @@
     "day_night": true,
     "media_folder": "places/championship_tier_4",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
       "simultaneous_matches": 4
@@ -107,6 +113,7 @@
     "day_night": true,
     "media_folder": "places/championship_tier_5",
     "effects": [],
+    "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
       "simultaneous_matches": 8

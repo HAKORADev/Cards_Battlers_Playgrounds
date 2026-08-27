@@ -255,5 +255,23 @@
       }
     },
     "notes": "Requirements are authored profiles. Host reserve is calculated from bracket match count and host_reward_per_match by bracket round; composition checks count unassigned library copies and never cards assigned to any host deck."
-  }
+  },
+  "place_effect_templates": [
+    {
+      "kind": "place_family_boost",
+      "family": "sacrifice_family",
+      "atk": 300,
+      "target": "team_members"
+    },
+    {
+      "kind": "place_opponent_debuff",
+      "amount": 300,
+      "target": "opponents"
+    },
+    {
+      "kind": "place_heal",
+      "amount": 500,
+      "target": "team_members"
+    }
+  ]
 }
