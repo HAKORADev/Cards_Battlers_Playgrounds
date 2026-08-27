@@ -2300,7 +2300,7 @@ class ContentStore:
             character.behavior_weights.setdefault("subtype_weights", {item: 2.0 for item in character.preferred_subtypes})
             character.behavior_weights.setdefault("state_weights", {"stranger": 1.0, "ally": 0.5, "enemy": 2.0, "opponent": 1.0})
             character.behavior_weights.setdefault("phase_weights", {"MAIN 1": 1.0, "MAIN 2": 1.0, "BATTLE": 1.0})
-            character.behavior_weights.setdefault("duel", {"summon_bias": 1.0, "set_bias": 1.0, "activation_bias": 1.0, "removal_bias": 1.0, "defense_bias": 1.0, "attack_bias": 1.0, "trap_threshold": 0.0})
+            character.behavior_weights.setdefault("duel", {"summon_bias": 1.0, "set_bias": 1.0, "activation_bias": 1.0, "removal_bias": 1.0, "control_bias": 1.0, "combo_bias": 1.0, "response_bias": 1.0, "defense_bias": 1.0, "attack_bias": 1.0, "trap_threshold": 0.0})
             character.learned_cards = {str(key): max(0, int(value)) for key, value in character.learned_cards.items() if str(key) in self.cards}
             character.learned_opponents = {str(key): max(0, int(value)) for key, value in character.learned_opponents.items() if str(key) in self.characters}
             character.goals = list(getattr(character, "goals", []) or [])[-20:]
@@ -6873,12 +6873,48 @@ class DuelEngine:
         if notification: notification.status, notification.answer = "resolved", "ok"
         return self.begin_response_card(pending["card"], pending["spec"].effect_id, pending["actor"], selected[0] if pending["required"] == 1 else selected)
 
+    def learn_from_observation(self, record):
+        payload = dict(record.get("payload", {}) or {})
+        if record.get("kind") != "resolution": return
+        actor_id = str(payload.get("actor_id", "") or "")
+        actor = self.store.characters.get(actor_id)
+        if not actor: return
+        state = actor.learning_state
+        state["observations"] = int(state.get("observations", 0) or 0) + 1
+        state["last_update"] = float(self.store.world.get("simulation_time", 0.0))
+        action = str(payload.get("action", "") or "")
+        if action:
+            action_counts = state.setdefault("action_counts", {})
+            action_counts[action] = int(action_counts.get(action, 0) or 0) + 1
+        source_card_id = str(payload.get("source_card_id", "") or "")
+        if source_card_id and source_card_id in self.store.cards:
+            actor.learned_cards[source_card_id] = int(actor.learned_cards.get(source_card_id, 0) or 0) + 1
+            card_state = actor.knowledge_state.setdefault("cards", {}).setdefault(source_card_id, {})
+            card_state["resolution_sightings"] = int(card_state.get("resolution_sightings", 0) or 0) + 1
+            card_state["last_resolution_turn"] = int(self.turn)
+        opponent_ids = [str(item) for item in list(payload.get("target_ids", []) or []) if str(item) in self.store.characters and str(item) != actor_id]
+        if opponent_ids:
+            opponent_id = opponent_ids[0]
+            actor.learned_opponents[opponent_id] = int(actor.learned_opponents.get(opponent_id, 0) or 0) + 1
+            opponent_state = actor.knowledge_state.setdefault("opponents", {}).setdefault(opponent_id, {})
+            opponent_state["resolution_sightings"] = int(opponent_state.get("resolution_sightings", 0) or 0) + 1
+            opponent_state["last_resolution_turn"] = int(self.turn)
+        policy = getattr(actor, "learning_policy", {}) or {}
+        adaptation = max(0.0, min(1.0, float(policy.get("adaptation_rate", 5.0) or 0.0) / 100.0))
+        duel_weights = actor.behavior_weights.setdefault("duel", {})
+        weight_key = {"damage": "attack_bias", "destroy": "removal_bias", "banish": "removal_bias", "send_to_graveyard": "removal_bias", "return_to_hand": "control_bias", "return_to_deck": "control_bias", "control": "control_bias", "boost_attack": "summon_bias", "boost_defense": "defense_bias", "negate_chain": "response_bias", "fusion_summon": "combo_bias", "ritual_summon": "combo_bias"}.get(action)
+        if weight_key:
+            current = float(duel_weights.get(weight_key, 1.0) or 1.0)
+            duel_weights[weight_key] = max(0.1, min(4.0, current + adaptation * 0.01))
+        state["updates"] = int(state.get("updates", 0) or 0) + 1
+
     def record_observation(self, kind, payload=None):
         if self.observation_guard: return None
         self.observation_sequence += 1
         record = {"sequence": self.observation_sequence, "kind": str(kind), "turn": self.turn, "phase": self.phase, "active": self.side_key(self.active), "payload": dict(payload or {})}
         self.observation_log.append(record)
         self.observation_log = self.observation_log[-512:]
+        self.learn_from_observation(record)
         return record
 
     def card_instances(self):
@@ -8278,7 +8314,7 @@ class DuelEngine:
                 score += (enemy_value * 2 - own_value * 3) * float(actor.character.behavior_weights.get("duel", {}).get("removal_bias", 1.0))
                 if enemy_value <= 0: score -= 100000
             elif name in ["banish", "send_to_graveyard", "return_to_hand", "return_to_deck"]:
-                score += enemy_value - own_value
+                score += (enemy_value - own_value) * float(actor.character.behavior_weights.get("duel", {}).get("control_bias", 1.0))
             elif name == "search":
                 score += 480 + min(300, len(actor.deck) * 2)
             elif name == "recover":
@@ -8299,7 +8335,9 @@ class DuelEngine:
                     procedure = ProcedureSpec.from_card(target)
                     selected = self.ai_procedure_selection(target, actor, procedure)
                     if selected and self.validate_procedure_materials(target, selected, actor, procedure)[0]: opportunities.append(self.ai_special_summon_score(target, actor, selected))
-                score += max(opportunities, default=-100000)
+                score += max(opportunities, default=-100000) * float(actor.character.behavior_weights.get("duel", {}).get("combo_bias", 1.0))
+            elif name == "negate_chain":
+                score += 10000 * float(actor.character.behavior_weights.get("duel", {}).get("response_bias", 1.0))
             elif name == "special_summon":
                 targets = [item for item in legal if isinstance(item, CardInstance) and item.card.kind == "legendary"]
                 score += max((self.ai_special_summon_score(item, actor, []) for item in targets), default=0)
