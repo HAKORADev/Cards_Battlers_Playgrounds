@@ -12,7 +12,8 @@
     "trigger_order_policies": {},
     "logic_graph": "",
     "description": "",
-    "linked_teams": []
+    "linked_teams": [],
+    "championship_only": false
   },
   {
     "id": "mystery_void",
@@ -27,12 +28,13 @@
     "trigger_order_policies": {},
     "logic_graph": "",
     "description": "",
-    "linked_teams": []
+    "linked_teams": [],
+    "championship_only": false
   },
   {
     "id": "championship_tier_1",
     "name": "Championship Tier 1",
-    "capacity": 1,
+    "capacity": 2,
     "background": "",
     "day_night": true,
     "media_folder": "places/championship_tier_1",
@@ -40,7 +42,7 @@
     "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
-      "simultaneous_matches": 1
+      "simultaneous_matches": 2
     },
     "trigger_order_policies": {},
     "logic_graph": "",
@@ -51,7 +53,7 @@
   {
     "id": "championship_tier_2",
     "name": "Championship Tier 2",
-    "capacity": 1,
+    "capacity": 4,
     "background": "",
     "day_night": true,
     "media_folder": "places/championship_tier_2",
@@ -59,7 +61,7 @@
     "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
-      "simultaneous_matches": 1
+      "simultaneous_matches": 4
     },
     "trigger_order_policies": {},
     "logic_graph": "",
@@ -70,7 +72,7 @@
   {
     "id": "championship_tier_3",
     "name": "Championship Tier 3",
-    "capacity": 2,
+    "capacity": 6,
     "background": "",
     "day_night": true,
     "media_folder": "places/championship_tier_3",
@@ -78,7 +80,7 @@
     "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
-      "simultaneous_matches": 2
+      "simultaneous_matches": 6
     },
     "trigger_order_policies": {},
     "logic_graph": "",
@@ -89,7 +91,7 @@
   {
     "id": "championship_tier_4",
     "name": "Championship Tier 4",
-    "capacity": 4,
+    "capacity": 16,
     "background": "",
     "day_night": true,
     "media_folder": "places/championship_tier_4",
@@ -97,7 +99,7 @@
     "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
-      "simultaneous_matches": 4
+      "simultaneous_matches": 16
     },
     "trigger_order_policies": {},
     "logic_graph": "",
@@ -108,7 +110,7 @@
   {
     "id": "championship_tier_5",
     "name": "Championship Tier 5",
-    "capacity": 8,
+    "capacity": 32,
     "background": "",
     "day_night": true,
     "media_folder": "places/championship_tier_5",
@@ -116,11 +118,30 @@
     "effect_catalog": [],
     "event_window_policies": {
       "championship_only": true,
-      "simultaneous_matches": 8
+      "simultaneous_matches": 32
     },
     "trigger_order_policies": {},
     "logic_graph": "",
-    "description": "Dedicated place for championship tier 5.",
+    "description": "Dedicated place for championship tier 5 (32v32).",
+    "linked_teams": [],
+    "championship_only": true
+  },
+  {
+    "id": "championship_tier_6",
+    "name": "Championship Tier 6",
+    "capacity": 64,
+    "background": "",
+    "day_night": true,
+    "media_folder": "places/championship_tier_6",
+    "effects": [],
+    "effect_catalog": [],
+    "event_window_policies": {
+      "championship_only": true,
+      "simultaneous_matches": 64
+    },
+    "trigger_order_policies": {},
+    "logic_graph": "",
+    "description": "Dedicated place for championship tier 6 (64v64).",
     "linked_teams": [],
     "championship_only": true
   }

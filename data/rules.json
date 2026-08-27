@@ -211,7 +211,17 @@
       "2": "championship_tier_2",
       "3": "championship_tier_3",
       "4": "championship_tier_4",
-      "5": "championship_tier_5"
+      "5": "championship_tier_5",
+      "6": "championship_tier_6"
+    },
+    "tier_range": [1, 6],
+    "tier_catalog": {
+      "1": {"label": "2v2", "entrant_teams": 4, "simultaneous_matches": 2, "round_match_counts": [2, 1]},
+      "2": {"label": "4v4", "entrant_teams": 8, "simultaneous_matches": 4, "round_match_counts": [4, 2, 1]},
+      "3": {"label": "6v6", "entrant_teams": 12, "simultaneous_matches": 6, "round_match_counts": [6, 3, 2, 1]},
+      "4": {"label": "16v16", "entrant_teams": 32, "simultaneous_matches": 16, "round_match_counts": [16, 8, 4, 2, 1]},
+      "5": {"label": "32v32", "entrant_teams": 64, "simultaneous_matches": 32, "round_match_counts": [32, 16, 8, 4, 2, 1]},
+      "6": {"label": "64v64", "entrant_teams": 128, "simultaneous_matches": 64, "round_match_counts": [64, 32, 16, 8, 4, 2, 1]}
     },
     "watcher_limit": 6,
     "prize_source": "unassigned_library_only",
@@ -403,7 +413,7 @@
         "simultaneous_matches": 8
       }
     },
-    "notes": "Requirements and reward quantities are authored profiles. Winner cards are awarded per winning character by bracket round and winning points; losing-character contributions to the host are a separate schedule. Host reserve is calculated from the winner schedule and composition checks count unassigned library copies, never cards assigned to any host deck."
+    "notes": "Championship level controls eligibility, difficulty, and reward profiles. Tier controls bracket size independently: tiers are 2v2, 4v4, 6v6, 16v16, 32v32, and 64v64, with entrant team counts 4, 8, 12, 32, 64, and 128. Each tier exposes its simultaneous first-round match count and explicit round match-count schedule; the watch UI lists every active match in the current round. Winner cards are awarded per winning character by bracket round and winning points; losing-character contributions to the host are a separate schedule. Host reserve is calculated from the winner schedule and composition checks count unassigned library copies, never cards assigned to any host deck."
   },
   "place_effect_templates": [
     {

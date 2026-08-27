@@ -1,0 +1,9 @@
+draw/
+in-duel/
+landscape/
+near-lose/
+near-win/
+post-duel-lose/
+post-duel-win/
+pre-duel/
+tree.txt
