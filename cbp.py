@@ -1393,6 +1393,11 @@ class MediaRegistry:
         def add(animation_root, audio_root=None):
             for pair in self._pairs(animation_root, audio_root or animation_root):
                 if pair not in pairs: pairs.append(pair)
+        if entity_type == "teams" and entity_id:
+            root = self.entity_path("teams", entity_id)
+            add(root / "animations" / event, root / "audio" / event)
+            add(root / "animations" / "duel" / event, root / "audio" / "duel" / event)
+            add(root / "members" / event / "animations", root / "members" / event / "audio")
         if entity_type == "characters" and entity_id:
             root = self.entity_path("characters", entity_id)
             relation_names = dict.fromkeys([relation, "opponent" if relation == "stranger" else "stranger", "neutral"])
@@ -1971,22 +1976,73 @@ class ContentStore:
         return {"actor": actor_id, "team": team.id, "image": str(image) if image else "", "video": str(video) if video else "", "audio": str(audio) if audio else "", "animation_root": str(animation_root), "sim_time": float(self.world.get("simulation_time", 0.0))}
 
     def narrator_cue(self, state, actor_id="", target_id="", context=None):
+        context = dict(context or {})
+        championship_id = str(context.get("championship_id", "") or "")
+        championship = self.championship_by_id(championship_id) if championship_id else None
+        if championship:
+            context.setdefault("championship_level", championship.get("level", 0))
+            context.setdefault("championship_tier", championship.get("tier_size", championship.get("required_teams", 0)))
+            context.setdefault("tier_size", championship.get("tier_size", championship.get("required_teams", 0)))
         states = self.narrator_data.get("states", {}) if isinstance(self.narrator_data, dict) else {}
-        entry = states.get(str(state), {}) if isinstance(states, dict) else {}
+        entry = dict(states.get(str(state), {}) or {}) if isinstance(states, dict) else {}
+        profile = {}
+        if str(state).startswith("championship"):
+            narrator_rules = dict((self.rules or {}).get("narrator", {}) or {})
+            championship_profiles = dict(narrator_rules.get("championship_profiles", {}) or {})
+            levels = dict(championship_profiles.get("levels", {}) or {})
+            level = str(context.get("championship_level", context.get("level", "")) or "")
+            tier = str(context.get("championship_tier", context.get("team_count", context.get("required_teams", ""))) or "")
+            level_profile = dict(levels.get(level, {}) or {})
+            tier_profiles = dict(level_profile.get("tiers", {}) or {})
+            profile = dict(tier_profiles.get(tier, {}) or {})
+            if not profile: profile = dict(level_profile.get("default", {}) or {})
+            if not profile: profile = dict(championship_profiles.get("default", {}) or {})
+            if profile:
+                entry.update({key: value for key, value in profile.items() if value not in [None, "", []]})
+            context["championship_level"] = int(level) if level.isdigit() else context.get("championship_level", context.get("level", 0))
+            context["championship_tier"] = int(tier) if tier.isdigit() else context.get("championship_tier", context.get("team_count", 0))
+            context["narrator_profile"] = str(profile.get("id", "tier-specific")) if profile else "base"
         texts = list(entry.get("texts", [])) if isinstance(entry, dict) else []
         self.narrator_sequence += 1
         index = (self.narrator_sequence - 1) % len(texts) if texts else 0
         text = texts[index] if texts else str(state).replace("_", " ").title()
-        audio_root = str(entry.get("audio_root", "")) if isinstance(entry, dict) else ""
+        audio_roots = []
+        if isinstance(entry, dict):
+            audio_roots = list(entry.get("audio_roots", []) or [])
+            if entry.get("audio_root"): audio_roots.insert(0, entry.get("audio_root"))
+        if str(state).startswith("championship"):
+            narrator_rules = dict((self.rules or {}).get("narrator", {}) or {})
+            fallback_root = dict(narrator_rules.get("championship_profiles", {}) or {}).get("fallback_audio_root", "")
+            if fallback_root: audio_roots.append(fallback_root)
+            base_entry = dict(states.get(str(state), {}) or {}) if isinstance(states, dict) else {}
+            if base_entry.get("audio_root"): audio_roots.append(base_entry.get("audio_root"))
+        audio_roots = list(dict.fromkeys(str(item) for item in audio_roots if str(item)))
         audio_paths = []
-        if audio_root:
-            root = DATA / "characters" / "narrator" / audio_root
-            audio_paths = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
-        audio = str(audio_paths[index % len(audio_paths)]) if audio_paths else ""
-        cue = {"type": "narrator_cue", "state": str(state), "text": text, "audio": audio, "variant": index + 1, "actor": actor_id, "target": target_id, "context": dict(context or {}), "sim_time": float(self.world.get("simulation_time", 0.0))}
+        for audio_root in audio_roots:
+            root = DATA / "characters" / "narrator" / str(audio_root)
+            candidates = sorted(path for path in root.glob("*") if path.is_file() and path.suffix.lower() in MediaRegistry.audio_extensions)
+            if candidates:
+                audio_paths = candidates
+                break
+        cue = {"type": "narrator_cue", "state": str(state), "text": text, "audio": str(audio_paths[index % len(audio_paths)]) if audio_paths else "", "variant": index + 1, "actor": actor_id, "target": target_id, "context": context, "profile": dict(profile), "sim_time": float(self.world.get("simulation_time", 0.0))}
         self.world.setdefault("simulation_events", []).append(cue)
         return cue
 
+    def team_media_plan(self, team_id, event, place_id="", relation="opponent", target_id="", member_ids=None):
+        team = self.teams.get(team_id)
+        resolved_member_ids = list(team.members) if team else list(member_ids or [])
+        team_selection = self.media.resolve(event, team_id, target_id, relation, "teams", team_id, place_id, "loop", metadata={"team": True})
+        team_selection.metadata = {"team_id": team_id, "team_media": True}
+        team_data = team_selection.to_dict()
+        members = []
+        for member_id in resolved_member_ids:
+            if member_id not in self.characters: continue
+            member_relation = self.relationship_for(member_id, target_id) if target_id and target_id in self.characters else relation
+            selection = self.media.resolve(event, member_id, target_id, member_relation, "characters", member_id, place_id, "loop", metadata={"team_id": team_id, "member_fallback": True})
+            selection.metadata = {"team_id": team_id, "member_fallback": True}
+            members.append({"member_id": member_id, "selection": selection.to_dict()})
+        team_available = bool(team_data.get("source") and team_data.get("source") != "placeholder" and (team_data.get("image") or team_data.get("audio") or team_data.get("frames") or team_data.get("video")))
+        return {"team_id": team_id, "event": str(event), "team": team_data if team_available else None, "members": members, "fallback": not team_available}
     def role_config(self):
         roles = self.world.get("roles", {}) if isinstance(self.world, dict) else {}
         character_ids = sorted(self.characters)
@@ -3262,54 +3318,104 @@ class ContentStore:
             if not self.reserve_place(place_id): continue
             request["status"] = "active"
             request.setdefault("events", []).append({"status": "active", "actor": "world", "sim_time": float(self.world.get("simulation_time", 0.0))})
-            for character_id in [request.get("from"), request.get("to")]:
+            format_name = str(request.get("format", "1v1"))
+            house_id = request.get("house_player") or request.get("accepted_by") or request.get("to") or request.get("from")
+            guest_id = request.get("guest_player") or (request.get("to") if house_id == request.get("from") else request.get("from"))
+            def team_for_character(character_id):
+                return next((team for team in self.teams.values() if character_id in team.members and len(team.members) == 3), None)
+            house_team = team_for_character(house_id)
+            guest_team = team_for_character(guest_id)
+            player_team = None
+            opponent_team = None
+            solo_player_character = ""
+            solo_opponent_character = ""
+            if format_name == "TEAMvTEAM":
+                player_team, opponent_team = team_for_character(request.get("from")), team_for_character(request.get("to"))
+            elif format_name == "TEAMv1":
+                player_team = team_for_character(request.get("from"))
+                single_id = request.get("to", "")
+                if player_team and single_id in self.characters and single_id not in player_team.members:
+                    opponent_team = TeamDef("world_solo_" + single_id, self.characters[single_id].name, [single_id], single_id, [place_id], "solo")
+                    solo_opponent_character = single_id
+            elif format_name == "1vTEAM":
+                opponent_team = team_for_character(request.get("to"))
+                single_id = request.get("from", "")
+                if opponent_team and single_id in self.characters and single_id not in opponent_team.members:
+                    player_team = TeamDef("world_solo_" + single_id, self.characters[single_id].name, [single_id], single_id, [place_id], "solo")
+                    solo_player_character = single_id
+            if format_name in ["TEAMvTEAM", "TEAMv1", "1vTEAM"]:
+                if not player_team or not opponent_team or not player_team.members or not opponent_team.members:
+                    request["status"] = "denied"
+                    request.setdefault("events", []).append({"status": "denied", "actor": "world", "action": "team_resolution_failed", "format": format_name, "sim_time": float(self.world.get("simulation_time", 0.0))})
+                    self.release_place(place_id)
+                    continue
+                active_ids = list(dict.fromkeys(list(player_team.members) + list(opponent_team.members)))
+            else:
+                active_ids = [request.get("from"), request.get("to")]
+            for character_id in active_ids:
                 character = self.characters.get(character_id)
                 if character:
                     character.availability = "active"
                     character.activity = "dueling"
-            house_id = request.get("house_player") or request.get("accepted_by") or request.get("to") or request.get("from")
-            guest_id = request.get("guest_player") or (request.get("to") if house_id == request.get("from") else request.get("from"))
             house = self.characters.get(house_id)
             relation = self.relationship_for(house_id, guest_id)
             acceptance_score = float((house.behavior_weights if house else {}).get("accept_first", 0.0)) + (2.0 if relation == "ally" else -1.0 if relation == "enemy" else 0.0)
             accepts_first = acceptance_score >= 8.0
-            request_cue = self.narrator_cue("request_first", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id})
-            decision_cue = self.narrator_cue("ready" if accepts_first else "dice_intro", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id})
-            duel_terms = self.normalize_duel_terms(request.get("format", "1v1"), request.get("duel_mode", "current"), request.get("duel_terms", {}).get("time_limit", 180.0) if isinstance(request.get("duel_terms", {}), dict) else 180.0, request.get("duel_terms", {}).get("wager_count", 0) if isinstance(request.get("duel_terms", {}), dict) else 0, request.get("duel_terms", {}).get("house_cards", []) if isinstance(request.get("duel_terms", {}), dict) else [], request.get("duel_terms", {}).get("guest_cards", []) if isinstance(request.get("duel_terms", {}), dict) else [])
+            request_cue = self.narrator_cue("request_first", guest_id, house_id, {"format": format_name, "launcher": house_id})
+            decision_cue = self.narrator_cue("ready" if accepts_first else "dice_intro", guest_id, house_id, {"format": format_name, "launcher": house_id})
+            term_data = request.get("duel_terms", {}) if isinstance(request.get("duel_terms", {}), dict) else {}
+            duel_terms = {"mode": "current", "time_limit": 0.0, "wager_count": 0, "house_cards": [], "guest_cards": [], "valid": True} if format_name in ["TEAMvTEAM", "TEAMv1", "1vTEAM"] else self.normalize_duel_terms(format_name, request.get("duel_mode", "current"), term_data.get("time_limit", 180.0), term_data.get("wager_count", 0), term_data.get("house_cards", []), term_data.get("guest_cards", []))
             prepared_terms = duel_terms
-            if duel_terms.get("mode") == "gamble":
+            if format_name == "1v1" and duel_terms.get("mode") == "gamble":
                 prepared_terms = self.reserve_gamble_terms(house_id, guest_id, duel_terms)
                 if not prepared_terms:
                     request["status"] = "denied"
                     request.setdefault("events", []).append({"status": "denied", "actor": "world", "action": "gamble_unavailable", "sim_time": float(self.world.get("simulation_time", 0.0))})
                     self.release_place(place_id)
-                    for character_id in [request.get("from"), request.get("to")]:
+                    for character_id in active_ids:
                         character = self.characters.get(character_id)
                         if character: character.availability, character.activity = "free", "idle"
                     continue
             if accepts_first:
                 dice = {"type": "spin_dice_result", "skipped": True, "launcher": house_id, "requester": guest_id, "value": None, "range": "requester", "first": guest_id, "sim_time": float(self.world.get("simulation_time", 0.0))}
-                first_side = "opponent"
+                first_side = "player" if format_name in ["TEAMvTEAM", "TEAMv1", "1vTEAM"] and player_team and guest_id in player_team.members else "opponent"
             else:
                 dice = self.spin_dice_result(house_id, guest_id)
-                first_side = "player" if dice["first"] == house_id else "opponent"
-                result_cue = self.narrator_cue("result_launcher" if dice["value"] <= 3 else "result_requester", guest_id, house_id, {"format": request.get("format", "1v1"), "launcher": house_id, "value": dice["value"]})
+                first_side = "player" if ((format_name in ["TEAMvTEAM", "TEAMv1", "1vTEAM"] and player_team and dice["first"] in player_team.members) or (format_name == "1v1" and dice["first"] == house_id)) else "opponent"
+                result_cue = self.narrator_cue("result_launcher" if dice["value"] <= 3 else "result_requester", guest_id, house_id, {"format": format_name, "launcher": house_id, "value": dice["value"]})
+            if format_name in ["TEAMvTEAM", "TEAMv1", "1vTEAM"]:
+                try:
+                    engine = TeamDuelEngine(self, player_team=player_team, opponent_team=opponent_team, place_id=place_id, format_name=format_name, starter=first_side, reserved=True)
+                except (IllegalDeckError, KeyError) as error:
+                    request["status"] = "denied"
+                    request.setdefault("events", []).append({"status": "denied", "actor": "world", "action": "illegal_team_deck", "validation": str(error), "sim_time": float(self.world.get("simulation_time", 0.0))})
+                    self.release_place(place_id)
+                    for character_id in active_ids:
+                        character = self.characters.get(character_id)
+                        if character: character.availability, character.activity = "free", "idle"
+                    continue
+                battle_id = "sim_team_battle_" + str(int(time.time() * 1000))
+                initial_player, initial_opponent = engine.active_members()
+                battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": format_name, "engine_type": "team", "player_team": player_team.id, "opponent_team": opponent_team.id, "solo_player_character": solo_player_character, "solo_opponent_character": solo_opponent_character, "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "actions": [], "turn": engine.round, "duel_turn": engine.current.turn if engine.current else 0, "starter": first_side, "first_side": first_side, "active_members": {"player": initial_player.id if initial_player else "", "opponent": initial_opponent.id if initial_opponent else ""}, "championship_id": request.get("championship_id", ""), "watchers": list(request.get("watchers", []) or []), "duel_mode": "current", "time_limit": 0.0, "duel_terms": duel_terms, "pre_duel": {"requester": guest_id, "acceptor": house_id, "decision": "accept" if accepts_first else "deny", "acceptance_score": acceptance_score, "narrator_states": [request_cue["state"], decision_cue["state"]] + ([] if accepts_first else [result_cue["state"]])}, "reward": {}, "team_lp": dict(engine.team_lp), "rounds": [], "transfer_events": list(engine.transfer_events), "media_states": list(engine.media_states), "team_turns": list(engine.team_turn_events), "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": ""}
+                self.world_team_sessions[battle_id] = engine
+                self.world.setdefault("active_battles", []).append(battle)
+                self.world.setdefault("simulation_events", []).append({"type": "battle_activated", "battle": battle["id"], "request": request["id"], "format": format_name, "engine_type": "team", "sim_time": float(self.world.get("simulation_time", 0.0))})
+                continue
             house_deck_id = request.get("house_deck_id") or (self.deck_slot_ids(house_id)[0] if self.deck_slot_ids(house_id) else "")
             guest_deck_id = request.get("deck_id") or (self.deck_slot_ids(guest_id)[0] if self.deck_slot_ids(guest_id) else "")
             validation = self.validate_duel_decks(house_id, guest_id, house_deck_id, guest_deck_id)
             if validation:
                 request["status"] = "denied"
-                request.setdefault("events", []).append({"status": "denied", "actor": "world", "action": "illegal_deck", "validation": validation, "sim_time": float(self.world.get("simulation_time", 0.0))})
+                request.setdefault("events", []).append({"status": "denied", "actor": "world", "action": "denied_illegal_deck", "validation": validation, "sim_time": float(self.world.get("simulation_time", 0.0))})
                 self.release_place(place_id)
-                for character_id in [request.get("from"), request.get("to")]:
+                for character_id in active_ids:
                     character = self.characters.get(character_id)
                     if character: character.availability, character.activity = "free", "idle"
                 continue
             engine = DuelEngine(self, house_id, guest_id, place_id, True, first_side=first_side, duel_mode=duel_terms.get("mode", "current"), time_limit=duel_terms.get("time_limit", 0.0), duel_terms=prepared_terms, player_deck_id=house_deck_id, opponent_deck_id=guest_deck_id)
             engine.match_recorded = True
             battle_id = "sim_battle_" + str(int(time.time() * 1000))
-            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": request.get("format", "1v1"), "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "actions": [], "turn": engine.turn, "first_side": first_side, "spin_dice": dice, "duel_mode": duel_terms.get("mode", "current"), "time_limit": duel_terms.get("time_limit", 0.0), "duel_terms": prepared_terms, "house_deck_id": house_deck_id, "guest_deck_id": guest_deck_id, "pre_duel":
- {"requester": guest_id, "acceptor": house_id, "decision": "accept" if accepts_first else "deny", "acceptance_score": acceptance_score, "narrator_states": [request_cue["state"], decision_cue["state"]] + ([] if accepts_first else [result_cue["state"]])}, "reward": dict(request.get("reward", {})), "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
+            battle = {"id": battle_id, "request_id": request["id"], "from": request["from"], "to": request["to"], "house": house_id, "guest": guest_id, "accepted_by": request.get("accepted_by", house_id), "format": format_name, "place": place_id, "status": "active", "phase": "pre_duel", "elapsed": 0.0, "next_action": 3.0, "actions": [], "turn": engine.turn, "first_side": first_side, "spin_dice": dice, "duel_mode": duel_terms.get("mode", "current"), "time_limit": duel_terms.get("time_limit", 0.0), "duel_terms": prepared_terms, "house_deck_id": house_deck_id, "guest_deck_id": guest_deck_id, "pre_duel": {"requester": guest_id, "acceptor": house_id, "decision": "accept" if accepts_first else "deny", "acceptance_score": acceptance_score, "narrator_states": [request_cue["state"], decision_cue["state"]] + ([] if accepts_first else [result_cue["state"]])}, "reward": dict(request.get("reward", {})), "hp": {house_id: engine.player.hp, guest_id: engine.opponent.hp}, "started_sim_time": float(self.world.get("simulation_time", 0.0)), "result": "", "engine_checkpoint": engine.state_checkpoint()}
             self.world_sessions[battle_id] = engine
             self.world.setdefault("active_battles", []).append(battle)
             self.world.setdefault("simulation_events", []).append({"type": "battle_activated", "battle": battle["id"], "request": request["id"], "sim_time": float(self.world.get("simulation_time", 0.0))})
@@ -3400,9 +3506,19 @@ class ContentStore:
         if session: return session
         player_team = self.teams.get(battle.get("player_team", ""))
         opponent_team = self.teams.get(battle.get("opponent_team", ""))
+        solo_player_id = battle.get("solo_player_character", "")
+        solo_opponent_id = battle.get("solo_opponent_character", "")
+        if not player_team and solo_player_id in self.characters:
+            character = self.characters[solo_player_id]
+            player_team = TeamDef("world_solo_" + solo_player_id, character.name, [solo_player_id], solo_player_id, [battle.get("place", "")], "solo")
+        if not opponent_team and solo_opponent_id in self.characters:
+            character = self.characters[solo_opponent_id]
+            opponent_team = TeamDef("world_solo_" + solo_opponent_id, character.name, [solo_opponent_id], solo_opponent_id, [battle.get("place", "")], "solo")
         if not player_team or not opponent_team or battle.get("place", "") not in self.places: return None
-        session = TeamDuelEngine(self, player_team_id=player_team.id, opponent_team_id=opponent_team.id, place_id=battle.get("place", ""), player_team=player_team, opponent_team=opponent_team, format_name="TEAMvTEAM", starter=battle.get("starter", "opponent"), reserved=True, player_deck_choices=battle.get("player_deck_choices", {}), opponent_deck_choices=battle.get("opponent_deck_choices", {}))
+        session = TeamDuelEngine(self, player_team_id=player_team.id, opponent_team_id=opponent_team.id, place_id=battle.get("place", ""), player_team=player_team, opponent_team=opponent_team, format_name=battle.get("format", "TEAMvTEAM"), starter=battle.get("starter", "opponent"), reserved=True, player_deck_choices=battle.get("player_deck_choices", {}), opponent_deck_choices=battle.get("opponent_deck_choices", {}))
         session.selected_deck_choices = list(battle.get("selected_deck_choices", []) or [])
+        session.transfer_events = list(battle.get("transfer_events", []) or [])
+        session.media_states = list(battle.get("media_states", []) or [])
         stored_lp = battle.get("team_lp", {}) if isinstance(battle.get("team_lp", {}), dict) else {}
         if stored_lp:
             session.team_lp["player"] = max(0, int(stored_lp.get("player", 8000)))
@@ -3410,6 +3526,8 @@ class ContentStore:
             if session.current:
                 session.current.player.hp = session.team_lp["player"]
                 session.current.opponent.hp = session.team_lp["opponent"]
+        session.round = max(1, int(battle.get("round", 1) or 1))
+        session.results = list(battle.get("rounds", []) or [])
         session.turn_index = max(0, int(battle.get("turn_index", 0) or 0))
         session.team_turn_events = list(battle.get("team_turns", []) or [])[-128:]
         self.world_team_sessions[battle["id"]] = session
@@ -3419,22 +3537,25 @@ class ContentStore:
         winner_id = session.winner.id if session.winner else ""
         loser_id = session.opponent_team.id if session.winner is session.player_team else session.player_team.id if session.winner else ""
         active_player, active_opponent = session.active_members()
-        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "turn": session.round, "rounds": list(session.results), "selected_deck_choices": list(session.selected_deck_choices), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
+        battle.update({"status": "completed", "phase": "post_duel", "result": winner_id, "format": session.format_name, "turn": session.round, "rounds": list(session.results), "transfer_events": list(session.transfer_events), "media_states": list(session.media_states), "selected_deck_choices": list(session.selected_deck_choices), "team_lp": dict(session.team_lp), "turn_index": session.turn_index, "active_members": {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}, "team_turns": list(session.team_turn_events), "completed_sim_time": float(self.world.get("simulation_time", 0.0))})
         championship_id = battle.get("championship_id", "")
         championship = self.championship_by_id(championship_id) if championship_id else None
         if championship:
             championship["active_battle_ids"] = [item for item in championship.get("active_battle_ids", []) if item != battle.get("id", "")]
         if championship_id and winner_id:
             self.resolve_championship_match(championship_id, int(battle.get("championship_round", 0)), int(battle.get("championship_pair", 0)), winner_id)
-        for team_id in [battle.get("player_team", ""), battle.get("opponent_team", "")]:
-            team = self.teams.get(team_id)
-            if team:
-                for member_id in team.members:
-                    character = self.characters.get(member_id)
-                    if character:
-                        character.availability = "free"
-                        character.activity = "idle"
-                        character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
+        request = self.request_by_id(battle.get("request_id", ""))
+        if request:
+            request["status"] = "completed"
+            request.setdefault("events", []).append({"status": "completed", "actor": winner_id or "world", "sim_time": float(self.world.get("simulation_time", 0.0))})
+            self.transition_interaction("request", request, "completed", winner_id or "world", "completed", {"winner": winner_id, "loser": loser_id, "format": session.format_name})
+        for team in [session.player_team, session.opponent_team]:
+            for member_id in list(getattr(team, "members", []) or []):
+                character = self.characters.get(member_id)
+                if character:
+                    character.availability = "free"
+                    character.activity = "idle"
+                    character.cooldown_until = float(self.world.get("simulation_time", 0.0)) + 5.0
         self.release_place(battle.get("place", ""))
         self.world_team_sessions.pop(battle.get("id", ""), None)
         completion_event = {"type": "team_battle_completed", "battle": battle.get("id", ""), "winner": winner_id or "draw", "loser": loser_id, "championship": championship_id, "watchers": list(battle.get("watchers", [])), "sim_time": float(self.world.get("simulation_time", 0.0))}
@@ -3459,7 +3580,11 @@ class ContentStore:
                 battle["turn_index"] = session.turn_index
                 battle["active_members"] = {"player": active_player.id if active_player else "", "opponent": active_opponent.id if active_opponent else ""}
                 battle["team_turns"] = list(session.team_turn_events)
+                battle["transfer_events"] = list(session.transfer_events)
+                battle["media_states"] = list(session.media_states)
                 battle["duel_turn"] = session.current.turn if session.current else 0
+                battle.setdefault("actions", []).append({"round": session.round, "turn": session.current.turn if session.current else 0, "phase": session.current.phase if session.current else "duel", "active_members": dict(battle.get("active_members", {})), "sim_time": float(self.world.get("simulation_time", 0.0))})
+                battle["actions"] = battle["actions"][-128:]
                 battle["next_action"] = float(battle.get("next_action", 3.0)) + 2.0
                 steps += 1
                 if session.finished:
@@ -4360,6 +4485,10 @@ class ContentStore:
         profile.setdefault("minimum_cards_by_star", {})
         profile.setdefault("minimum_cards_by_kind", {})
         profile.setdefault("host_reward_per_match", [0, 1, 2, 3, 4, 5])
+        legacy_rewards = list(profile.get("host_reward_per_match", []) or [0])
+        profile.setdefault("winner_cards_per_character_by_round", [{"round": index, "cards_per_character": int(value or 0)} for index, value in enumerate(legacy_rewards)])
+        profile.setdefault("loser_cards_per_character_to_host_by_round", [{"round": index, "cards_per_character": int(value or 0)} for index, value in enumerate(legacy_rewards)])
+        profile.setdefault("winner_reward_points", [])
         return profile
     def championship_team_count(self, level):
         return int(self.championship_profile(level).get("team_count", 4))
@@ -4419,6 +4548,52 @@ class ContentStore:
                 count = max(0, int(available.get(card_id, 0)) - int(assigned.get(card_id, 0)))
                 candidates.extend((owner_id, card_id) for _ in range(count))
         return candidates
+    def championship_stage_for_total(self, total, round_index):
+        total = max(0, int(total or 0))
+        index = int(round_index)
+        if total and index == total - 1: return "final"
+        if total and index == total - 2: return "semifinal"
+        if total and index == total - 3: return "quarterfinal"
+        return "round_" + str(index + 1)
+    def championship_stage_name(self, championship, round_index):
+        return self.championship_stage_for_total(len(championship.get("rounds", []) or []), round_index)
+    def championship_schedule_amount(self, profile, field, round_index, default=0):
+        entries = list(profile.get(field, []) or [])
+        if not entries:
+            legacy = list(profile.get("host_reward_per_match", []) or [])
+            return int(legacy[min(max(0, int(round_index)), len(legacy) - 1)] or default) if legacy else int(default)
+        selected = None
+        for entry in entries:
+            if not isinstance(entry, dict): continue
+            try: entry_round = int(entry.get("round", 0) or 0)
+            except (TypeError, ValueError): continue
+            if entry_round <= int(round_index) and (selected is None or entry_round >= int(selected.get("round", 0) or 0)): selected = entry
+        if not selected: selected = entries[0] if isinstance(entries[0], dict) else {}
+        value = selected.get("cards_per_character", selected.get("amount", default))
+        try: return max(0, int(value or 0))
+        except (TypeError, ValueError): return int(default)
+    def championship_winner_reward_amount(self, championship, round_index, winner_points=0):
+        profile = self.championship_profile(int(championship.get("level", 1) or 1))
+        amount = self.championship_schedule_amount(profile, "winner_cards_per_character_by_round", round_index, 1)
+        for entry in list(profile.get("winner_reward_points", []) or []):
+            if not isinstance(entry, dict): continue
+            try:
+                if int(winner_points) >= int(entry.get("minimum_points", 0) or 0): amount += max(0, int(entry.get("bonus_cards", 0) or 0))
+            except (TypeError, ValueError): continue
+        return amount
+    def championship_loser_contribution_amount(self, championship, round_index):
+        profile = self.championship_profile(int(championship.get("level", 1) or 1))
+        return self.championship_schedule_amount(profile, "loser_cards_per_character_to_host_by_round", round_index, 0)
+    def championship_host_recipients(self, host_id):
+        if host_id in self.characters: return [host_id]
+        team = self.teams.get(host_id)
+        if not team: return []
+        members = [member_id for member_id in team.members if member_id in self.characters]
+        return [team.leader] if team.leader in members else members[:1]
+    def championship_take_cards(self, owner_id, count, sequence=0):
+        if owner_id not in self.characters or count <= 0: return []
+        policy = {"mode": "random", "source": "library", "count": int(count), "giver_id": owner_id, "trigger": "loser_to_winner"}
+        return self.select_duel_reward_cards(owner_id, policy, sequence)
     def take_championship_library_cards(self, entity_id, count):
         taken = []
         for owner_id, card_id in self.championship_free_library_candidates(entity_id):
@@ -4450,8 +4625,10 @@ class ContentStore:
         round_index = 0
         while remaining > 1:
             matches = remaining // 2
-            reward = int(round_rewards[min(round_index, len(round_rewards) - 1)] or 0)
-            matches_by_round.append({"round": round_index, "matches": matches, "cards_per_match": reward, "cards": matches * reward})
+            reward_per_character = self.championship_winner_reward_amount({"level": level, "tier_size": team_count}, round_index, round_index + 1)
+            members_per_team = int(profile.get("team_member_count", self.championship_rules().get("team_member_count", 3)) or 3)
+            reward = reward_per_character * max(1, members_per_team)
+            matches_by_round.append({"round": round_index, "stage": self.championship_stage_for_total(max(1, int(math.log2(team_count))), round_index), "matches": matches, "cards_per_character": reward_per_character, "characters_per_winner_team": members_per_team, "cards_per_match": reward, "cards": matches * reward})
             reserve += matches * reward
             remaining //= 2
             round_index += 1
@@ -4484,6 +4661,32 @@ class ContentStore:
     def championship_by_id(self, championship_id):
         return next((item for item in self.world.setdefault("championships", []) if item.get("id") == championship_id), None)
 
+    def championship_bracket_snapshot(self, championship_id):
+        championship = self.championship_by_id(championship_id)
+        if not championship: return None
+        states = dict(championship.get("team_states", {}) or {})
+        rounds = []
+        for round_data in list(championship.get("rounds", []) or []):
+            round_index = int(round_data.get("round", len(rounds)) or 0)
+            stage = str(round_data.get("stage", self.championship_stage_name(championship, round_index)))
+            result_by_pair = {int(item.get("pair_index", -1)): item for item in list(round_data.get("results", []) or [])}
+            pairs = []
+            for pair_index, pair in enumerate(list(round_data.get("pairs", []) or [])):
+                teams = []
+                for seed, team_id in enumerate(pair):
+                    team = self.teams.get(team_id)
+                    members = []
+                    for member_id in list(team.members if team else []):
+                        character = self.characters.get(member_id)
+                        if not character: continue
+                        selected_deck = getattr(character, "deck_id", "")
+                        members.append({"id": member_id, "name": character.name, "media_folder": getattr(character, "media_folder", ""), "deck_id": selected_deck, "deck_level": self.deck_level(selected_deck) if selected_deck else 0})
+                    state = dict(states.get(team_id, {}) or {})
+                    teams.append({"id": team_id, "name": team.name if team else team_id, "media_folder": getattr(team, "media_folder", "") if team else "", "team_level": self.team_level(team_id), "members": members, "status": state.get("status", "active"), "seed": state.get("seed", seed + 1)})
+                result = result_by_pair.get(pair_index, {})
+                pairs.append({"pair_index": pair_index, "teams": teams, "winner": result.get("winner", ""), "loser": result.get("loser", ""), "resolved": bool(result), "ko": result.get("loser", "") in pair if result else False})
+            rounds.append({"round": round_index, "stage": stage, "pairs": pairs})
+        return {"id": championship.get("id", ""), "level": int(championship.get("level", 1) or 1), "tier": int(championship.get("tier_size", championship.get("required_teams", 0)) or 0), "state": championship.get("state", "waiting"), "current_round": int(championship.get("current_round", -1) or -1), "winner": championship.get("winner", ""), "rounds": rounds}
     def host_championship(self, level, host_id=""):
         level = clamp(int(level), 1, 5)
         if not host_id:
@@ -4505,9 +4708,9 @@ class ContentStore:
         candidate_ids = [team_id for team_id in list(team_ids or []) if self.championship_team_eligible(team_id, level)]
         candidate_ids = list(dict.fromkeys(candidate_ids))[:required]
         now = float(self.world.get("simulation_time", 0.0))
-        championship = {"id": "championship_" + str(int(time.time() * 1000)), "level": level, "difficulty": ["easy", "medium", "hard", "extreme", "legendary"][level - 1], "tier": level, "tier_place": tier_place, "simultaneous_matches": int(profile.get("simultaneous_matches", 1) or 1), "required_teams": required, "host": host_id, "host_kind": "team" if host_id in self.teams else "character", "teams": [], "enrolled": [], "invitations": {}, "waitlist": [], "rounds": [], "current_round": -1, "state": "waiting", "mode": "current", "created": time.time(), "created_sim_time": now, "next_schedule_sim_time": now + 5.0, "host_requirements": requirement_report, "host_prize_reserve": int(requirement_report.get("requirements", {}).get("prize_reserve", 0)), "deck_selection_policy": "one_legal_slot_per_side_per_match", "deck_choices": {}, "watcher_limit": int(championship_rules.get("watcher_limit", 6)), "history": [], "active_battle_ids": [], "rewards": [], "narrator_intro": {}, "narrator_waiting": {}, "narrator_events": []}
-        intro = self.narrator_cue("championship_intro", host_id, "", {"championship_id": championship["id"], "level": level, "difficulty": championship["difficulty"], "required_teams": required})
-        waiting = self.narrator_cue("championship_waiting", host_id, "", {"championship_id": championship["id"], "level": level, "required_teams": required})
+        championship = {"id": "championship_" + str(int(time.time() * 1000)), "level": level, "difficulty": ["easy", "medium", "hard", "extreme", "legendary"][level - 1], "tier": required, "tier_size": required, "tier_place": tier_place, "simultaneous_matches": int(profile.get("simultaneous_matches", 1) or 1), "required_teams": required, "host": host_id, "host_kind": "team" if host_id in self.teams else "character", "teams": [], "enrolled": [], "invitations": {}, "waitlist": [], "rounds": [], "current_round": -1, "state": "waiting", "mode": "current", "created": time.time(), "created_sim_time": now, "next_schedule_sim_time": now + 5.0, "host_requirements": requirement_report, "host_prize_reserve": int(requirement_report.get("requirements", {}).get("prize_reserve", 0)), "deck_selection_policy": "one_legal_slot_per_side_per_match", "deck_choices": {}, "watcher_limit": int(championship_rules.get("watcher_limit", 6)), "history": [], "active_battle_ids": [], "rewards": [], "narrator_intro": {}, "narrator_waiting": {}, "narrator_events": []}
+        intro = self.narrator_cue("championship_intro", host_id, "", {"championship_id": championship["id"], "championship_level": level, "championship_tier": required, "level": level, "difficulty": championship["difficulty"], "required_teams": required})
+        waiting = self.narrator_cue("championship_waiting", host_id, "", {"championship_id": championship["id"], "championship_level": level, "championship_tier": required, "level": level, "required_teams": required})
         championship["narrator_intro"] = intro
         championship["narrator_waiting"] = waiting
         championship["narrator_events"].append(waiting)
@@ -4533,12 +4736,18 @@ class ContentStore:
         if len(enrolled) != int(championship.get("required_teams", 0)): return False
         rounds = []
         current = enrolled
+        total_rounds = max(1, int(math.log2(max(2, len(enrolled)))))
+        round_index = 0
         while len(current) > 1:
             pairs = [[current[index], current[index + 1]] for index in range(0, len(current), 2)]
-            rounds.append({"pairs": pairs, "results": [], "scheduled": []})
+            stage = "final" if round_index == total_rounds - 1 else "semifinal" if round_index == total_rounds - 2 else "quarterfinal" if round_index == total_rounds - 3 else "round_" + str(round_index + 1)
+            rounds.append({"round": round_index, "stage": stage, "pairs": pairs, "results": [], "scheduled": []})
             current = [pair[0] for pair in pairs]
+            round_index += 1
         championship["teams"] = enrolled
         championship["rounds"] = rounds
+        championship["team_states"] = {team_id: {"status": "active", "eliminated_round": None, "eliminated_stage": "", "seed": index + 1} for index, team_id in enumerate(enrolled)}
+        championship["winning_points"] = {team_id: 0 for team_id in enrolled}
         championship["current_round"] = 0
         championship["state"] = "active"
         championship["next_schedule_sim_time"] = float(self.world.get("simulation_time", 0.0))
@@ -4642,9 +4851,13 @@ class ContentStore:
         if any(int(item.get("pair_index", -1)) == int(pair_index) for item in round_data.get("results", [])): return False
         pair = list(round_data["pairs"][pair_index])
         loser_id = pair[1] if winner_id == pair[0] else pair[0]
-        result = {"pair": pair, "pair_index": pair_index, "winner": winner_id, "loser": loser_id, "round": round_index, "time": time.time(), "sim_time": float(self.world.get("simulation_time", 0.0))}
+        stage_name = self.championship_stage_name(championship, round_index)
+        result = {"pair": pair, "pair_index": pair_index, "winner": winner_id, "loser": loser_id, "round": round_index, "stage": stage_name, "time": time.time(), "sim_time": float(self.world.get("simulation_time", 0.0))}
         round_data.setdefault("results", []).append(result)
-        progress_cue = self.narrator_cue("championship_round_progress", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "pair": pair_index, "winner": winner_id, "loser": loser_id})
+        states = championship.setdefault("team_states", {})
+        states.setdefault(winner_id, {}).update({"status": "active", "last_round": round_index, "last_stage": stage_name})
+        states.setdefault(loser_id, {}).update({"status": "eliminated", "eliminated_round": round_index, "eliminated_stage": stage_name})
+        progress_cue = self.narrator_cue("championship_round_progress", championship.get("host", ""), winner_id, {"championship_id": championship_id, "championship_level": championship.get("level", 1), "championship_tier": championship.get("tier_size", championship.get("required_teams", 0)), "round": round_index, "stage": stage_name, "pair": pair_index, "winner": winner_id, "loser": loser_id})
         championship.setdefault("narrator_events", []).append(progress_cue)
         championship.setdefault("history", []).append({"event": "match_resolved", **result, "narrator": progress_cue})
         winner_team = self.teams.get(winner_id)
@@ -4669,29 +4882,46 @@ class ContentStore:
                 character.learning_state["updates"] = int(character.learning_state.get("updates", 0)) + 1
                 character.learning_state["last_update"] = time.time()
         profile = self.championship_profile(int(championship.get("level", 1) or 1))
-        reward_schedule = list(profile.get("host_reward_per_match", []) or [0])
-        reward_amount = int(reward_schedule[min(int(round_index), len(reward_schedule) - 1)] or 0)
-        if winner_team and loser_team and reward_amount > 0:
-            winner_member = winner_team.leader if winner_team.leader in winner_team.members else winner_team.members[0]
-            for member_id in loser_team.members:
-                candidates = list(self.characters.get(member_id).library_cards) if member_id in self.characters else []
-                for card_id in candidates[:reward_amount]:
-                    if card_id in self.characters[member_id].library_cards:
-                        self.characters[member_id].library_cards.remove(card_id)
-                        self.characters[winner_member].library_cards.append(card_id)
-                        championship.setdefault("rewards", []).append({"from": member_id, "to": winner_member, "card": card_id, "round": round_index})
-                        championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id}))
-            host_owner = championship.get("host", "")
-            host_candidates = self.championship_free_library_candidates(host_owner)
-            for source_owner_id, card_id in host_candidates[:reward_amount]:
-                source_character = self.characters.get(source_owner_id)
-                winner_character = self.characters.get(winner_member)
-                if not source_character or not winner_character or card_id not in source_character.library_cards: continue
-                source_before = len(source_character.library_cards)
-                source_character.library_cards.remove(card_id)
-                winner_character.library_cards.append(card_id)
-                championship.setdefault("rewards", []).append({"from": source_owner_id, "to": winner_member, "card": card_id, "round": round_index, "host_reward": True, "source_library_before": source_before, "source_library_after": len(source_character.library_cards)})
-                championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", championship.get("host", ""), winner_id, {"championship_id": championship_id, "round": round_index, "winner": winner_id, "card": card_id, "host_reward": True}))
+        stage_name = self.championship_stage_name(championship, round_index)
+        points = championship.setdefault("winning_points", {})
+        points[winner_id] = int(points.get(winner_id, 0) or 0) + 1
+        winner_points = int(points[winner_id])
+        winner_amount = self.championship_winner_reward_amount(championship, round_index, winner_points)
+        loser_amount = self.championship_loser_contribution_amount(championship, round_index)
+        championship.setdefault("reward_schedule_events", []).append({"round": round_index, "stage": stage_name, "winner_cards_per_character": winner_amount, "loser_cards_per_character_to_host": loser_amount, "winner_points": winner_points})
+        host_owner = championship.get("host", "")
+        host_recipients = self.championship_host_recipients(host_owner)
+        host_recipient = host_recipients[0] if host_recipients else ""
+        host_candidates = list(self.championship_free_library_candidates(host_owner))
+        host_cursor = 0
+        if winner_team:
+            for winner_member in [member_id for member_id in winner_team.members if member_id in self.characters]:
+                granted = 0
+                while granted < winner_amount and host_cursor < len(host_candidates):
+                    source_owner_id, card_id = host_candidates[host_cursor]
+                    host_cursor += 1
+                    source_character = self.characters.get(source_owner_id)
+                    winner_character = self.characters.get(winner_member)
+                    if not source_character or not winner_character or source_owner_id == winner_member or card_id not in source_character.library_cards: continue
+                    source_before = len(source_character.library_cards)
+                    source_character.library_cards.remove(card_id)
+                    winner_character.library_cards.append(card_id)
+                    reward = {"from": source_owner_id, "to": winner_member, "card": card_id, "round": round_index, "stage": stage_name, "winner_character": winner_member, "recipient_role": "winner", "winner_points": winner_points, "host_reward": True, "source_library_before": source_before, "source_library_after": len(source_character.library_cards)}
+                    championship.setdefault("rewards", []).append(reward)
+                    championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", host_owner, winner_member, {"championship_id": championship_id, "championship_level": championship.get("level", 1), "championship_tier": championship.get("tier_size", championship.get("required_teams", 0)), "round": round_index, "stage": stage_name, "winner": winner_id, "winner_character": winner_member, "card": card_id, "winner_points": winner_points, "recipient_role": "winner"}))
+                    granted += 1
+        if loser_team and host_recipient and loser_amount > 0:
+            for loser_member in [member_id for member_id in loser_team.members if member_id in self.characters]:
+                for card_id in self.championship_take_cards(loser_member, loser_amount, int(self.world.get("duel_sequence", 0)) + round_index + 1):
+                    loser_character = self.characters.get(loser_member)
+                    host_character = self.characters.get(host_recipient)
+                    if not loser_character or not host_character or card_id not in loser_character.library_cards: continue
+                    loser_before = len(loser_character.library_cards)
+                    loser_character.library_cards.remove(card_id)
+                    host_character.library_cards.append(card_id)
+                    reward = {"from": loser_member, "to": host_recipient, "card": card_id, "round": round_index, "stage": stage_name, "losing_character": loser_member, "recipient_role": "host", "loser_contribution": True, "source_library_before": loser_before, "source_library_after": len(loser_character.library_cards)}
+                    championship.setdefault("rewards", []).append(reward)
+                    championship.setdefault("narrator_events", []).append(self.narrator_cue("championship_reward", host_owner, loser_member, {"championship_id": championship_id, "championship_level": championship.get("level", 1), "championship_tier": championship.get("tier_size", championship.get("required_teams", 0)), "round": round_index, "stage": stage_name, "winner": winner_id, "loser": loser_id, "card": card_id, "recipient_role": "host", "loser_contribution": True}))
         if len(round_data["results"]) == len(round_data.get("pairs", [])):
             winners = [item["winner"] for item in round_data["results"]]
             next_round = round_index + 1
@@ -8811,12 +9041,17 @@ class TeamDuelEngine:
         self.team_turn_events = []
         self.turn_index = 0
         self.last_team_turn_key = None
+        self.transfer_events = []
+        self.media_states = []
+        self.capture_team_media("pre-duel")
         self.start_round()
 
     def log(self, message):
         self.events.append(message)
         self.events = self.events[-8:]
-
+    def capture_team_media(self, event, target_id=""):
+        self.media_states.append({"event": str(event), "player": self.store.team_media_plan(self.player_team.id, event, self.place_id, "opponent", target_id, list(self.player_team.members)), "opponent": self.store.team_media_plan(self.opponent_team.id, event, self.place_id, "opponent", target_id, list(self.opponent_team.members)), "round": self.round, "sim_time": float(self.store.world.get("simulation_time", 0.0))})
+        self.media_states = self.media_states[-32:]
     def roster(self, team):
         return [self.store.characters[key] for key in team.members if key in self.store.characters]
 
@@ -8843,6 +9078,7 @@ class TeamDuelEngine:
                 self.store.release_place(self.place_id)
                 self.place_reserved = False
             return
+        self.capture_team_media("duel", opponent.id)
         self.log(f"{self.format_name} round {self.round}: {player.name} vs {opponent.name}.")
         if player_effect: self.log(f"{self.player_team.name} effect: {player_effect.get('kind')}.")
         if opponent_effect: self.log(f"{self.opponent_team.name} effect: {opponent_effect.get('kind')}.")
@@ -8867,18 +9103,43 @@ class TeamDuelEngine:
         self.team_turn_events = self.team_turn_events[-128:]
         self.log(f"Team turn {event['turn']}: {player.name} / {opponent.name} with LP {event['player_lp']}-{event['opponent_lp']}.")
 
+    def transfer_round_stake(self, winner_id, loser_id, round_index):
+        transfers = []
+        if not winner_id or not loser_id or winner_id == "draw": return transfers
+        player_active, opponent_active = self.active_members()
+        if self.format_name == "TEAMvTEAM":
+            pairs = [(winner_id, loser_id)]
+        elif self.format_name == "TEAMv1":
+            if self.round == 1 and winner_id in self.player_team.members and loser_id in self.opponent_team.members:
+                pairs = [(member_id, loser_id) for member_id in self.player_team.members if member_id in self.store.characters]
+            else:
+                pairs = [(winner_id, loser_id)]
+        elif self.format_name == "1vTEAM":
+            if self.round == 1 and winner_id in self.opponent_team.members and loser_id in self.player_team.members:
+                pairs = [(member_id, loser_id) for member_id in self.opponent_team.members if member_id in self.store.characters]
+            else:
+                pairs = [(winner_id, loser_id)]
+        else:
+            pairs = [(winner_id, loser_id)]
+        for winner_character, loser_character in pairs:
+            moved = self.store.transfer_duel_reward(winner_character, loser_character, {"mode": "random", "source": "library", "count": 1}, int(self.store.world.get("duel_sequence", 0)) + round_index + len(transfers))
+            for card_id in list(moved or [])[:1]:
+                event = {"round": round_index, "winner": winner_character, "loser": loser_character, "card": card_id, "format": self.format_name, "transfer_scope": "member_pair"}
+                transfers.append(card_id)
+                self.transfer_events.append(event)
+        return transfers
     def step(self):
         if self.finished or not self.current: return
         if self.current.finished:
             winner_id = self.current.winner.character.id if self.current.winner else "draw"
             loser_id = self.current.other(self.current.winner).character.id if self.current.winner else ""
-            transferred = []
-            if winner_id != "draw" and loser_id:
-                transferred_cards = self.store.transfer_duel_reward(winner_id, loser_id, {"mode": "random", "source": "library", "count": 1}, int(self.store.world.get("duel_sequence", 0)) + self.round)
-                transferred.extend(list(transferred_cards or [])[:1])
-            self.results.append({"round": self.round, "winner": winner_id, "loser": loser_id, "reason": self.current.reason, "player_lp": self.team_lp["player"], "opponent_lp": self.team_lp["opponent"], "active_winner": winner_id, "active_loser": loser_id, "transferred_cards": transferred})
+            transferred = self.transfer_round_stake(winner_id, loser_id, self.round)
+            self.results.append({"round": self.round, "winner": winner_id, "loser": loser_id, "reason": self.current.reason, "player_lp": self.team_lp["player"], "opponent_lp": self.team_lp["opponent"], "active_winner": winner_id, "active_loser": loser_id, "transferred_cards": transferred, "transfer_events": [dict(item) for item in self.transfer_events if item.get("round") == self.round]})
             self.log(f"Round {self.round} result: {winner_id} by {self.current.reason}; stake {self.store.card_names(transferred) if transferred else 'none'}.")
-            if self.round >= 3:
+            team_sweep = (self.format_name == "TEAMv1" and self.round == 1 and winner_id in self.player_team.members) or (self.format_name == "1vTEAM" and self.round == 1 and winner_id in self.opponent_team.members)
+            if team_sweep:
+                self.finish(self.player_team if winner_id in self.player_team.members else self.opponent_team, "team sweep")
+            elif self.round >= 3:
                 player_wins = sum(1 for result in self.results if result["winner"] in self.player_team.members)
                 opponent_wins = sum(1 for result in self.results if result["winner"] in self.opponent_team.members)
                 self.finish(self.player_team if player_wins > opponent_wins else self.opponent_team if opponent_wins > player_wins else None, "three rounds complete")
@@ -8905,7 +9166,9 @@ class TeamDuelEngine:
     def finish(self, winner, reason):
         self.finished = True
         self.winner = winner
-        result = {"winner": winner.id if winner else "", "loser": "", "winning_member": "", "losing_member": "", "format": self.format_name, "place": self.place_id, "reason": reason, "rounds": list(self.results), "transferred_cards": [card_id for round_result in self.results for card_id in round_result.get("transferred_cards", [])], "team_lp": dict(self.team_lp), "team_turns": list(self.team_turn_events), "sim_time": float(self.store.world.get("simulation_time", 0.0))}
+        self.capture_team_media("post-duel", winner.id if winner else "")
+        self.capture_team_media("draw-result" if winner is None else "win" if winner is self.player_team else "lose", winner.id if winner else "")
+        result = {"winner": winner.id if winner else "", "loser": "", "winning_member": "", "losing_member": "", "format": self.format_name, "place": self.place_id, "reason": reason, "rounds": list(self.results), "transferred_cards": [card_id for round_result in self.results for card_id in round_result.get("transferred_cards", [])], "transfer_events": list(self.transfer_events), "team_lp": dict(self.team_lp), "team_turns": list(self.team_turn_events), "media_states": list(self.media_states), "sim_time": float(self.store.world.get("simulation_time", 0.0))}
         if winner is not None:
             losing_team = self.opponent_team if winner is self.player_team else self.player_team
             result["loser"] = losing_team.id
@@ -13094,29 +13357,117 @@ class TeamWatchScene(Scene):
         character = self.app.store.characters.get(member_id)
         return character.name if character else member_id or "unknown"
 
+    def draw_team_bracket_card(self, surface, team_snapshot, rect, accent):
+        team_id = team_snapshot.get("id", "")
+        team = self.app.store.teams.get(team_id)
+        box = pygame.Rect(rect)
+        status = str(team_snapshot.get("status", "active"))
+        color = COLORS["muted"] if status == "eliminated" else accent
+        rounded(surface, box, (18, 27, 51, 225), color, 8, 2)
+        crest = [(box.x + 25, box.y + 4), (box.x + 46, box.y + 38), (box.x + 4, box.y + 38)]
+        pygame.draw.polygon(surface, (44, 61, 95), crest)
+        pygame.draw.lines(surface, color, True, crest, 1)
+        if team:
+            portrait = self.app.assets.team_portrait(team, (30, 30))
+            if portrait: ui_blit(surface, portrait, (box.x + 10, box.y + 10))
+        if status == "eliminated":
+            fade = ui_surface(box.size, pygame.SRCALPHA)
+            fade.fill((0, 0, 0, 145 + int(35 * (0.5 + 0.5 * math.sin(self.time * 5.0)))))
+            ui_blit(surface, fade, box.topleft)
+        label = str(team_snapshot.get("name", team_id))[:13]
+        if status == "eliminated": label = "K.O. " + label[:9]
+        draw_text(surface, label, (box.x + 50, box.y + 12), self.app.assets.font(8, True), COLORS["cream"] if status != "eliminated" else COLORS["muted"])
+        draw_text(surface, "T" + str(team_snapshot.get("team_level", 0)), (box.right - 6, box.y + 12), self.app.assets.font(8, True), color, "topright")
+        for index, member in enumerate(list(team_snapshot.get("members", []))[:3]):
+            character = self.app.store.characters.get(member.get("id", ""))
+            x = box.x + 8 + index * max(24, (box.width - 52) // 3)
+            y = box.y + 31
+            if character:
+                portrait = self.app.assets.character_portrait(character, (20, 20))
+                if portrait: ui_blit(surface, portrait, (x, y))
+            deck_id = member.get("deck_id", "")
+            deck = self.app.store.decks.get(deck_id, {}) if deck_id else {}
+            self.draw_level_badge(surface, "decks", deck, member.get("deck_level", 0), (x + 10, y - 6), 14)
+    def draw_bracket(self, surface, snapshot, rect):
+        box = pygame.Rect(rect)
+        self.draw_panel(surface, box, "CHAMPIONSHIP TREE", COLORS["gold"])
+        draw_text(surface, "LEVEL " + str(snapshot.get("level", 1)) + "  |  TIER " + str(snapshot.get("tier", 0)) + "-TEAM", (box.centerx, box.y + 58), self.app.assets.font(10, True), COLORS["cyan"], "center")
+        rounds = list(snapshot.get("rounds", []) or [])
+        visible = rounds[-3:]
+        if not visible:
+            draw_text(surface, "Waiting for qualified teams", (box.centerx, box.centery), self.app.assets.font(11), COLORS["muted"], "center")
+            return
+        column_width = max(116, (box.width - 24) // len(visible))
+        for column, round_data in enumerate(visible):
+            x = box.x + 12 + column * column_width
+            draw_text(surface, str(round_data.get("stage", "round")).upper(), (x + column_width // 2 - 4, box.y + 82), self.app.assets.font(9, True), COLORS["gold"], "center")
+            pairs = list(round_data.get("pairs", []) or [])[:3]
+            for row, pair in enumerate(pairs):
+                y = box.y + 106 + row * 112
+                pair_teams = list(pair.get("teams", []) or [])
+                for offset, team_snapshot in enumerate(pair_teams[:2]):
+                    self.draw_team_bracket_card(surface, team_snapshot, (x, y + offset * 58, column_width - 14, 54), COLORS["cyan"] if offset == 0 else COLORS["red"])
+                if pair.get("resolved") and not pair.get("ko"):
+                    draw_text(surface, "RESOLVED", (x + column_width - 18, y + 48), self.app.assets.font(6, True), COLORS["muted"], "topright")
+    def media_preview(self, selection, size):
+        if not isinstance(selection, dict): return None
+        path = selection.get("image", "")
+        if path: return self.app.assets.media_image(path, size, "team_watch")
+        frames = list(selection.get("frames", []) or [])
+        if frames: return self.app.assets.media_image(frames[0], size, "team_watch")
+        video = selection.get("video", "")
+        if video: return self.app.assets.media_video_frame(video, self.time, size, "team_watch")
+        return None
+    def draw_watch_media(self, surface, media_state, rect):
+        box = pygame.Rect(rect)
+        rounded(surface, box, (12, 22, 48), COLORS["line"], 7, 1)
+        draw_text(surface, "MEDIA  " + str(media_state.get("event", "idle")).upper(), (box.x + 10, box.y + 10), self.app.assets.font(8, True), COLORS["gold"])
+        for side, accent, label in [("player", COLORS["cyan"], "HOUSE"), ("opponent", COLORS["red"], "GUEST")]:
+            plan = media_state.get(side, {}) if isinstance(media_state, dict) else {}
+            x = box.x + 10 if side == "player" else box.centerx + 4
+            draw_text(surface, label, (x, box.y + 29), self.app.assets.font(7, True), accent)
+            team_selection = plan.get("team") if isinstance(plan, dict) else None
+            if isinstance(team_selection, dict) and not team_selection.get("placeholder"):
+                image = self.media_preview(team_selection, (54, 54))
+                if image: ui_blit(surface, image, (x, box.y + 42))
+            else:
+                for index, member in enumerate(list(plan.get("members", []) if isinstance(plan, dict) else [])[:3]):
+                    image = self.media_preview(member.get("selection", {}), (38, 38))
+                    if image: ui_blit(surface, image, (x + index * 43, box.y + 42))
     def draw(self, surface):
         place = self.app.store.places.get(self.battle.get("place", ""))
         self.draw_background(surface, place.background if place else "")
         overlay = ui_surface((W, H), pygame.SRCALPHA); overlay.fill((247, 227, 177, 42)); ui_blit(surface, overlay, (0, 0))
-        draw_text(surface, "LIVE TEAM DUEL", (34, 30), self.app.assets.font(27, True), COLORS["gold"])
-        draw_text(surface, "Championship match checkpoint — viewer presentation", (36, 66), self.app.assets.font(13), COLORS["muted"])
-        self.draw_panel(surface, (38, 104, 724, 386), "HOUSE POV / TEAM TABLE", COLORS["violet"])
+        draw_text(surface, "LIVE TEAM DUEL", (24, 22), self.app.assets.font(25, True), COLORS["gold"])
+        draw_text(surface, "HOUSE POV  |  CHAMPIONSHIP TEAM WATCH", (26, 55), self.app.assets.font(11), COLORS["muted"])
+        snapshot = self.app.store.championship_bracket_snapshot(self.battle.get("championship_id", "")) if self.battle.get("championship_id") else None
+        if snapshot:
+            self.draw_bracket(surface, snapshot, (382, 82, 396, 442))
+        self.draw_panel(surface, (24, 82, 344, 442), "LIVE TEAM TABLE", COLORS["violet"])
         player_team = self.team_name(self.battle.get("player_team", ""))
         opponent_team = self.team_name(self.battle.get("opponent_team", ""))
         lp = self.battle.get("team_lp", {})
         active = self.battle.get("active_members", {})
-        draw_text(surface, "HOUSE  " + player_team + "   VS   " + opponent_team, (400, 142), self.app.assets.font(18, True), COLORS["cream"], "center")
-        draw_text(surface, "LP " + str(lp.get("player", 8000)) + "  /  " + str(lp.get("opponent", 8000)), (400, 174), self.app.assets.font(16, True), COLORS["cyan"], "center")
-        draw_text(surface, "Active: " + self.member_name(active.get("player", "")) + "  /  " + self.member_name(active.get("opponent", "")), (400, 204), self.app.assets.font(13), COLORS["gold"], "center")
-        draw_text(surface, "Round " + str(self.battle.get("round", 1)) + "  |  Turn " + str(self.battle.get("duel_turn", self.battle.get("turn", 1))) + "  |  " + str(self.battle.get("phase", "duel")).upper(), (400, 232), self.app.assets.font(12), COLORS["muted"], "center")
+        draw_text(surface, player_team, (196, 124), self.app.assets.font(15, True), COLORS["cyan"], "center")
+        draw_text(surface, "VS", (196, 148), self.app.assets.font(13, True), COLORS["gold"], "center")
+        draw_text(surface, opponent_team, (196, 172), self.app.assets.font(15, True), COLORS["red"], "center")
+        draw_text(surface, "LP " + str(lp.get("player", 8000)) + "  /  " + str(lp.get("opponent", 8000)), (196, 202), self.app.assets.font(14, True), COLORS["cream"], "center")
+        draw_text(surface, "Active: " + self.member_name(active.get("player", "")) + " / " + self.member_name(active.get("opponent", "")), (196, 228), self.app.assets.font(10), COLORS["gold"], "center")
+        draw_text(surface, "Round " + str(self.battle.get("round", 1)) + "  |  Turn " + str(self.battle.get("duel_turn", self.battle.get("turn", 1))) + "  |  " + str(self.battle.get("phase", "duel")).upper(), (196, 252), self.app.assets.font(9), COLORS["muted"], "center")
+        media_states = list(self.battle.get("media_states", []) or [])
+        if media_states: self.draw_watch_media(surface, media_states[-1], (42, 278, 308, 92))
         rounds = list(self.battle.get("rounds", []) or [])
-        if not rounds: draw_text(surface, "No completed rounds yet; the background engine is running in real time.", (400, 284), self.app.assets.font(13), COLORS["muted"], "center")
+        if not rounds: draw_text(surface, "Live engine has not completed a round.", (196, 402), self.app.assets.font(10), COLORS["muted"], "center")
         for index, result in enumerate(rounds[-3:]):
-            label = "Round " + str(result.get("round", index + 1)) + ": " + self.member_name(result.get("winner", "draw")) + " | stake " + str(result.get("transferred_cards", []))
-            draw_text(surface, label, (76, 286 + index * 28), self.app.assets.font(11), COLORS["cream"])
+            winner = self.member_name(result.get("winner", "draw"))
+            transfers = list(result.get("transfer_events", []) or [])
+            draw_text(surface, "R" + str(result.get("round", index + 1)) + " " + winner, (42, 402 + index * 25), self.app.assets.font(8, True), COLORS["cream"])
+            draw_text(surface, "transfers " + str(len(transfers)), (350, 402 + index * 25), self.app.assets.font(7), COLORS["muted"], "topright")
+        fallback_count = sum(1 for state in media_states for side in ["player", "opponent"] if state.get(side, {}).get("fallback"))
         turns = list(self.battle.get("team_turns", []) or [])
-        draw_text(surface, "Recorded team turns: " + str(len(turns)) + "  |  Watchers: " + str(len(self.battle.get("watchers", []))) + "/6", (400, 424), self.app.assets.font(11), COLORS["muted"], "center")
-        self.draw_buttons(surface, 10)
+        draw_text(surface, "Team media states " + str(len(media_states)) + "  |  member fallbacks " + str(fallback_count), (196, 478), self.app.assets.font(8), COLORS["muted"], "center")
+        draw_text(surface, "Turns " + str(len(turns)) + "  |  watchers " + str(len(self.battle.get("watchers", []))) + "/6", (196, 496), self.app.assets.font(9), COLORS["muted"], "center")
+        self.draw_buttons(surface, 9)
         self.app.draw_notice(surface)
 
 

@@ -62,7 +62,17 @@
       "duel": 45.0
     },
     "cadence": "repeat after each threshold while no meaningful action observation occurs",
-    "background_rendering": false
+    "background_rendering": false,
+    "championship_profiles": {
+      "levels": {
+        "1": {"tiers": {"4": {"audio_root": "audio/championship/level-1/tier-4"}}},
+        "2": {"tiers": {"8": {"audio_root": "audio/championship/level-2/tier-8"}}},
+        "3": {"tiers": {"16": {"audio_root": "audio/championship/level-3/tier-16"}}},
+        "4": {"tiers": {"32": {"audio_root": "audio/championship/level-4/tier-32"}}},
+        "5": {"tiers": {"64": {"audio_root": "audio/championship/level-5/tier-64"}}}
+      },
+      "fallback_audio_root": "audio/championship"
+    }
   },
   "summoning": {
     "normal_tribute": {
@@ -162,6 +172,18 @@
           0,
           1
         ],
+        "winner_cards_per_character_by_round": [
+          {"round": 0, "cards_per_character": 1},
+          {"round": 1, "cards_per_character": 2}
+        ],
+        "loser_cards_per_character_to_host_by_round": [
+          {"round": 0, "cards_per_character": 0},
+          {"round": 1, "cards_per_character": 1}
+        ],
+        "winner_reward_points": [
+          {"minimum_points": 0, "bonus_cards": 0},
+          {"minimum_points": 2, "bonus_cards": 1}
+        ],
         "simultaneous_matches": 1
       },
       "2": {
@@ -179,6 +201,20 @@
           0,
           1,
           2
+        ],
+        "winner_cards_per_character_by_round": [
+          {"round": 0, "cards_per_character": 1},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 2}
+        ],
+        "loser_cards_per_character_to_host_by_round": [
+          {"round": 0, "cards_per_character": 0},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 1}
+        ],
+        "winner_reward_points": [
+          {"minimum_points": 0, "bonus_cards": 0},
+          {"minimum_points": 3, "bonus_cards": 1}
         ],
         "simultaneous_matches": 1
       },
@@ -201,6 +237,22 @@
           1,
           2,
           3
+        ],
+        "winner_cards_per_character_by_round": [
+          {"round": 0, "cards_per_character": 1},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 2},
+          {"round": 3, "cards_per_character": 3}
+        ],
+        "loser_cards_per_character_to_host_by_round": [
+          {"round": 0, "cards_per_character": 0},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 1},
+          {"round": 3, "cards_per_character": 2}
+        ],
+        "winner_reward_points": [
+          {"minimum_points": 0, "bonus_cards": 0},
+          {"minimum_points": 4, "bonus_cards": 1}
         ],
         "simultaneous_matches": 2
       },
@@ -225,6 +277,24 @@
           2,
           3,
           4
+        ],
+        "winner_cards_per_character_by_round": [
+          {"round": 0, "cards_per_character": 1},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 2},
+          {"round": 3, "cards_per_character": 2},
+          {"round": 4, "cards_per_character": 3}
+        ],
+        "loser_cards_per_character_to_host_by_round": [
+          {"round": 0, "cards_per_character": 0},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 1},
+          {"round": 3, "cards_per_character": 2},
+          {"round": 4, "cards_per_character": 2}
+        ],
+        "winner_reward_points": [
+          {"minimum_points": 0, "bonus_cards": 0},
+          {"minimum_points": 5, "bonus_cards": 1}
         ],
         "simultaneous_matches": 4
       },
@@ -251,10 +321,30 @@
           4,
           5
         ],
+        "winner_cards_per_character_by_round": [
+          {"round": 0, "cards_per_character": 1},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 2},
+          {"round": 3, "cards_per_character": 2},
+          {"round": 4, "cards_per_character": 3},
+          {"round": 5, "cards_per_character": 3}
+        ],
+        "loser_cards_per_character_to_host_by_round": [
+          {"round": 0, "cards_per_character": 0},
+          {"round": 1, "cards_per_character": 1},
+          {"round": 2, "cards_per_character": 1},
+          {"round": 3, "cards_per_character": 2},
+          {"round": 4, "cards_per_character": 2},
+          {"round": 5, "cards_per_character": 3}
+        ],
+        "winner_reward_points": [
+          {"minimum_points": 0, "bonus_cards": 0},
+          {"minimum_points": 6, "bonus_cards": 1}
+        ],
         "simultaneous_matches": 8
       }
     },
-    "notes": "Requirements are authored profiles. Host reserve is calculated from bracket match count and host_reward_per_match by bracket round; composition checks count unassigned library copies and never cards assigned to any host deck."
+    "notes": "Requirements and reward quantities are authored profiles. Winner cards are awarded per winning character by bracket round and winning points; losing-character contributions to the host are a separate schedule. Host reserve is calculated from the winner schedule and composition checks count unassigned library copies, never cards assigned to any host deck."
   },
   "place_effect_templates": [
     {
