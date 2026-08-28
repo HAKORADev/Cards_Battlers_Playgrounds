@@ -6760,6 +6760,7 @@ class DuelEngine:
         self.reaction_resolver = ReactionResolver(store.media)
         self.reaction_events = []
         self.presentation_events = []
+        self.motion_events = []
         self.presentation_sequence = 0
         self.selected_hand = None
         self.selected_monster = None
@@ -6789,6 +6790,9 @@ class DuelEngine:
         self.prepared = False
         self.player.draw(5)
         self.opponent.draw(5)
+        for side in [self.player, self.opponent]:
+            for card in side.hand:
+                self.emit_card_motion("draw", side, card, {"side": self.side_key(side), "zone": "deck", "index": -1, "card_id": card.card.id}, {"side": self.side_key(side), "zone": "hand", "index": side.hand.index(card), "card_id": card.card.id}, side is self.player, side is self.player, 0.72, {"opening_hand": True})
         self.apply_team_start_effect(self.player, self.team_effect)
         self.apply_team_start_effect(self.opponent, self.opponent_team_effect)
         self.place_effect = self.selected_place_effect()
@@ -6958,11 +6962,27 @@ class DuelEngine:
         index = collection.index(card) if card in collection else -1
         return {"side": side, "zone": zone, "index": index, "card_id": card.card.id if isinstance(card, CardInstance) else ""}
 
+    def emit_card_motion(self, event, owner, card, source_anchor, target_anchor, reveal=False, flip=False, duration=0.72, metadata=None):
+        record = {"kind": "card_motion", "event": event, "card": card, "card_id": card.card.id if isinstance(card, CardInstance) else "", "owner": owner.character.id if owner else "", "source_anchor": dict(source_anchor or {}), "target_anchor": dict(target_anchor or {}), "reveal": bool(reveal), "flip": bool(flip), "duration": max(0.28, float(duration)), "metadata": dict(metadata or {}), "sequence": len(self.motion_events) + 1, "time": time.time()}
+        self.motion_events.append(record)
+        self.motion_events = self.motion_events[-128:]
+        return record
+
+    def card_anchor(self, owner, card):
+        side = self.side_key(owner)
+        if card in owner.hand: return {"side": side, "zone": "hand", "index": owner.hand.index(card), "card_id": card.card.id}
+        if card in owner.deck: return {"side": side, "zone": "deck", "index": -1, "card_id": card.card.id}
+        if card in owner.graveyard: return {"side": side, "zone": "graveyard", "index": owner.graveyard.index(card), "card_id": card.card.id}
+        if card in owner.banished: return {"side": side, "zone": "banished", "index": owner.banished.index(card), "card_id": card.card.id}
+        if card in owner.extra: return {"side": side, "zone": "extra", "index": owner.extra.index(card), "card_id": card.card.id}
+        if card is self.field_card: return {"side": side, "zone": "field", "index": -1, "card_id": card.card.id}
+        return self.logical_anchor(side, "monster" if card in owner.monsters else "spell_trap", card)
+
     def card_react(self, event, card, owner, other=None, metadata=None, mode="hang"):
         other = other or self.other(owner)
         data = dict(metadata or {})
         data.setdefault("card_id", card.card.id if isinstance(card, CardInstance) else "")
-        data.setdefault("anchor", self.logical_anchor(self.side_key(owner), "monster" if card in owner.monsters else "spell_trap", card))
+        data.setdefault("anchor", self.card_anchor(owner, card))
         return self.react(event, owner.character.id, other.character.id if other else "", "opponent", "cards", card.card.id if isinstance(card, CardInstance) else "", mode, data)
 
     def emit_attack_presentation(self, attacker_side, attacker, target=None, target_side=None, direct=False):
@@ -7007,6 +7027,8 @@ class DuelEngine:
                 self.finish(self.other(self.active), "deck-out")
                 return
             self.log(f"{self.active.name} draws {drawn[0].card.name}.")
+            for drawn_card in drawn:
+                self.emit_card_motion("draw", self.active, drawn_card, {"side": self.side_key(self.active), "zone": "deck", "index": -1, "card_id": drawn_card.card.id}, {"side": self.side_key(self.active), "zone": "hand", "index": self.active.hand.index(drawn_card), "card_id": drawn_card.card.id}, self.active is self.player, self.active is self.player, 0.72, {"turn": self.turn})
             self.emit_event("draw", self.active, source=drawn[0], target=self.active, metadata={"count": len(drawn), "card_ids": [item.card.id for item in drawn]})
             self.react("draw", self.active.character.id, self.other(self.active).character.id, "opponent")
             if len(self.active.hand) > 6:
@@ -7116,7 +7138,9 @@ class DuelEngine:
             card.position = "graveyard"
             self.player.graveyard.append(card)
             self.log(f"{self.player.name} activates set spell {card.card.name}.")
-        self.emit_event("activate", self.player, source=card, target=self.opponent, metadata={"zone": "field" if card.card.kind == "field" else "graveyard", "set_activation": True}, include_source=False)
+        destination_zone = "field" if card.card.kind == "field" else "graveyard"
+        self.emit_card_motion("flip_reveal", self.player, card, {"side": "player", "zone": "spell_trap", "index": -1, "card_id": card.card.id}, {"side": "player", "zone": destination_zone, "index": -1, "card_id": card.card.id}, True, True, 0.74, {"set_activation": True, "destination": destination_zone})
+        self.emit_event("activate", self.player, source=card, target=self.opponent, metadata={"zone": destination_zone, "set_activation": True}, include_source=False)
         self.react("activate", self.player.character.id, self.opponent.character.id, "opponent", "cards", card.card.id)
         self.resolve(card, "activate", actor=self.player)
         self.run_logic(card, "activate", self.player, self.opponent)
@@ -7419,6 +7443,7 @@ class DuelEngine:
         prior_provenance = bool(getattr(card, "properly_summoned", False))
         card.properly_summoned = method in ["normal", "fusion", "ritual"] or (card.card.kind in ["fusion", "ritual"] and prior_provenance)
         card.summon_history.append({"method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_card_name": card.summon_source_card_name, "source_effect_id": source_effect_id, "actor": actor.character.id, "turn": self.turn, "phase": self.phase})
+        self.emit_card_motion("special_summon" if method != "normal" else "summon", actor, card, {"side": self.side_key(actor), "zone": source_zone, "index": -1, "card_id": card.card.id}, self.logical_anchor(self.side_key(actor), "monster", card), True, False, 0.82, {"method": method, "source_zone": source_zone})
         self.emit_event("summon", actor, source=card, target=card, metadata={"method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_card_name": card.summon_source_card_name, "source_effect_id": source_effect_id})
         self.react("summon" if method == "normal" else "special_summon", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id, metadata={"card_id": card.card.id, "method": method, "source_zone": source_zone, "source_card_id": card.summon_source_card_id, "source_effect_id": source_effect_id})
         self.store.discover_card(self.other(actor).character.id, card.card.id, "duel", actor.character.id, {"duel": True, "visibility": "public", "trigger": "summon", "method": method})
@@ -7754,6 +7779,7 @@ class DuelEngine:
         if is_monster: card.battle_position = "defense"
         target[zone] = card
         self.log(f"{actor.name} sets a card.")
+        self.emit_card_motion("set", actor, card, {"side": self.side_key(actor), "zone": "hand", "index": -1, "card_id": card.card.id}, self.logical_anchor(self.side_key(actor), "monster" if is_monster else "spell_trap", card), False, False, 0.68, {"zone": "monster" if is_monster else "spell_trap"})
         self.emit_event("set", actor, source=card, target=card, metadata={"zone": "monster" if is_monster else "spell_trap", "face_up": False})
         self.react("set", actor.character.id, self.other(actor).character.id, "opponent", "cards", card.card.id)
         return True, ""
@@ -7840,7 +7866,10 @@ class DuelEngine:
             owner.extra.append(card)
         else:
             return False
-        movement_metadata = {"from_zone": source_zone, "to_zone": destination, "owner": owner.character.id, "anchor": source_anchor, "card_id": card.card.id}
+        destination_zone = "extra" if destination == "extra" else destination
+        destination_anchor = self.card_anchor(owner, card)
+        movement_metadata = {"from_zone": source_zone, "to_zone": destination, "owner": owner.character.id, "anchor": source_anchor, "destination_anchor": destination_anchor, "card_id": card.card.id}
+        self.emit_card_motion("movement", owner, card, source_anchor, destination_anchor, owner is self.player and destination == "hand", False, 0.72, movement_metadata)
         self.emit_event("movement", owner, source=card, target=card, metadata=movement_metadata)
         if destination == "hand": self.card_react("return-to-hand", card, owner, self.other(owner), movement_metadata)
         elif destination == "banished": self.card_react("banish", card, owner, self.other(owner), movement_metadata)
@@ -8648,7 +8677,10 @@ class DuelEngine:
             for recipient in recipients:
                 drawn = recipient.draw(max(1, amount))
                 values.append(len(drawn))
-                for drawn_card in drawn: self.card_react("draw", drawn_card, recipient, self.other(recipient), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
+                for drawn_card in drawn:
+                    reveal = recipient is self.player or bool(action_meta.get("reveal_opponent_hand", action_meta.get("reveal", False)))
+                    self.emit_card_motion("draw", recipient, drawn_card, {"side": self.side_key(recipient), "zone": "deck", "index": -1, "card_id": drawn_card.card.id}, {"side": self.side_key(recipient), "zone": "hand", "index": recipient.hand.index(drawn_card), "card_id": drawn_card.card.id}, reveal, reveal, 0.72, {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else "", "revealed": reveal})
+                    self.card_react("draw", drawn_card, recipient, self.other(recipient), {"cause": "effect", "source_card_id": card.card.id if isinstance(card, CardInstance) else ""})
                 self.emit_event("draw", recipient, source=card, target=recipient, metadata={"count": len(drawn), "card_ids": [item.card.id for item in drawn]})
             result["value"] = values[0] if len(values) == 1 else values
             self.log(f"{source} lets {len(recipients)} duelist(s) draw {sum(values)} card(s).")
@@ -8656,15 +8688,18 @@ class DuelEngine:
             selected_cards = [item for item in targets if isinstance(item, CardInstance)] or [card]
             values = []
             for selected_card in selected_cards:
-                anchor = self.logical_anchor(self.side_key(self.owner_of(selected_card) or actor), "monster" if selected_card in (self.owner_of(selected_card) or actor).monsters else "spell_trap", selected_card)
+                owner = self.owner_of(selected_card) or actor
+                anchor = self.card_anchor(owner, selected_card)
+                was_face_up = bool(selected_card.face_up)
                 if action == "set_face_up": selected_card.face_up = True
                 elif action == "set_face_down": selected_card.face_up = False
                 elif selected_card.face_up: selected_card.battle_position = "defense" if selected_card.battle_position == "attack" else "attack"
                 values.append({"id": selected_card.card.id, "face_up": selected_card.face_up, "position": selected_card.battle_position})
+                if action in ["set_face_up", "set_face_down"] and was_face_up is not selected_card.face_up:
+                    self.emit_card_motion("flip_summon" if action == "set_face_up" else "flip", owner, selected_card, anchor, anchor, action == "set_face_up", True, 0.52, {"position": selected_card.battle_position, "effect_flip": True})
                 self.emit_event(action, actor, source=card, target=selected_card, metadata={"face_up": selected_card.face_up, "position": selected_card.battle_position})
-                owner = self.owner_of(selected_card) or actor
                 if action == "switch_position": self.react("switch_position", owner.character.id, self.other(owner).character.id, "opponent", "cards", selected_card.card.id, metadata={"card_id": selected_card.card.id, "position": selected_card.battle_position, "cause": "effect"})
-                self.card_react("flip" if action in ["set_face_up", "set_face_down"] else "switch_position", selected_card, owner, self.other(owner), {"anchor": anchor, "face_up": selected_card.face_up, "position": selected_card.battle_position, "cause": "effect"})
+                self.card_react("flip-summon" if action == "set_face_up" and selected_card.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"] else "flip" if action in ["set_face_up", "set_face_down"] else "switch_position", selected_card, owner, self.other(owner), {"anchor": anchor, "face_up": selected_card.face_up, "position": selected_card.battle_position, "cause": "effect", "flip_summon": action == "set_face_up" and selected_card.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]})
                 if action == "set_face_up": self.store.discover_card(self.other(owner).character.id, selected_card.card.id, "duel", owner.character.id, {"duel": True, "visibility": "public", "trigger": "effect_reveal"})
             result["value"] = values
             self.log(f"{source} changes state of {len(selected_cards)} card(s).")
@@ -9184,6 +9219,14 @@ class DuelEngine:
 
     def battle_value(self, card, side):
         return self.effective_atk(card, side) if card.battle_position == "attack" else self.effective_defense(card, side)
+
+    def legal_attack_targets(self, attacker, attacker_side=None):
+        attacker_side = attacker_side or self.owner_of(attacker)
+        if self.finished or attacker_side is None or attacker not in attacker_side.monsters or not attacker.face_up or attacker.battle_position != "attack" or attacker.attacked: return []
+        opening_side = self.player if self.first_side == "player" else self.opponent
+        if DuelRules.opening_turn_no_attack and self.phase_advances > 0 and self.turn == 1 and attacker_side is opening_side: return []
+        defender_side = self.other(attacker_side)
+        return [item for item in defender_side.monsters if item]
 
     def resolve_battle(self, attacker_side, attacker, target=None):
         opening_side = self.player if self.first_side == "player" else self.opponent
@@ -10975,6 +11018,8 @@ class DuelScene(Scene):
             if app.store.add_battle_watcher(self.watched_battle.get("id", ""), watcher_id): self.watcher_id = watcher_id
         self.place_reserved = reserved
         self.reaction_player = ReactionPlayer()
+        self.motion_seen = 0
+        self.card_motions = []
         self.media_scope = "duel_scene_" + str(id(self))
         self.music_state = ""
         self.reaction_seen = 0
@@ -10992,6 +11037,8 @@ class DuelScene(Scene):
         self.hover_hand_rect = None
         self.hover_attacker = None
         self.hover_target = None
+        self.hover_direct = False
+        self.hover_pile = None
         self.watcher_media = {}
         self.watcher_seen = set()
         self.hover_watcher_id = None
@@ -11049,6 +11096,7 @@ class DuelScene(Scene):
         self.reaction_player.selection = None
         self.reaction_player.finished = True
         self.reaction_queue.clear()
+        self.card_motions.clear()
         self.attack_presentation = None
         self.attack_preview_clock = 0.0
 
@@ -11185,8 +11233,8 @@ class DuelScene(Scene):
                 success, msg = self.engine.toggle_procedure_material(self.hover_procedure)
                 self.message = self.engine.procedure_selection_summary() if success else msg
                 return
-            if self.engine.phase == "BATTLE" and self.engine.selected_monster and self.hover_target:
-                success, msg = self.engine.attack(self.engine.selected_monster, self.hover_target)
+            if self.engine.phase == "BATTLE" and self.engine.selected_monster and (self.hover_target or self.hover_direct):
+                success, msg = self.engine.attack(self.engine.selected_monster, self.hover_target if self.hover_target else None)
                 self.message = self.engine.events[-1] if success else msg
                 self.engine.selected_monster = None
                 self.hover_target = None
@@ -11285,8 +11333,24 @@ class DuelScene(Scene):
         self.hover_procedure = None
         self.hover_hand, self.hover_hand_rect = self.hand_card_at(pos)
         self.hover_attacker = self.player_monster_at(pos) if self.engine.phase == "BATTLE" else None
-        self.hover_target = self.opponent_monster_at(pos) if self.engine.phase == "BATTLE" else None
+        self.hover_target = None
+        self.hover_direct = False
+        self.hover_pile = None
+        if self.engine.phase == "BATTLE" and self.engine.selected_monster:
+            candidates = self.engine.legal_attack_targets(self.engine.selected_monster)
+            candidate = self.opponent_monster_at(pos)
+            self.hover_target = candidate if candidate in candidates else None
+            self.hover_direct = not candidates and self.layout.hud_rect("opponent").collidepoint(pos)
+        elif self.engine.pending_target:
+            candidates = self.engine.legal_targets(self.engine.pending_target["card"], self.engine.pending_target["actor"], self.engine.pending_target.get("selector"))
+            candidate, _ = self.card_info_at(pos)
+            self.hover_target = candidate if candidate in candidates else None
         self.hover_set = self.player_set_at(pos)
+        for side in ["player", "opponent"]:
+            for kind in ["graveyard", "extra"]:
+                if self.layout.side_well_rect(side, kind).collidepoint(pos): self.hover_pile = (side, kind)
+        if self.layout.side_well_rect("player", "deck").collidepoint(pos): self.hover_pile = ("player", "deck")
+        if self.hover_pile and (self.hover_pile[0] == "opponent" and self.hover_pile[1] == "extra" or self.hover_pile[0] == "opponent" and self.hover_pile[1] == "deck"): self.hover_pile = None
         if self.engine.pending_procedure:
             if self.hover_hand in self.engine.pending_procedure["candidates"]: self.hover_procedure = self.hover_hand
             else:
@@ -11485,8 +11549,20 @@ class DuelScene(Scene):
             position = self.anchor_rect(selection.metadata.get("anchor")).center
         if selection.audio: self.app.assets.play_reaction_audio(selection.audio, enabled, 0.8, self.media_scope, position=position)
 
+    def sync_card_motions(self, dt):
+        if self.motion_seen > len(getattr(self.engine, "motion_events", [])): self.motion_seen = 0
+        events = getattr(self.engine, "motion_events", [])
+        while self.motion_seen < len(events):
+            record = dict(events[self.motion_seen])
+            record["clock"] = 0.0
+            self.card_motions.append(record)
+            self.motion_seen += 1
+        self.card_motions = [item for item in self.card_motions if item.get("clock", 0.0) < float(item.get("duration", 0.72))]
+        for item in self.card_motions: item["clock"] += max(0.0, float(dt))
+
     def update(self, dt):
         super().update(dt)
+        self.sync_card_motions(dt)
         if not self.spectator: self.engine.advance_clock(dt)
         if not self.spectator and self.engine.gamble_selection_pending and self.engine.winner is not self.engine.player:
             selected = self.app.store.choose_ai_gamble_card(self.engine.winner.character.id, self.engine.other(self.engine.winner).character.id, self.engine.gamble_state)
@@ -11544,6 +11620,7 @@ class DuelScene(Scene):
         self.draw_phase_rail(surface)
         self.draw_opponent_hand(surface)
         self.draw_board(surface)
+        self.draw_target_highlights(surface)
         self.draw_duel_header(surface)
         self.draw_watchers(surface)
         if self.spectator:
@@ -11551,6 +11628,7 @@ class DuelScene(Scene):
         self.draw_reaction(surface)
         self.draw_attack_preview(surface)
         self.draw_hand(surface)
+        self.draw_card_motions(surface)
         self.draw_interactions(surface)
         self.draw_hover_cloud(surface)
         self.draw_question(surface)
@@ -11636,26 +11714,106 @@ class DuelScene(Scene):
         zone = anchor.get("zone", "monster")
         index = int(anchor.get("index", -1))
         if zone == "duelist": return self.layout.hud_rect(side)
+        if zone == "hand":
+            duelist = self.engine.player if side == "player" else self.engine.opponent
+            return self.layout.hand_rect(side, max(0, index), max(1, len(duelist.hand)))
+        if zone in ["deck", "graveyard", "banished", "extra", "field"]: return self.layout.side_well_rect(side, zone)
         if zone == "monster" and 0 <= index < 5: return self.layout.monster_rect(side, index)
         if zone == "spell_trap" and 0 <= index < 5: return self.layout.spell_rect(side, index)
         return self.layout.hud_rect(side)
 
+    def motion_active_for(self, card, destination=False):
+        for item in self.card_motions:
+            if item.get("card") is not card: continue
+            anchor_key = "target_anchor" if destination else "source_anchor"
+            if item.get(anchor_key, {}).get("card_id", card.card.id) == card.card.id: return True
+        return False
+
+    def motion_card_size(self, anchor):
+        zone = str((anchor or {}).get("zone", "monster"))
+        if zone == "hand": return self.layout.hand_card_size
+        if zone in ["monster", "spell_trap"]: return self.layout.monster_card_size if zone == "monster" else self.layout.spell_card_size
+        if zone in ["deck", "graveyard", "extra", "field"]: return self.layout.side_well_rect((anchor or {}).get("side", "player"), zone).size
+        return (56, 78)
+
+    def draw_card_motions(self, surface):
+        for item in self.card_motions:
+            card = item.get("card")
+            if not card: continue
+            source = self.anchor_rect(item.get("source_anchor", {}))
+            target = self.anchor_rect(item.get("target_anchor", {}))
+            duration = max(0.28, float(item.get("duration", 0.72)))
+            progress = clamp(float(item.get("clock", 0.0)) / duration, 0.0, 1.0)
+            eased = progress * progress * (3.0 - 2.0 * progress)
+            point = pygame.Vector2(source.center).lerp(pygame.Vector2(target.center), eased)
+            arc = math.sin(math.pi * eased) * 42.0
+            point.y -= arc
+            size = self.motion_card_size(item.get("target_anchor", {}))
+            face_down = not bool(item.get("reveal", False))
+            flip = bool(item.get("flip", False))
+            reveal_alpha = clamp((progress - 0.42) / 0.42, 0.0, 1.0) if flip else clamp(progress * 5.0, 0.0, 1.0)
+            if flip: face_down = not bool(item.get("reveal", False)) or progress < 0.5
+            card_surface = pygame.Surface(size, pygame.SRCALPHA)
+            if face_down:
+                back = self.app.assets.image("placeholder/card_back") or self.app.assets.critical_image(size)
+                if back: blit_aspect(card_surface, back, card_surface.get_rect())
+            else:
+                render_engine_card(card_surface, card_surface.get_rect(), card.card, self.app.assets, self.app.store.media, True, False, card.variant, True)
+                card_surface.set_alpha(int(255 * reveal_alpha))
+            if flip:
+                scale = max(0.08, abs(math.cos(math.pi * progress)))
+                card_surface = pygame.transform.smoothscale(card_surface, (max(2, int(card_surface.get_width() * scale)), card_surface.get_height()))
+            if item.get("target_anchor", {}).get("side") == "opponent": card_surface = pygame.transform.rotate(card_surface, 180)
+            card_surface.set_alpha(min(card_surface.get_alpha() or 255, int(255 * clamp(progress * 8.0, 0.0, 1.0))))
+            ui_blit(surface, card_surface, card_surface.get_rect(center=(int(point.x), int(point.y))))
+            if progress > 0.7 and item.get("event") in ["summon", "special_summon", "flip_reveal"]:
+                ring_alpha = int(120 * (1.0 - progress) / 0.3) if progress < 1.0 else 0
+                if ring_alpha > 0: ui_draw_rect(surface, (255, 224, 119, ring_alpha), target.inflate(8, 8), 2, border_radius=7)
+
+    def draw_target_highlights(self, surface):
+        pulse = 0.55 + 0.25 * math.sin(self.time * 8.0)
+        if self.engine.phase == "BATTLE" and self.engine.selected_monster:
+            candidates = self.engine.legal_attack_targets(self.engine.selected_monster)
+            for index, card in enumerate(self.engine.opponent.monsters):
+                if card not in candidates: continue
+                rect = self.layout.monster_rect("opponent", index)
+                ui_draw_rect(surface, (91, 210, 220, int(150 + 70 * pulse)), rect.inflate(6, 6), 3, border_radius=7)
+            if not candidates and self.engine.opponent.hp > 0:
+                ui_draw_rect(surface, (91, 210, 220, int(120 + 60 * pulse)), self.layout.hud_rect("opponent").inflate(5, 5), 2, border_radius=8)
+        elif self.engine.pending_target:
+            pending = self.engine.pending_target
+            candidates = self.engine.legal_targets(pending["card"], pending["actor"], pending.get("selector"))
+            for side, duelist in [("player", self.engine.player), ("opponent", self.engine.opponent)]:
+                for index, card in enumerate(duelist.monsters):
+                    if card in candidates: ui_draw_rect(surface, (91, 210, 220, int(120 + 60 * pulse)), self.layout.monster_rect(side, index).inflate(5, 5), 2, border_radius=7)
+                for index, card in enumerate(duelist.spells):
+                    if card in candidates: ui_draw_rect(surface, (91, 210, 220, int(120 + 60 * pulse)), self.layout.spell_rect(side, index).inflate(5, 5), 2, border_radius=7)
+        if self.hover_hand and self.hover_hand_rect and (self.engine.phase in ["MAIN 1", "MAIN 2"] or self.engine.pending_cost or self.engine.pending_discard or self.engine.pending_procedure):
+            ui_draw_rect(surface, (255, 224, 119, int(140 + 60 * pulse)), self.hover_hand_rect.inflate(5, 5), 2, border_radius=7)
+        if self.hover_set:
+            ui_draw_rect(surface, (255, 224, 119, int(140 + 60 * pulse)), self.set_rect(self.hover_set).inflate(5, 5), 2, border_radius=7)
+        if self.hover_pile:
+            side, kind = self.hover_pile
+            ui_draw_rect(surface, (255, 224, 119, int(140 + 60 * pulse)), self.layout.side_well_rect(side, kind).inflate(5, 5), 2, border_radius=7)
+
     def draw_attack_preview(self, surface):
         if not self.engine.selected_monster or self.engine.finished or self.engine.phase != "BATTLE": return
         source = self.monster_rect(self.engine.selected_monster, True)
-        target = pygame.Vector2(self.last_pointer)
-        origin = pygame.Vector2(source.centerx, source.centery + 34)
+        if self.hover_target: target = pygame.Vector2(self.opponent_monster_rect(self.hover_target).center)
+        elif self.hover_direct: target = pygame.Vector2(self.layout.hud_rect("opponent").center)
+        else: target = pygame.Vector2(self.last_pointer)
+        origin = pygame.Vector2(source.center)
         elapsed = min(1.0, self.attack_preview_clock / 0.35)
         point = origin.lerp(target, elapsed)
-        pygame.draw.line(surface, (255, 248, 228, 120), source.center, (int(point.x), int(point.y)), 2)
+        ui_draw_line(surface, (255, 248, 228, 130), origin, point, 2)
         vfx_path = self.app.store.media.vfx_path("attack", self.engine.selected_monster.card.id, self.engine.player.character.id)
         image = self.app.assets.media_image(vfx_path, (84, 84), self.media_scope) if vfx_path else None
         if image:
-            direction = target - pygame.Vector2(source.center)
-            sprite = pygame.transform.rotate(image, -math.degrees(math.atan2(direction.y, direction.x)))
+            direction = target - origin
+            angle = -math.degrees(math.atan2(direction.y, direction.x)) - 90 if str(vfx_path).replace("\\", "/").endswith("/sword.png") else -math.degrees(math.atan2(direction.y, direction.x))
+            sprite = pygame.transform.rotate(image, angle)
             sprite.set_alpha(int(110 + 90 * elapsed))
             ui_blit(surface, sprite, sprite.get_rect(center=(int(point.x), int(point.y))))
-        self.draw_cloud(surface, int(point.x), int(point.y) - 12, "Attack!")
 
     def draw_attack_presentation(self, surface, state):
         presentation = dict(self.attack_presentation or {})
@@ -11665,14 +11823,14 @@ class DuelScene(Scene):
         duration = max(0.05, float(state.get("duration", 0.72)))
         progress = clamp(clock / duration, 0.0, 1.0)
         eased = progress * progress * (3.0 - 2.0 * progress)
-        start = pygame.Vector2(source.centerx, source.centery + 42)
+        start = pygame.Vector2(source.center)
         end = pygame.Vector2(target.center)
         point = start.lerp(end, eased)
         path = state.get("image", "")
         image = self.app.assets.media_image(path, (108, 108), self.media_scope) if path else None
         if image:
             direction = end - start
-            angle = -math.degrees(math.atan2(direction.y, direction.x))
+            angle = -math.degrees(math.atan2(direction.y, direction.x)) - 90 if str(path).replace("\\", "/").endswith("/sword.png") else -math.degrees(math.atan2(direction.y, direction.x))
             sprite = pygame.transform.rotate(image, angle)
             fade = int(255 * clamp(progress * 5.0, 0.0, 1.0) * clamp((1.0 - progress) * 5.0, 0.0, 1.0))
             sprite.set_alpha(max(40, fade))
@@ -11697,7 +11855,7 @@ class DuelScene(Scene):
             flash.fill((218, 74, 65, int(85 * (1.0 - progress))))
             ui_blit(surface, flash, (rect.x + offset, rect.y))
             ui_draw_rect(surface, (255, 212, 176, int(180 * (1.0 - progress))), rect.inflate(4, 4), 2, border_radius=5)
-        elif event in ["flip", "flip_reveal", "reveal"]:
+        elif event in ["flip", "flip_reveal", "flip_summon", "reveal"]:
             ui_draw_rect(surface, (255, 255, 255, int(150 * (1.0 - progress))), rect.inflate(6, 6), 3, border_radius=5)
         elif event in ["destroy", "destroyed", "die", "death"]:
             center = rect.center
@@ -11776,8 +11934,8 @@ class DuelScene(Scene):
         if self.hover_hand and self.hover_hand_rect and self.engine.phase in ["MAIN 1", "MAIN 2"]:
             label = "Set!!" if self.action_mode == "set" else "Activate!" if self.hover_hand.card.kind in ["spell", "field"] else "Summon!"
             self.draw_cloud(surface, self.hover_hand_rect.centerx, self.hover_hand_rect.y - 18, label)
-        elif self.engine.phase == "BATTLE" and self.engine.selected_monster and self.hover_target:
-            rect = self.opponent_monster_rect(self.hover_target)
+        elif self.engine.phase == "BATTLE" and self.engine.selected_monster and (self.hover_target or self.hover_direct):
+            rect = self.opponent_monster_rect(self.hover_target) if self.hover_target else self.layout.hud_rect("opponent")
             self.draw_cloud(surface, rect.centerx, rect.y - 12, "Attack!")
         elif self.hover_attacker:
             rect = self.monster_rect(self.hover_attacker, True)
@@ -11963,7 +12121,7 @@ class DuelScene(Scene):
 
     def draw_pile(self, surface, label, cards, rect, face_down, rotation=0, show_label=True):
         rect = pygame.Rect(rect)
-        cards = list(cards or [])
+        cards = [item for item in list(cards or []) if not self.motion_active_for(item, True)]
         layers = min(8, (len(cards) + 9) // 10)
         if face_down: layers = max(1, layers)
         for index in range(layers):
@@ -11987,7 +12145,8 @@ class DuelScene(Scene):
 
     def draw_opponent_hand(self, surface):
         hand_count = len(self.engine.opponent.hand)
-        for index in range(hand_count):
+        for index, card in enumerate(self.engine.opponent.hand):
+            if self.motion_active_for(card, True): continue
             rect = self.layout.hand_rect("opponent", index, hand_count)
             self.draw_zone_card_back(surface, rect, 180)
 
@@ -12022,7 +12181,7 @@ class DuelScene(Scene):
 
     def draw_zone_card(self, surface, card, rect, own):
         rect = pygame.Rect(rect)
-        if not card: return
+        if not card or self.motion_active_for(card, True): return
         display_rect = self.zone_display_rect(card, rect)
         monster_kind = card.card.kind in ["normal", "effect", "fusion", "ritual", "legendary"]
         face_down = not card.face_up
@@ -12053,9 +12212,10 @@ class DuelScene(Scene):
 
     def draw_hand(self, surface):
         hand = self.engine.player.hand
-        for index, card in enumerate(hand):
+        visible_hand = [card for card in hand if not self.motion_active_for(card, True)]
+        for index, card in enumerate(visible_hand):
             selected = card is self.engine.selected_hand
-            rect = self.layout.hand_rect("player", index, len(hand), selected, card is self.hover_hand)
+            rect = self.layout.hand_rect("player", index, len(visible_hand), selected, card is self.hover_hand)
             if selected: ui_draw_rect(surface, COLORS["gold"], rect.inflate(5, 5), border_radius=7)
             render_engine_card(surface, rect, card.card, self.app.assets, self.app.store.media, True, False, card.variant, True)
 
