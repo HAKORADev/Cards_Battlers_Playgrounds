@@ -11,6 +11,7 @@ import subprocess
 import wave
 import hashlib
 import struct
+import sys
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -26,11 +27,67 @@ RENDER_VIEW_W = int(SCENE_W * RENDER_SCALE)
 RENDER_VIEW_H = int(SCENE_H * RENDER_SCALE)
 RENDER_VIEW_X = (RENDER_W - RENDER_VIEW_W) // 2
 RENDER_VIEW_Y = (RENDER_H - RENDER_VIEW_H) // 2
-IMAGE_SCALE_CACHE = {}
-TEXT_SCALE_CACHE = {}
-FILE_IMAGE_CACHE = {}
-NINE_SLICE_CACHE = {}
-ROOT = Path(__file__).resolve().parent
+class MemoryCache(dict):
+    def __init__(self, budget=134217728):
+        super().__init__()
+        self.budget = max(1048576, int(budget))
+        self.order = {}
+        self.total = 0
+
+    def _size(self, value):
+        try: return value.get_width() * value.get_height() * value.get_bytesize()
+        except AttributeError: return 4096
+
+    def _touch(self, key):
+        if key in self.order and len(self.order) > 1:
+            self.order[key] = self.order.pop(key)
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.total -= self._size(self[key])
+            self.order[key] = self.order.pop(key, 0)
+        else:
+            self.order[key] = 0
+        dict.__setitem__(self, key, value)
+        self.total += self._size(value)
+        while self.total > self.budget and len(self.order) > 1:
+            oldest = next(iter(self.order))
+            if oldest in self: self.total -= self._size(self[oldest])
+            del self.order[oldest]
+            dict.pop(self, oldest, None)
+
+    def __delitem__(self, key):
+        if key in self:
+            self.total -= self._size(self[key])
+            del self.order[key]
+        dict.__delitem__(self, key)
+
+    def pop(self, key, *args):
+        if key in self:
+            self.total -= self._size(self[key])
+            self.order.pop(key, None)
+        return dict.pop(self, key, *args)
+
+    def get(self, key, default=None):
+        if key in self:
+            self._touch(key)
+            return dict.__getitem__(self, key)
+        return default
+
+    def __getitem__(self, key):
+        self._touch(key)
+        return dict.__getitem__(self, key)
+
+    def clear(self):
+        self.order.clear()
+        self.total = 0
+        dict.clear(self)
+
+IMAGE_SCALE_CACHE = MemoryCache(budget=268435456)
+TEXT_SCALE_CACHE = MemoryCache(budget=134217728)
+FILE_IMAGE_CACHE = MemoryCache(budget=134217728)
+NINE_SLICE_CACHE = MemoryCache(budget=134217728)
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 DATA = ROOT / "data"
 UNIVERSAL_ASSETS = DATA / "universal_assets"
 UNIVERSAL_MAIN = UNIVERSAL_ASSETS / "main"
@@ -43,6 +100,14 @@ RUNTIME_TEAMS = RUNTIME_DIR / "teams"
 RUNTIME_WORLD = RUNTIME_DIR / "world"
 RUNTIME_WORLD_INDEX = RUNTIME_WORLD / "index.json"
 RUNTIME_WORLD_COLLECTIONS = RUNTIME_WORLD / "collections"
+
+def window_icon_surface():
+    for path in [ROOT / "logo.png", ROOT / "_internal" / "logo.png", DATA / "universal_assets" / "main" / "logo.png"]:
+        try:
+            if path.exists(): return pygame.image.load(str(path)).convert_alpha()
+        except pygame.error: return None
+    return None
+
 def slug(value):
     return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_") or "entity"
 
@@ -166,7 +231,6 @@ def scaled_image(image, size):
     cached = IMAGE_SCALE_CACHE.get(key)
     if cached is None:
         cached = pygame.transform.smoothscale(image, size)
-        if len(IMAGE_SCALE_CACHE) >= 512: IMAGE_SCALE_CACHE.clear()
         IMAGE_SCALE_CACHE[key] = cached
     return cached
 
@@ -177,7 +241,6 @@ def cached_file_image(path):
     if image is None:
         try: image = pygame.image.load(key).convert_alpha()
         except pygame.error: return None
-        if len(FILE_IMAGE_CACHE) >= 256: FILE_IMAGE_CACHE.clear()
         FILE_IMAGE_CACHE[key] = image
     return image
 
@@ -219,7 +282,6 @@ def nine_slice(image, size, border=180, brightness=1.0):
     if float(brightness) != 1.0:
         delta = int(clamp((float(brightness) - 1.0) * 255.0, -80, 80))
         if delta: result.fill((delta, delta, delta), special_flags=pygame.BLEND_RGB_ADD)
-    if len(NINE_SLICE_CACHE) >= 512: NINE_SLICE_CACHE.clear()
     NINE_SLICE_CACHE[key] = result
     return result
 
@@ -378,7 +440,6 @@ def scaled_text(font, text, color, size):
     if image is None:
         source = font.render(str(text), True, color)
         image = pygame.transform.scale(source, size) if source.get_size() != size else source
-        if len(TEXT_SCALE_CACHE) >= 2048: TEXT_SCALE_CACHE.clear()
         TEXT_SCALE_CACHE[key] = image
     return image
 
@@ -4287,8 +4348,8 @@ class ContentStore:
                 character.idle_cue_count = 0
                 continue
             character.idle_elapsed += max(0.0, float(seconds))
-            while character.idle_elapsed >= threshold:
-                character.idle_elapsed -= threshold
+            if character.idle_elapsed >= threshold:
+                character.idle_elapsed = min(character.idle_elapsed - threshold, threshold)
                 character.idle_cue_count = int(getattr(character, "idle_cue_count", 0)) + 1
                 self.world.setdefault("simulation_events", []).append({"type": "character_idle", "state": "character_idle", "character": character.id, "cadence": character.idle_cue_count, "sim_time": float(self.world.get("simulation_time", 0.0))})
 
@@ -4353,12 +4414,17 @@ class ContentStore:
             stake = [preferred[0].get("card_id")]
             self.place_traders_pool_bet(character.id, battle.get("id", ""), side, stake)
 
+    def world_catchup_seconds(self):
+        world_rules = self.rules.get("world", {}) if isinstance(self.rules, dict) else {}
+        try: return max(1.0, float(world_rules.get("catchup_seconds", 30.0) or 30.0))
+        except (TypeError, ValueError): return 30.0
+
     def advance_world(self, seconds=None):
         if seconds is None:
             current_wall_time = time.time()
             try: previous_wall_time = float(self.world.get("last_wall_time", current_wall_time) or current_wall_time)
             except (TypeError, ValueError): previous_wall_time = current_wall_time
-            seconds = max(0.0, current_wall_time - previous_wall_time)
+            seconds = min(max(0.0, current_wall_time - previous_wall_time), self.world_catchup_seconds())
             self.world["last_wall_time"] = current_wall_time
         else:
             seconds = max(0.0, float(seconds))
@@ -15098,6 +15164,8 @@ class Application:
         try: pygame.mixer.init()
         except pygame.error: pass
         pygame.display.set_caption("Cards Battlers Playgrounds")
+        icon = window_icon_surface()
+        if icon is not None: pygame.display.set_icon(icon)
         pygame.mouse.set_visible(False)
         self.clock = pygame.time.Clock()
         self.store = ContentStore()
